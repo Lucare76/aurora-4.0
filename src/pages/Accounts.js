@@ -7,6 +7,7 @@ const Accounts = () => {
   const { accounts, deleteAccount, updateAccount, createAccount } = useFinancial();
   const { user } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingAccount, setEditingAccount] = useState(null);
   const [newAccount, setNewAccount] = useState({
     name: '',
     type: 'bank',
@@ -31,16 +32,40 @@ const Accounts = () => {
     }
   };
 
-  const handleEdit = async (accountId, currentName) => {
-    const newName = prompt('Inserisci il nuovo nome:', currentName);
-    if (newName && newName.trim() !== '' && newName !== currentName) {
-      try {
-        await updateAccount(accountId, { name: newName.trim() });
-        alert('✅ Account modificato con successo!');
-      } catch (error) {
-        alert(`❌ Errore: ${error.message}`);
-      }
+  const startEdit = (account) => {
+    setEditingAccount({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      balance: account.balance,
+      color: account.color || '#4f46e5'
+    });
+    setShowAddForm(false); // Chiudi il form di aggiunta se aperto
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingAccount.name.trim()) {
+      alert('Inserisci un nome per il conto');
+      return;
     }
+
+    try {
+      await updateAccount(editingAccount.id, {
+        name: editingAccount.name.trim(),
+        type: editingAccount.type,
+        balance: parseFloat(editingAccount.balance) || 0,
+        color: editingAccount.color
+      });
+      setEditingAccount(null);
+      alert('✅ Account modificato con successo!');
+    } catch (error) {
+      alert(`❌ Errore: ${error.message}`);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingAccount(null);
   };
 
   const handleCreateAccount = async (e) => {
@@ -110,7 +135,10 @@ const Accounts = () => {
         <h1>I tuoi conti</h1>
         <button 
           className="btn-primary"
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => {
+            setShowAddForm(!showAddForm);
+            setEditingAccount(null); // Chiudi il form di modifica se aperto
+          }}
         >
           + Nuovo Conto
         </button>
@@ -152,6 +180,15 @@ const Accounts = () => {
             />
           </div>
 
+          <div className="form-group">
+            <label>Colore:</label>
+            <input
+              type="color"
+              value={newAccount.color}
+              onChange={(e) => setNewAccount({...newAccount, color: e.target.value})}
+            />
+          </div>
+
           <div className="form-actions">
             <button type="submit" className="btn-primary">
               Crea Conto
@@ -160,6 +197,66 @@ const Accounts = () => {
               type="button" 
               className="btn-secondary"
               onClick={() => setShowAddForm(false)}
+            >
+              Annulla
+            </button>
+          </div>
+        </form>
+      )}
+
+      {editingAccount && (
+        <form className="edit-account-form" onSubmit={handleEditSubmit}>
+          <h3>Modifica Conto</h3>
+          <div className="form-group">
+            <label>Nome del conto:</label>
+            <input
+              type="text"
+              value={editingAccount.name}
+              onChange={(e) => setEditingAccount({...editingAccount, name: e.target.value})}
+              placeholder="Es. Conto Principale"
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Tipo di conto:</label>
+            <select
+              value={editingAccount.type}
+              onChange={(e) => setEditingAccount({...editingAccount, type: e.target.value})}
+            >
+              {Object.entries(accountTypes).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Saldo:</label>
+            <input
+              type="number"
+              step="0.01"
+              value={editingAccount.balance}
+              onChange={(e) => setEditingAccount({...editingAccount, balance: parseFloat(e.target.value) || 0})}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Colore:</label>
+            <input
+              type="color"
+              value={editingAccount.color}
+              onChange={(e) => setEditingAccount({...editingAccount, color: e.target.value})}
+            />
+          </div>
+
+          <div className="form-actions">
+            <button type="submit" className="btn-primary">
+              Salva Modifiche
+            </button>
+            <button 
+              type="button" 
+              className="btn-secondary"
+              onClick={cancelEdit}
             >
               Annulla
             </button>
@@ -186,7 +283,7 @@ const Accounts = () => {
             <div className="account-actions">
               <button 
                 className="btn-edit"
-                onClick={() => handleEdit(account.id, account.name)}
+                onClick={() => startEdit(account)}
               >
                 ✏️ Modifica
               </button>

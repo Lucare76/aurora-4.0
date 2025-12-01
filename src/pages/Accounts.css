@@ -1,253 +1,301 @@
 .accounts-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.accounts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e1e5e9;
+}
+
+.accounts-header h1 {
+  color: #2d3748;
+  margin: 0;
+  font-size: 2rem;
+}
+
+.btn-primary {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #4338ca;
+}
+
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 10px;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
+}
+
+.add-account-form,
+.edit-account-form {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+  border: 1px solid #e1e5e9;
+}
+
+.edit-account-form {
+  border-left: 4px solid #fbbf24;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+}
+
+.add-account-form h3,
+.edit-account-form h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #2d3748;
+}
+
+.edit-account-form h3 {
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-account-form h3::before {
+  content: "✏️";
+  font-size: 1.2em;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.form-group input[type="color"] {
+  width: 60px;
+  height: 45px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.edit-account-form .form-group input:focus,
+.edit-account-form .form-group select:focus {
+  border-color: #fbbf24;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.account-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e5e9;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.account-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.account-color {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  border-radius: 12px 12px 0 0;
+}
+
+.account-info {
+  flex: 1;
+  margin-bottom: 15px;
+}
+
+.account-info h3 {
+  margin: 0 0 8px 0;
+  color: #2d3748;
+  font-size: 1.3rem;
+}
+
+.account-type {
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+}
+
+.account-balance {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #059669;
+  margin: 0;
+}
+
+.account-balance.negative {
+  color: #dc2626;
+}
+
+.account-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-edit {
+  background-color: #fbbf24;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.btn-edit:hover {
+  background-color: #f59e0b;
+}
+
+.btn-delete {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  flex: 1;
+  transition: background-color 0.2s;
+}
+
+.btn-delete:hover {
+  background-color: #dc2626;
+}
+
+.no-accounts {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.no-accounts p {
+  font-size: 1.1rem;
+  margin: 0 0 20px 0;
+}
+
+.no-auth-message {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.no-auth-message h2 {
+  color: #ef4444;
+  margin-bottom: 16px;
+}
+
+/* Animazione per il form di modifica */
+.edit-account-form {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .accounts-container {
+    padding: 15px;
   }
   
   .accounts-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #e1e5e9;
+    flex-direction: column;
+    gap: 15px;
+    align-items: stretch;
   }
   
   .accounts-header h1 {
-    color: #2d3748;
-    margin: 0;
-    font-size: 2rem;
-  }
-  
-  .btn-primary {
-    background-color: #4f46e5;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 600;
-    transition: background-color 0.2s;
-  }
-  
-  .btn-primary:hover {
-    background-color: #4338ca;
-  }
-  
-  .btn-secondary {
-    background-color: #6b7280;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    margin-left: 10px;
-  }
-  
-  .btn-secondary:hover {
-    background-color: #4b5563;
-  }
-  
-  .add-account-form {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 30px;
-    border: 1px solid #e1e5e9;
-  }
-  
-  .add-account-form h3 {
-    margin-top: 0;
-    margin-bottom: 20px;
-    color: #2d3748;
-  }
-  
-  .form-group {
-    margin-bottom: 20px;
-  }
-  
-  .form-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #374151;
-  }
-  
-  .form-group input,
-  .form-group select {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #e1e5e9;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.2s;
-  }
-  
-  .form-group input:focus,
-  .form-group select:focus {
-    outline: none;
-    border-color: #4f46e5;
-  }
-  
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 25px;
+    text-align: center;
   }
   
   .accounts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
-  }
-  
-  .account-card {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e1e5e9;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  
-  .account-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  }
-  
-  .account-color {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    border-radius: 12px 12px 0 0;
-  }
-  
-  .account-info {
-    flex: 1;
-    margin-bottom: 15px;
-  }
-  
-  .account-info h3 {
-    margin: 0 0 8px 0;
-    color: #2d3748;
-    font-size: 1.3rem;
-  }
-  
-  .account-type {
-    color: #6b7280;
-    margin: 0 0 12px 0;
-    font-size: 0.9rem;
-  }
-  
-  .account-balance {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #059669;
-    margin: 0;
-  }
-  
-  .account-balance.negative {
-    color: #dc2626;
+    grid-template-columns: 1fr;
   }
   
   .account-actions {
-    display: flex;
-    gap: 10px;
+    flex-direction: column;
   }
   
-  .btn-edit {
-    background-color: #fbbf24;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    flex: 1;
-    transition: background-color 0.2s;
+  .form-actions {
+    flex-direction: column;
   }
   
-  .btn-edit:hover {
-    background-color: #f59e0b;
+  .btn-secondary {
+    margin-left: 0;
+    margin-top: 10px;
   }
-  
-  .btn-delete {
-    background-color: #ef4444;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    flex: 1;
-    transition: background-color 0.2s;
-  }
-  
-  .btn-delete:hover {
-    background-color: #dc2626;
-  }
-  
-  .no-accounts {
-    text-align: center;
-    padding: 60px 20px;
-    color: #6b7280;
-  }
-  
-  .no-accounts p {
-    font-size: 1.1rem;
-    margin: 0 0 20px 0;
-  }
-  
-  .no-auth-message {
-    text-align: center;
-    padding: 60px 20px;
-    color: #6b7280;
-  }
-  
-  .no-auth-message h2 {
-    color: #ef4444;
-    margin-bottom: 16px;
-  }
-  
-  /* Responsive */
-  @media (max-width: 768px) {
-    .accounts-container {
-      padding: 15px;
-    }
-    
-    .accounts-header {
-      flex-direction: column;
-      gap: 15px;
-      align-items: stretch;
-    }
-    
-    .accounts-header h1 {
-      text-align: center;
-    }
-    
-    .accounts-grid {
-      grid-template-columns: 1fr;
-    }
-    
-    .account-actions {
-      flex-direction: column;
-    }
-    
-    .form-actions {
-      flex-direction: column;
-    }
-    
-    .btn-secondary {
-      margin-left: 0;
-      margin-top: 10px;
-    }
-  }
+}

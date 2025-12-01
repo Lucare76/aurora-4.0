@@ -50,7 +50,9 @@ export const FinancialProvider = ({ children }) => {
     }
     
     try {
+      console.log("🔄 Caricamento accounts da Firebase...");
       const accountsData = await accountsService.getAccounts(user.uid);
+      console.log("📊 Accounts caricati:", accountsData);
       setAccounts(accountsData);
       return accountsData;
     } catch (error) {
@@ -115,21 +117,31 @@ export const FinancialProvider = ({ children }) => {
         transactionData
       );
       
-      // 2. Aggiorna lo stato locale
+      console.log("✅ Transazione creata:", newTransaction);
+      
+      // 2. Aggiorna lo stato locale delle transazioni
       setTransactions(prev => [newTransaction, ...prev]);
       
       // 3. Gestione saldi per diversi tipi di transazione
       if (transactionData.type === 'transfer' && transactionData.targetAccountId) {
+        console.log("🔄 Gestione trasferimento...");
         // TRASFERIMENTO: sottrai dal conto origine e aggiungi al conto destinazione
         await updateAccountBalance(user.uid, transactionData.accountId, -transactionData.amount, 'transfer');
         await updateAccountBalance(user.uid, transactionData.targetAccountId, transactionData.amount, 'transfer');
       } else {
+        console.log("💰 Aggiornamento saldo conto:", {
+          accountId: transactionData.accountId,
+          amount: transactionData.amount,
+          type: transactionData.type
+        });
         // ENTRATA/USCITA: aggiorna solo il conto selezionato
         await updateAccountBalance(user.uid, transactionData.accountId, transactionData.amount, transactionData.type);
       }
       
-      // 4. Aggiorna la lista dei conti per riflettere i nuovi saldi
-      await loadAccounts();
+      console.log("🔄 Ricaricamento accounts dopo aggiornamento saldo...");
+      // 4. Ricarica i conti da Firebase per avere i saldi aggiornati
+      const updatedAccounts = await loadAccounts();
+      console.log("✅ Accounts ricaricati:", updatedAccounts);
       
       return newTransaction;
     } catch (error) {
@@ -256,12 +268,11 @@ export const FinancialProvider = ({ children }) => {
         await updateAccountBalance(user.uid, transactionToDelete.accountId, transactionToDelete.amount, 'transfer');
         await updateAccountBalance(user.uid, transactionToDelete.targetAccountId, -transactionToDelete.amount, 'transfer');
       } else {
-        // Ripristina saldo per entrata/uscita
-        const amountAdjustment = transactionToDelete.type === 'expense' ? transactionToDelete.amount : -transactionToDelete.amount;
+        // Ripristina saldo per entrata/uscita (inverti il segno)
         await updateAccountBalance(
           user.uid, 
           transactionToDelete.accountId, 
-          amountAdjustment, 
+          -transactionToDelete.amount,
           transactionToDelete.type
         );
       }
@@ -313,6 +324,79 @@ export const FinancialProvider = ({ children }) => {
     }
   }, [user, transactions, loadAccounts]);
 
+  // FUNZIONI PER GESTIRE LE CATEGORIE
+  const addCategory = useCallback(async (categoryData) => {
+    if (!user) {
+      throw new Error("Utente non autenticato");
+    }
+    
+    try {
+      console.log("🏷️ Aggiunta categoria:", categoryData);
+      
+      const newCategory = await categoriesService.addCategory(user.uid, categoryData);
+      
+      // Aggiorna stato locale
+      setCategories(prev => [...prev, newCategory]);
+      
+      console.log("✅ Categoria aggiunta con successo");
+      return newCategory;
+    } catch (error) {
+      console.error("❌ Errore aggiunta categoria:", error);
+      throw error;
+    }
+  }, [user]);
+
+  const updateCategory = useCallback(async (categoryId, updateData) => {
+    if (!user) {
+      throw new Error("Utente non autenticato");
+    }
+    
+    try {
+      console.log("✏️ Modifica categoria:", categoryId, updateData);
+      
+      await categoriesService.updateCategory(user.uid, categoryId, updateData);
+      
+      // Aggiorna stato locale
+      setCategories(prev => prev.map(cat => 
+        cat.id === categoryId ? { ...cat, ...updateData } : cat
+      ));
+      
+      console.log("✅ Categoria modificata con successo");
+    } catch (error) {
+      console.error("❌ Errore modifica categoria:", error);
+      throw error;
+    }
+  }, [user]);
+
+  const deleteCategory = useCallback(async (categoryId) => {
+    if (!user) {
+      throw new Error("Utente non autenticato");
+    }
+    
+    try {
+      console.log("🗑️ Eliminazione categoria:", categoryId);
+      
+      // Verifica se ci sono transazioni che usano questa categoria
+      const categoryTransactions = transactions.filter(t => t.category === categoryId);
+      
+      if (categoryTransactions.length > 0) {
+        throw new Error(
+          `Impossibile eliminare la categoria. Ci sono ${categoryTransactions.length} transazioni associate.`
+        );
+      }
+      
+      await categoriesService.deleteCategory(user.uid, categoryId);
+      
+      // Aggiorna stato locale
+      setCategories(prev => prev.filter(cat => cat.id !== categoryId));
+      
+      console.log("✅ Categoria eliminata con successo");
+    } catch (error) {
+      console.error("❌ Errore eliminazione categoria:", error);
+      throw error;
+    }
+  }, [user, transactions]);
+
   // useEffect per caricare i dati quando l'utente cambia
   useEffect(() => {
     console.log("🔄 FinancialProvider - Stato utente:", user ? "Autenticato" : "Non autenticato");
@@ -330,6 +414,7 @@ export const FinancialProvider = ({ children }) => {
         }
         if (userCategories.length === 0) {
           await categoriesService.createDefaultCategories(user.uid);
+          await loadCategories(); // Ricarica dopo aver creato le categorie default
         }
       };
       
@@ -353,6 +438,9 @@ export const FinancialProvider = ({ children }) => {
     updateAccount,
     deleteTransaction,
     updateTransaction,
+    addCategory,
+    updateCategory,
+    deleteCategory,
     loadTransactions,
     loadAccounts,
     loadCategories

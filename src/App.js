@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { FinancialProvider } from './contexts/FinancialContext';
+import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
 import Transactions from './pages/Transactions';
 import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
@@ -514,6 +514,10 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
 // ==================== COMPONENTE HEADER AURORA ====================
 function Header({ setSidebarOpen }) {
   const { user } = useAuth();
+  const { accounts } = useFinancial();
+
+  // Calcola il saldo totale reale
+  const totalBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
 
   return (
     <header className="header">
@@ -549,7 +553,7 @@ function Header({ setSidebarOpen }) {
           <div className="quick-stats">
             <div className="quick-stat">
               <span className="stat-label">Saldo</span>
-              <span className="stat-value">€ 2.450</span>
+              <span className="stat-value">€ {totalBalance.toFixed(2)}</span>
             </div>
           </div>
 
@@ -566,29 +570,57 @@ function Header({ setSidebarOpen }) {
 function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { user } = useAuth();
+  const { transactions, accounts } = useFinancial();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const financialData = {
-    monthly: {
-      income: 2850,
-      expenses: 1620,
-      savings: 1230
-    },
-    accounts: [
-      { name: 'Conto Corrente', balance: 2450, color: '#4f46e5' },
-      { name: 'Risparmi', balance: 8560, color: '#06b6d4' },
-      { name: 'Investimenti', balance: 12400, color: '#10b981' }
-    ],
-    recentActivity: [
-      { type: 'food', name: 'Supermercato', amount: -85.40, time: '2 ore fa' },
-      { type: 'salary', name: 'Stipendio', amount: 2850.00, time: '1 giorno fa' },
-      { type: 'bill', name: 'Bolletta Luce', amount: -65.30, time: '2 giorni fa' },
-      { type: 'shopping', name: 'Amazon', amount: -42.50, time: '3 giorni fa' }
-    ]
+  // Calcola statistiche reali dai dati
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const monthlyTransactions = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getMonth() === currentMonth && 
+           transactionDate.getFullYear() === currentYear;
+  });
+
+  const monthlyIncome = monthlyTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthlyExpenses = monthlyTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthlySavings = monthlyIncome - monthlyExpenses;
+
+  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+
+  // Ultime 4 transazioni
+  const recentTransactions = [...transactions]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 4);
+
+  const getTransactionIcon = (type, category) => {
+    if (type === 'income') return '💼';
+    if (type === 'transfer') return '🔄';
+    // Puoi aggiungere logica per icone basate su categoria
+    return '💸';
+  };
+
+  const getTimeAgo = (date) => {
+    const now = new Date();
+    const transactionDate = new Date(date);
+    const diffMs = now - transactionDate;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffHours < 24) return `${diffHours} ore fa`;
+    if (diffDays === 1) return '1 giorno fa';
+    return `${diffDays} giorni fa`;
   };
 
   return (
@@ -617,11 +649,11 @@ function DashboardContent() {
           </div>
           <div className="header-stats">
             <div className="mini-stat">
-              <div className="mini-value">€ {financialData.monthly.income}</div>
+              <div className="mini-value">€ {monthlyIncome.toFixed(2)}</div>
               <div className="mini-label">Entrate Mese</div>
             </div>
             <div className="mini-stat">
-              <div className="mini-value">€ {financialData.monthly.expenses}</div>
+              <div className="mini-value">€ {monthlyExpenses.toFixed(2)}</div>
               <div className="mini-label">Uscite Mese</div>
             </div>
           </div>
@@ -634,8 +666,8 @@ function DashboardContent() {
             </div>
             <div className="card-content">
               <h3>Saldo Totale</h3>
-              <div className="amount">€ 23.410,00</div>
-              <div className="trend positive">+12% vs mese scorso</div>
+              <div className="amount">€ {totalBalance.toFixed(2)}</div>
+              <div className="trend positive">{accounts.length} conti attivi</div>
             </div>
           </div>
 
@@ -645,8 +677,10 @@ function DashboardContent() {
             </div>
             <div className="card-content">
               <h3>Cash Flow Mensile</h3>
-              <div className="amount">€ 1.230,00</div>
-              <div className="trend positive">+8% positivo</div>
+              <div className="amount">€ {monthlySavings.toFixed(2)}</div>
+              <div className={`trend ${monthlySavings >= 0 ? 'positive' : 'negative'}`}>
+                {monthlySavings >= 0 ? 'Positivo' : 'Negativo'}
+              </div>
             </div>
           </div>
 
@@ -657,56 +691,65 @@ function DashboardContent() {
               </div>
             </div>
             <div className="card-content">
-              <h3>Budget Mensile</h3>
-              <div className="amount">75% utilizzato</div>
-              <div className="trend warning">€ 420 rimanenti</div>
+              <h3>Transazioni Mese</h3>
+              <div className="amount">{monthlyTransactions.length} operazioni</div>
+              <div className="trend">{transactions.length} totali</div>
             </div>
           </div>
         </div>
 
         <div className="section">
           <h2 className="section-title">I Tuoi Conti 💰</h2>
-          <div className="accounts-grid">
-            {financialData.accounts.map((account, index) => (
-              <div key={index} className="account-card">
-                <div 
-                  className="account-color" 
-                  style={{ backgroundColor: account.color }}
-                ></div>
-                <div className="account-info">
-                  <div className="account-name">{account.name}</div>
-                  <div className="account-balance">€ {account.balance.toLocaleString()}</div>
+          {accounts.length > 0 ? (
+            <div className="accounts-grid">
+              {accounts.map((account) => (
+                <div key={account.id} className="account-card">
+                  <div 
+                    className="account-color" 
+                    style={{ backgroundColor: account.color || '#4f46e5' }}
+                  ></div>
+                  <div className="account-info">
+                    <div className="account-name">{account.name}</div>
+                    <div className="account-balance">€ {(account.balance || 0).toFixed(2)}</div>
+                  </div>
+                  <div className="account-actions">
+                    <button className="btn-icon"><FiPieChart /></button>
+                    <button className="btn-icon"><FiTrendingUp /></button>
+                  </div>
                 </div>
-                <div className="account-actions">
-                  <button className="btn-icon"><FiPieChart /></button>
-                  <button className="btn-icon"><FiTrendingUp /></button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Nessun conto disponibile. Crea il tuo primo conto!</p>
+            </div>
+          )}
         </div>
 
         <div className="section">
           <h2 className="section-title">Attività Recente ⚡</h2>
-          <div className="activity-timeline">
-            {financialData.recentActivity.map((activity, index) => (
-              <div key={index} className="activity-item">
-                <div className={`activity-icon ${activity.type}`}>
-                  {activity.type === 'food' && '🛒'}
-                  {activity.type === 'salary' && '💼'}
-                  {activity.type === 'bill' && '🏠'}
-                  {activity.type === 'shopping' && '📦'}
+          {recentTransactions.length > 0 ? (
+            <div className="activity-timeline">
+              {recentTransactions.map((transaction) => (
+                <div key={transaction.id} className="activity-item">
+                  <div className={`activity-icon ${transaction.type}`}>
+                    {getTransactionIcon(transaction.type, transaction.category)}
+                  </div>
+                  <div className="activity-details">
+                    <div className="activity-name">{transaction.description || 'Transazione'}</div>
+                    <div className="activity-time">{getTimeAgo(transaction.date)}</div>
+                  </div>
+                  <div className={`activity-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
+                    {transaction.type === 'income' ? '+' : '-'}€{transaction.amount.toFixed(2)}
+                  </div>
                 </div>
-                <div className="activity-details">
-                  <div className="activity-name">{activity.name}</div>
-                  <div className="activity-time">{activity.time}</div>
-                </div>
-                <div className={`activity-amount ${activity.amount > 0 ? 'positive' : 'negative'}`}>
-                  {activity.amount > 0 ? '+' : ''}{activity.amount}€
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>Nessuna transazione recente. Inizia a tracciare le tue finanze!</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
