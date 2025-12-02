@@ -14,6 +14,15 @@ const Transactions = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
 
+  // Helper per convertire date (gestisce sia Date che Firestore Timestamp)
+  const parseDate = (date) => {
+    if (!date) return new Date();
+    if (date && typeof date === 'object' && 'toDate' in date) {
+      return date.toDate(); // Firestore Timestamp
+    }
+    return new Date(date); // String o Date object
+  };
+
   // Mappa ID a nome per mostrare nome conto e categoria
   const accountMap = useMemo(() => 
     Object.fromEntries(accounts.map(acc => [acc.id, acc.name])), 
@@ -35,17 +44,17 @@ const Transactions = () => {
       const matchesCategory = selectedCategory === 'all' || tx.category === selectedCategory;
       
       const matchesSearch = !searchTerm || 
-        tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        accountMap[tx.accountId]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        categoryMap[tx.category]?.toLowerCase().includes(searchTerm.toLowerCase());
+        (tx.description && tx.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (accountMap[tx.accountId] && accountMap[tx.accountId].toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (categoryMap[tx.category] && categoryMap[tx.category].toLowerCase().includes(searchTerm.toLowerCase()));
       
       return matchesType && matchesAccount && matchesCategory && matchesSearch;
     });
 
     // Ordinamento per data (più recenti prima)
     filtered.sort((a, b) => {
-      const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
-      const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
       return dateB - dateA;
     });
 
@@ -58,15 +67,25 @@ const Transactions = () => {
     const currentYear = new Date().getFullYear();
     
     const monthlyTransactions = transactions.filter(tx => {
-      const txDate = tx.date?.toDate ? tx.date.toDate() : new Date(tx.date);
+      const txDate = parseDate(tx.date);
       return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
     });
     
-    const totalIncome = transactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
-    const totalExpenses = transactions.filter(tx => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+    const totalIncome = transactions
+      .filter(tx => tx.amount && tx.amount > 0)
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
     
-    const monthlyIncome = monthlyTransactions.filter(tx => tx.amount > 0).reduce((sum, tx) => sum + tx.amount, 0);
-    const monthlyExpenses = monthlyTransactions.filter(tx => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+    const totalExpenses = transactions
+      .filter(tx => tx.amount && tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+    
+    const monthlyIncome = monthlyTransactions
+      .filter(tx => tx.amount && tx.amount > 0)
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    
+    const monthlyExpenses = monthlyTransactions
+      .filter(tx => tx.amount && tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
     
     return { 
       totalIncome, 
@@ -79,7 +98,7 @@ const Transactions = () => {
   }, [transactions]);
 
   const formatDate = (date) => {
-    const d = date?.toDate ? date.toDate() : new Date(date);
+    const d = parseDate(date);
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -95,16 +114,18 @@ const Transactions = () => {
   };
 
   const formatTime = (date) => {
-    const d = date?.toDate ? date.toDate() : new Date(date);
+    const d = parseDate(date);
     return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
   };
 
   const getCategoryIcon = (categoryId) => {
+    if (!categoryId) return '💰';
     const category = categories.find(cat => cat.id === categoryId);
     return category?.icon || '💰';
   };
 
   const getCategoryColor = (categoryId) => {
+    if (!categoryId) return '#6b7280';
     const category = categories.find(cat => cat.id === categoryId);
     return category?.color || '#6b7280';
   };
@@ -258,7 +279,10 @@ const Transactions = () => {
               <div className="transaction-icon-wrapper">
                 <div 
                   className="transaction-icon"
-                  style={{ backgroundColor: getCategoryColor(tx.category) + '20', color: getCategoryColor(tx.category) }}
+                  style={{ 
+                    backgroundColor: getCategoryColor(tx.category) + '20', 
+                    color: getCategoryColor(tx.category) 
+                  }}
                 >
                   {getCategoryIcon(tx.category)}
                 </div>
@@ -266,15 +290,15 @@ const Transactions = () => {
               
               <div className="transaction-info">
                 <div className="transaction-primary">
-                  <h4 className="transaction-title">{tx.description}</h4>
+                  <h4 className="transaction-title">{tx.description || 'Transazione senza descrizione'}</h4>
                   <div className={`transaction-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                    {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount).toFixed(2)}
+                    {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
                   </div>
                 </div>
                 
                 <div className="transaction-secondary">
-                  <span className="transaction-account">{accountMap[tx.accountId]}</span>
-                  <span className="transaction-category">{categoryMap[tx.category]}</span>
+                  <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
+                  <span className="transaction-category">{categoryMap[tx.category] || 'Senza categoria'}</span>
                   <span className="transaction-date">{formatDate(tx.date)} • {formatTime(tx.date)}</span>
                 </div>
               </div>
@@ -308,19 +332,19 @@ const Transactions = () => {
                         className="category-indicator"
                         style={{ backgroundColor: getCategoryColor(tx.category) }}
                       ></div>
-                      {tx.description}
+                      {tx.description || 'Transazione senza descrizione'}
                     </div>
                   </td>
                   <td className="category-cell">
                     <div className="category-info">
                       <span className="category-icon">{getCategoryIcon(tx.category)}</span>
-                      {categoryMap[tx.category]}
+                      {categoryMap[tx.category] || 'Senza categoria'}
                     </div>
                   </td>
-                  <td className="account-cell">{accountMap[tx.accountId]}</td>
+                  <td className="account-cell">{accountMap[tx.accountId] || 'Conto sconosciuto'}</td>
                   <td className="amount-cell">
                     <span className={`amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                      {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount).toFixed(2)}
+                      {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
                     </span>
                   </td>
                 </tr>

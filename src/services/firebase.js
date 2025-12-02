@@ -1,7 +1,28 @@
-// src/services/firebase.js
+// src/services/firebase.js - VERSIONE CORRETTA E COMPLETA
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile
+} from 'firebase/auth';
+import { 
+  getFirestore,
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  serverTimestamp
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Configurazione Firebase del progetto Aurora 4.0
@@ -17,16 +38,33 @@ const firebaseConfig = {
 // Inizializza l'app Firebase
 const app = initializeApp(firebaseConfig);
 
-// Auth (usata da AuthContext)
+// Servizi Firebase
 export const auth = getAuth(app);
-
-// Provider Google (se vuoi riutilizzarlo altrove)
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Firestore (per i dati)
-export const db = getFirestore(app);
-
-// Storage (per eventuali file/immagini)
-export const storage = getStorage(app);
+// Esporta TUTTE le funzioni necessarie
+export {
+  // Auth
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+  
+  // Firestore
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  serverTimestamp
+};
 
 export default app;

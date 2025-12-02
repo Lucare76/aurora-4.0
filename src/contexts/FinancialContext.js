@@ -1,449 +1,323 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+// src/contexts/FinancialContext.js - VERSIONE CORRETTA
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { 
-  transactionsService, 
-  accountsService, 
-  categoriesService, 
-  updateAccountBalance 
-} from '../services/transactionsService';
+  db, 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  serverTimestamp 
+} from '../services/firebase';
 
 const FinancialContext = createContext();
-
-export const useFinancial = () => {
-  const context = useContext(FinancialContext);
-  if (!context) {
-    throw new Error('useFinancial deve essere usato dentro FinancialProvider');
-  }
-  return context;
-};
 
 export const FinancialProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // Funzione per caricare le transazioni
-  const loadTransactions = useCallback(async () => {
-    if (!user) {
-      console.log("❌ Utente non autenticato - loadTransactions");
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      const transactionsData = await transactionsService.getTransactions(user.uid);
-      setTransactions(transactionsData);
-    } catch (error) {
-      console.error("Errore nel caricamento delle transazioni:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  // Funzione per caricare i conti
-  const loadAccounts = useCallback(async () => {
-    if (!user) {
-      console.log("❌ Utente non autenticato - loadAccounts");
-      return [];
-    }
-    
-    try {
-      console.log("🔄 Caricamento accounts da Firebase...");
-      const accountsData = await accountsService.getAccounts(user.uid);
-      console.log("📊 Accounts caricati:", accountsData);
-      setAccounts(accountsData);
-      return accountsData;
-    } catch (error) {
-      console.error("Errore nel caricamento dei conti:", error);
-      return [];
-    }
-  }, [user]);
-
-  // Funzione per caricare le categorie
-  const loadCategories = useCallback(async () => {
-    if (!user) {
-      console.log("❌ Utente non autenticato - loadCategories");
-      return [];
-    }
-    
-    try {
-      const categoriesData = await categoriesService.getCategories(user.uid);
-      setCategories(categoriesData);
-      return categoriesData;
-    } catch (error) {
-      console.error("Errore nel caricamento delle categorie:", error);
-      return [];
-    }
-  }, [user]);
-
-  // Funzione per creare conti predefiniti
-  const createDefaultAccounts = useCallback(async () => {
-    if (!user) {
-      console.log("❌ Utente non autenticato - createDefaultAccounts");
-      return;
-    }
-    
-    try {
-      const defaultAccounts = [
-        { name: 'Conto Corrente', type: 'bank', balance: 0, color: '#4f46e5' },
-        { name: 'Risparmi', type: 'savings', balance: 0, color: '#06b6d4' },
-        { name: 'Contanti', type: 'cash', balance: 0, color: '#10b981' }
-      ];
-
-      for (const account of defaultAccounts) {
-        await accountsService.createAccount(user.uid, account);
-      }
-      
-      await loadAccounts();
-    } catch (error) {
-      console.error("Errore creazione conti predefiniti:", error);
-    }
-  }, [user, loadAccounts]);
-
-  // Funzione per creare una transazione
-  const createTransaction = useCallback(async (transactionData) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("🎯 Creazione transazione:", transactionData);
-      
-      // 1. Crea la transazione principale
-      const newTransaction = await transactionsService.createTransaction(
-        user.uid, 
-        transactionData
-      );
-      
-      console.log("✅ Transazione creata:", newTransaction);
-      
-      // 2. Aggiorna lo stato locale delle transazioni
-      setTransactions(prev => [newTransaction, ...prev]);
-      
-      // 3. Gestione saldi per diversi tipi di transazione
-      if (transactionData.type === 'transfer' && transactionData.targetAccountId) {
-        console.log("🔄 Gestione trasferimento...");
-        // TRASFERIMENTO: sottrai dal conto origine e aggiungi al conto destinazione
-        await updateAccountBalance(user.uid, transactionData.accountId, -transactionData.amount, 'transfer');
-        await updateAccountBalance(user.uid, transactionData.targetAccountId, transactionData.amount, 'transfer');
-      } else {
-        console.log("💰 Aggiornamento saldo conto:", {
-          accountId: transactionData.accountId,
-          amount: transactionData.amount,
-          type: transactionData.type
-        });
-        // ENTRATA/USCITA: aggiorna solo il conto selezionato
-        await updateAccountBalance(user.uid, transactionData.accountId, transactionData.amount, transactionData.type);
-      }
-      
-      console.log("🔄 Ricaricamento accounts dopo aggiornamento saldo...");
-      // 4. Ricarica i conti da Firebase per avere i saldi aggiornati
-      const updatedAccounts = await loadAccounts();
-      console.log("✅ Accounts ricaricati:", updatedAccounts);
-      
-      return newTransaction;
-    } catch (error) {
-      console.error("Errore creazione transazione:", error);
-      throw error;
-    }
-  }, [user, loadAccounts]);
-
-  // Funzione per creare un nuovo conto
-  const createAccount = useCallback(async (accountData) => {
-    console.log("🔍 Controllo utente in createAccount:", user);
-    
-    if (!user) {
-      throw new Error("Utente non autenticato. Effettua il login per creare un account.");
-    }
-    
-    try {
-      console.log("📝 Creazione account con dati:", accountData);
-      console.log("👤 User ID:", user.uid);
-      
-      const newAccount = await accountsService.createAccount(user.uid, accountData);
-      console.log("✅ Account creato nel service:", newAccount);
-      
-      // Ricarica gli account per vedere il nuovo
-      await loadAccounts();
-      
-      console.log("🔄 Account ricaricati dopo creazione");
-      return newAccount;
-    } catch (error) {
-      console.error("❌ Errore creazione conto:", error);
-      throw error;
-    }
-  }, [user, loadAccounts]);
-
-  // FUNZIONE PER ELIMINARE UN CONTO
-  const deleteAccount = useCallback(async (accountId) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("🗑️ Eliminazione account:", accountId);
-      
-      // 1. Verifica che l'account esista
-      const accountToDelete = accounts.find(acc => acc.id === accountId);
-      if (!accountToDelete) {
-        throw new Error("Account non trovato");
-      }
-
-      // 2. Controlla se ci sono transazioni associate a questo account
-      const accountTransactions = transactions.filter(
-        transaction => transaction.accountId === accountId || transaction.targetAccountId === accountId
-      );
-
-      if (accountTransactions.length > 0) {
-        throw new Error(
-          `Impossibile eliminare il conto. Ci sono ${accountTransactions.length} transazioni associate.`
-        );
-      }
-
-      // 3. Elimina l'account da Firebase
-      await accountsService.deleteAccount(user.uid, accountId);
-      
-      // 4. Aggiorna lo stato locale
-      setAccounts(prev => prev.filter(acc => acc.id !== accountId));
-      
-      console.log("✅ Account eliminato con successo");
-      
-    } catch (error) {
-      console.error("❌ Errore eliminazione account:", error);
-      throw error;
-    }
-  }, [user, accounts, transactions]);
-
-  // FUNZIONE PER MODIFICARE UN CONTO
-  const updateAccount = useCallback(async (accountId, updateData) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("✏️ Modifica account:", accountId, updateData);
-      
-      // 1. Aggiorna su Firebase
-      await accountsService.updateAccount(user.uid, accountId, updateData);
-      
-      // 2. Aggiorna stato locale
-      setAccounts(prev => prev.map(acc => 
-        acc.id === accountId ? { ...acc, ...updateData } : acc
-      ));
-      
-      console.log("✅ Account modificato con successo");
-      
-    } catch (error) {
-      console.error("❌ Errore modifica account:", error);
-      throw error;
-    }
-  }, [user]);
-
-  // FUNZIONE PER ELIMINARE UNA TRANSAZIONE
-  const deleteTransaction = useCallback(async (transactionId) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("🗑️ Eliminazione transazione:", transactionId);
-      
-      // 1. Prima recupera i dati della transazione per aggiornare i saldi
-      const transactionToDelete = transactions.find(t => t.id === transactionId);
-      if (!transactionToDelete) {
-        throw new Error("Transazione non trovata");
-      }
-
-      // 2. Elimina la transazione
-      await transactionsService.deleteTransaction(user.uid, transactionId);
-      
-      // 3. Aggiorna stato locale
-      setTransactions(prev => prev.filter(t => t.id !== transactionId));
-      
-      // 4. Aggiorna i saldi dei conti (inverti l'operazione)
-      if (transactionToDelete.type === 'transfer' && transactionToDelete.targetAccountId) {
-        // Ripristina saldo per trasferimento
-        await updateAccountBalance(user.uid, transactionToDelete.accountId, transactionToDelete.amount, 'transfer');
-        await updateAccountBalance(user.uid, transactionToDelete.targetAccountId, -transactionToDelete.amount, 'transfer');
-      } else {
-        // Ripristina saldo per entrata/uscita (inverti il segno)
-        await updateAccountBalance(
-          user.uid, 
-          transactionToDelete.accountId, 
-          -transactionToDelete.amount,
-          transactionToDelete.type
-        );
-      }
-      
-      // 5. Ricarica i conti per aggiornare i saldi
-      await loadAccounts();
-      
-      console.log("✅ Transazione eliminata con successo");
-      
-    } catch (error) {
-      console.error("❌ Errore eliminazione transazione:", error);
-      throw error;
-    }
-  }, [user, transactions, loadAccounts]);
-
-  // FUNZIONE PER MODIFICARE UNA TRANSAZIONE
-  const updateTransaction = useCallback(async (transactionId, updateData) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("✏️ Modifica transazione:", transactionId, updateData);
-      
-      // 1. Prima recupera la transazione originale
-      const originalTransaction = transactions.find(t => t.id === transactionId);
-      if (!originalTransaction) {
-        throw new Error("Transazione non trovata");
-      }
-
-      // 2. Aggiorna la transazione su Firebase
-      await transactionsService.updateTransaction(user.uid, transactionId, updateData);
-      
-      // 3. Aggiorna stato locale
-      setTransactions(prev => prev.map(t => 
-        t.id === transactionId ? { ...t, ...updateData } : t
-      ));
-      
-      // 4. Se sono cambiati importi o conti, aggiorna i saldi
-      if (updateData.amount !== undefined || updateData.accountId || updateData.type) {
-        await loadAccounts(); // Ricarica i conti per aggiornare i saldi
-      }
-      
-      console.log("✅ Transazione modificata con successo");
-      
-    } catch (error) {
-      console.error("❌ Errore modifica transazione:", error);
-      throw error;
-    }
-  }, [user, transactions, loadAccounts]);
-
-  // FUNZIONI PER GESTIRE LE CATEGORIE
-  const addCategory = useCallback(async (categoryData) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("🏷️ Aggiunta categoria:", categoryData);
-      
-      const newCategory = await categoriesService.addCategory(user.uid, categoryData);
-      
-      // Aggiorna stato locale
-      setCategories(prev => [...prev, newCategory]);
-      
-      console.log("✅ Categoria aggiunta con successo");
-      return newCategory;
-    } catch (error) {
-      console.error("❌ Errore aggiunta categoria:", error);
-      throw error;
-    }
-  }, [user]);
-
-  const updateCategory = useCallback(async (categoryId, updateData) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("✏️ Modifica categoria:", categoryId, updateData);
-      
-      await categoriesService.updateCategory(user.uid, categoryId, updateData);
-      
-      // Aggiorna stato locale
-      setCategories(prev => prev.map(cat => 
-        cat.id === categoryId ? { ...cat, ...updateData } : cat
-      ));
-      
-      console.log("✅ Categoria modificata con successo");
-    } catch (error) {
-      console.error("❌ Errore modifica categoria:", error);
-      throw error;
-    }
-  }, [user]);
-
-  const deleteCategory = useCallback(async (categoryId) => {
-    if (!user) {
-      throw new Error("Utente non autenticato");
-    }
-    
-    try {
-      console.log("🗑️ Eliminazione categoria:", categoryId);
-      
-      // Verifica se ci sono transazioni che usano questa categoria
-      const categoryTransactions = transactions.filter(t => t.category === categoryId);
-      
-      if (categoryTransactions.length > 0) {
-        throw new Error(
-          `Impossibile eliminare la categoria. Ci sono ${categoryTransactions.length} transazioni associate.`
-        );
-      }
-      
-      await categoriesService.deleteCategory(user.uid, categoryId);
-      
-      // Aggiorna stato locale
-      setCategories(prev => prev.filter(cat => cat.id !== categoryId));
-      
-      console.log("✅ Categoria eliminata con successo");
-    } catch (error) {
-      console.error("❌ Errore eliminazione categoria:", error);
-      throw error;
-    }
-  }, [user, transactions]);
-
-  // useEffect per caricare i dati quando l'utente cambia
+  // ========== CARICAMENTO DATI DA FIREBASE ==========
   useEffect(() => {
-    console.log("🔄 FinancialProvider - Stato utente:", user ? "Autenticato" : "Non autenticato");
-    
-    if (user) {
-      console.log("🔄 Caricamento dati finanziari per utente:", user.uid);
-      
-      const loadUserData = async () => {
-        await loadTransactions();
-        const userAccounts = await loadAccounts();
-        const userCategories = await loadCategories();
-        
-        if (userAccounts.length === 0) {
-          await createDefaultAccounts();
-        }
-        if (userCategories.length === 0) {
-          await categoriesService.createDefaultCategories(user.uid);
-          await loadCategories(); // Ricarica dopo aver creato le categorie default
-        }
-      };
-      
-      loadUserData();
-    } else {
-      console.log("🔄 Reset dati finanziari - utente non autenticato");
-      setTransactions([]);
+    if (!user) {
       setAccounts([]);
       setCategories([]);
+      setTransactions([]);
+      setLoading(false);
+      return;
     }
-  }, [user, loadTransactions, loadAccounts, loadCategories, createDefaultAccounts]);
+
+    setLoading(true);
+
+    // 1. Carica Accounts
+    const accountsRef = collection(db, 'accounts');
+    const accountsQuery = query(accountsRef, where('userId', '==', user.uid));
+    const unsubscribeAccounts = onSnapshot(accountsQuery, (snapshot) => {
+      const accountsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      console.log('📊 Accounts caricati:', accountsData.length);
+      setAccounts(accountsData);
+    });
+
+    // 2. Carica Categories
+    const categoriesRef = collection(db, 'categories');
+    const categoriesQuery = query(categoriesRef, where('userId', '==', user.uid));
+    const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
+      if (snapshot.empty) {
+        console.log('🏷️ Nessuna categoria trovata, creo quelle predefinite');
+        createDefaultCategories();
+      } else {
+        const categoriesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        console.log('🏷️ Categories caricate:', categoriesData.length);
+        setCategories(categoriesData);
+      }
+    });
+
+    // 3. Carica Transactions (SENZA orderBy per evitare errori di index)
+    const transactionsRef = collection(db, 'transactions');
+    const transactionsQuery = query(
+      transactionsRef, 
+      where('userId', '==', user.uid)
+      // RIMOSSO: orderBy('date', 'desc') - causa bisogno di index
+    );
+    
+    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      const transactionsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          date: data.date?.toDate() || new Date(),
+          // Converti amount in numero se necessario
+          amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount || 0
+        };
+      });
+      
+      // Ordina manualmente per data (più recenti prima)
+      transactionsData.sort((a, b) => b.date - a.date);
+      
+      console.log('💰 Transactions caricate:', transactionsData.length);
+      setTransactions(transactionsData);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribeAccounts();
+      unsubscribeCategories();
+      unsubscribeTransactions();
+    };
+  }, [user]);
+
+  // ========== CREA CATEGORIE PREDEFINITE ==========
+  const createDefaultCategories = async () => {
+    if (!user) return;
+    
+    console.log('🏗️ Creazione categorie predefinite...');
+    
+    const defaultCategories = [
+      // Uscite
+      { name: 'Alimentari', icon: '🍕', color: '#ef4444', type: 'expense' },
+      { name: 'Trasporti', icon: '🚗', color: '#3b82f6', type: 'expense' },
+      { name: 'Casa', icon: '🏠', color: '#10b981', type: 'expense' },
+      { name: 'Intrattenimento', icon: '🎬', color: '#8b5cf6', type: 'expense' },
+      { name: 'Salute', icon: '🏥', color: '#ec4899', type: 'expense' },
+      { name: 'Shopping', icon: '🛍️', color: '#f59e0b', type: 'expense' },
+      // Entrate
+      { name: 'Stipendio', icon: '💼', color: '#06b6d4', type: 'income' },
+      { name: 'Investimenti', icon: '📈', color: '#84cc16', type: 'income' },
+      { name: 'Regali', icon: '🎁', color: '#f97316', type: 'income' },
+      { name: 'Freelance', icon: '💻', color: '#6366f1', type: 'income' }
+    ];
+
+    for (const category of defaultCategories) {
+      try {
+        await addDoc(collection(db, 'categories'), {
+          ...category,
+          userId: user.uid,
+          createdAt: serverTimestamp()
+        });
+        console.log('✅ Categoria creata:', category.name);
+      } catch (error) {
+        console.error('❌ Errore creazione categoria:', category.name, error);
+      }
+    }
+  };
+
+  // ========== FUNZIONI ACCOUNTS ==========
+  const createAccount = async (accountData) => {
+    console.log('🎯 Creazione account:', accountData);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    const newAccount = {
+      ...accountData,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+      balance: parseFloat(accountData.balance) || 0
+    };
+    
+    const docRef = await addDoc(collection(db, 'accounts'), newAccount);
+    console.log('✅ Account creato con ID:', docRef.id);
+    
+    return { id: docRef.id, ...newAccount };
+  };
+
+  const updateAccount = async (accountId, updates) => {
+    console.log('✏️ Aggiornamento account:', accountId, updates);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    await updateDoc(doc(db, 'accounts', accountId), {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Account aggiornato');
+  };
+
+  const deleteAccount = async (accountId) => {
+    console.log('🗑️ Eliminazione account:', accountId);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    // Verifica transazioni associate
+    const accountTransactions = transactions.filter(
+      t => t.accountId === accountId || t.targetAccountId === accountId
+    );
+    
+    if (accountTransactions.length > 0) {
+      throw new Error(`❌ Impossibile eliminare: ${accountTransactions.length} transazioni associate`);
+    }
+    
+    await deleteDoc(doc(db, 'accounts', accountId));
+    console.log('✅ Account eliminato');
+  };
+
+  // ========== FUNZIONI TRANSACTIONS ==========
+  const createTransaction = async (transactionData) => {
+    console.log('🎯 Creazione transazione:', transactionData);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    // Calcola l'importo (negativo per uscite, positivo per entrate)
+    const amount = transactionData.type === 'expense' 
+      ? -Math.abs(transactionData.amount) 
+      : Math.abs(transactionData.amount);
+    
+    const newTransaction = {
+      ...transactionData,
+      userId: user.uid,
+      date: new Date(transactionData.date),
+      amount: amount,
+      createdAt: serverTimestamp()
+    };
+    
+    // Crea la transazione
+    const docRef = await addDoc(collection(db, 'transactions'), newTransaction);
+    console.log('✅ Transazione creata con ID:', docRef.id);
+    
+    // Aggiorna il saldo del conto se specificato
+    if (transactionData.accountId) {
+      const account = accounts.find(acc => acc.id === transactionData.accountId);
+      if (account) {
+        const newBalance = (account.balance || 0) + amount;
+        console.log('💰 Aggiornamento saldo account:', account.name, 'da', account.balance, 'a', newBalance);
+        await updateAccount(account.id, { balance: newBalance });
+      }
+    }
+    
+    return { id: docRef.id, ...newTransaction };
+  };
+
+  const updateTransaction = async (transactionId, updates) => {
+    console.log('✏️ Aggiornamento transazione:', transactionId, updates);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    await updateDoc(doc(db, 'transactions', transactionId), {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Transazione aggiornata');
+  };
+
+  const deleteTransaction = async (transactionId) => {
+    console.log('🗑️ Eliminazione transazione:', transactionId);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    // Trova la transazione da eliminare
+    const transactionToDelete = transactions.find(t => t.id === transactionId);
+    if (!transactionToDelete) {
+      throw new Error('❌ Transazione non trovata');
+    }
+    
+    // Elimina la transazione
+    await deleteDoc(doc(db, 'transactions', transactionId));
+    console.log('✅ Transazione eliminata');
+  };
+
+  // ========== FUNZIONI CATEGORIES ==========
+  const addCategory = async (categoryData) => {
+    console.log('🏷️ Aggiunta categoria:', categoryData);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    const newCategory = {
+      ...categoryData,
+      userId: user.uid,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, 'categories'), newCategory);
+    console.log('✅ Categoria aggiunta con ID:', docRef.id);
+    
+    return { id: docRef.id, ...newCategory };
+  };
+
+  const updateCategory = async (categoryId, updates) => {
+    console.log('✏️ Aggiornamento categoria:', categoryId, updates);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    await updateDoc(doc(db, 'categories', categoryId), {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Categoria aggiornata');
+  };
+
+  const deleteCategory = async (categoryId) => {
+    console.log('🗑️ Eliminazione categoria:', categoryId);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    // Verifica transazioni associate
+    const categoryTransactions = transactions.filter(t => t.category === categoryId);
+    
+    if (categoryTransactions.length > 0) {
+      throw new Error(`❌ Impossibile eliminare: ${categoryTransactions.length} transazioni associate`);
+    }
+    
+    await deleteDoc(doc(db, 'categories', categoryId));
+    console.log('✅ Categoria eliminata');
+  };
 
   const value = {
+    // Dati
     transactions,
     accounts,
     categories,
     loading,
-    createTransaction,
+    
+    // Accounts
     createAccount,
-    deleteAccount,
     updateAccount,
-    deleteTransaction,
+    deleteAccount,
+    
+    // Transactions
+    createTransaction,
     updateTransaction,
+    deleteTransaction,
+    
+    // Categories
     addCategory,
     updateCategory,
-    deleteCategory,
-    loadTransactions,
-    loadAccounts,
-    loadCategories
+    deleteCategory
   };
 
   return (
@@ -451,4 +325,12 @@ export const FinancialProvider = ({ children }) => {
       {children}
     </FinancialContext.Provider>
   );
+};
+
+export const useFinancial = () => {
+  const context = useContext(FinancialContext);
+  if (!context) {
+    throw new Error('useFinancial deve essere usato dentro FinancialProvider');
+  }
+  return context;
 };
