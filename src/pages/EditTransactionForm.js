@@ -1,10 +1,10 @@
-// src/pages/AddTransactionForm.js - VERSIONE CORRETTA
+// src/pages/EditTransactionForm.js
 import React, { useState, useEffect } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import './Transactions.css';
 
-const AddTransactionForm = ({ onClose }) => {
-  const { accounts, categories, createTransaction } = useFinancial();
+const EditTransactionForm = ({ transaction, onClose }) => {
+  const { accounts, categories, updateTransaction } = useFinancial();
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
@@ -12,25 +12,39 @@ const AddTransactionForm = ({ onClose }) => {
     category: '',
     subCategory: '',
     accountId: '',
-    date: new Date().toISOString().split('T')[0]
+    date: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Inizializza form
+  // Inizializza form con dati della transazione
   useEffect(() => {
-    if (accounts.length > 0 && !formData.accountId) {
-      setFormData(prev => ({
-        ...prev,
-        accountId: accounts[0]?.id || ''
-      }));
+    if (transaction) {
+      const txDate = transaction.date;
+      const formattedDate = txDate && typeof txDate === 'object' && 'toDate' in txDate
+        ? txDate.toDate().toISOString().split('T')[0]
+        : new Date(txDate).toISOString().split('T')[0];
+      
+      // Determina il tipo basato sull'amount
+      const isIncome = transaction.amount > 0;
+      
+      setFormData({
+        description: transaction.description || '',
+        amount: Math.abs(transaction.amount || 0).toString(),
+        type: isIncome ? 'income' : 'expense',
+        category: transaction.category || '',
+        subCategory: transaction.subCategory || '',
+        accountId: transaction.accountId || '',
+        date: formattedDate
+      });
     }
-  }, [accounts]); // Rimossa dependency formData.accountId
+  }, [transaction]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
     if (name === 'category') {
+      // Quando cambia la categoria, resetta la sottocategoria
       setFormData(prev => ({
         ...prev,
         [name]: value,
@@ -49,7 +63,7 @@ const AddTransactionForm = ({ onClose }) => {
     setFormData(prev => ({
       ...prev,
       type,
-      category: '',
+      category: '', // Reset categoria quando cambia tipo
       subCategory: ''
     }));
   };
@@ -81,7 +95,8 @@ const AddTransactionForm = ({ onClose }) => {
       setLoading(true);
       setError('');
       
-      const transactionData = {
+      // Prepara i dati per l'aggiornamento
+      const updateData = {
         description: formData.description.trim(),
         amount: parseFloat(formData.amount),
         type: formData.type,
@@ -91,23 +106,13 @@ const AddTransactionForm = ({ onClose }) => {
         date: new Date(formData.date)
       };
       
-      await createTransaction(transactionData);
+      await updateTransaction(transaction.id, updateData);
       
-      // Reset form
-      setFormData({
-        description: '',
-        amount: '',
-        type: 'expense',
-        category: '',
-        subCategory: '',
-        accountId: accounts[0]?.id || '',
-        date: new Date().toISOString().split('T')[0]
-      });
-      
+      // Chiudi il form
       onClose();
     } catch (error) {
-      console.error('Errore durante la creazione:', error);
-      setError(error.message || 'Errore durante la creazione della transazione');
+      console.error('Errore durante l\'aggiornamento:', error);
+      setError(error.message || 'Errore durante l\'aggiornamento della transazione');
     } finally {
       setLoading(false);
     }
@@ -142,7 +147,7 @@ const AddTransactionForm = ({ onClose }) => {
   return (
     <div className="transaction-form">
       <div className="form-header">
-        <h2>Nuova Transazione</h2>
+        <h2>Modifica Transazione</h2>
         <button onClick={onClose} className="close-btn">&times;</button>
       </div>
       
@@ -315,7 +320,7 @@ const AddTransactionForm = ({ onClose }) => {
             className="submit-btn"
             disabled={loading}
           >
-            {loading ? 'Creazione...' : 'Crea Transazione'}
+            {loading ? 'Salvataggio...' : 'Salva Modifiche'}
           </button>
         </div>
       </form>
@@ -323,4 +328,4 @@ const AddTransactionForm = ({ onClose }) => {
   );
 };
 
-export default AddTransactionForm;
+export default EditTransactionForm;

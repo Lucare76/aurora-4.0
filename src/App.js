@@ -20,7 +20,11 @@ import {
   FiX,
   FiTrendingUp,
   FiPieChart,
-  FiLogOut
+  FiLogOut,
+  FiDownload,
+  FiPrinter,
+  FiFilter,
+  FiCalendar
 } from 'react-icons/fi';
 import { 
   WiDaySunny
@@ -588,12 +592,18 @@ function DashboardContent() {
   });
 
   const monthlyIncome = monthlyTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+  .filter(t => t.type === 'income')
+  .reduce((sum, t) => {
+    const amount = parseFloat(t.amount);
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
 
-  const monthlyExpenses = monthlyTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+const monthlyExpenses = monthlyTransactions
+  .filter(t => t.type === 'expense')
+  .reduce((sum, t) => {
+    const amount = parseFloat(t.amount);
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
 
   const monthlySavings = monthlyIncome - monthlyExpenses;
 
@@ -607,7 +617,6 @@ function DashboardContent() {
   const getTransactionIcon = (type, category) => {
     if (type === 'income') return '💼';
     if (type === 'transfer') return '🔄';
-    // Puoi aggiungere logica per icone basate su categoria
     return '💸';
   };
 
@@ -740,7 +749,7 @@ function DashboardContent() {
                     <div className="activity-time">{getTimeAgo(transaction.date)}</div>
                   </div>
                   <div className={`activity-amount ${transaction.type === 'income' ? 'positive' : 'negative'}`}>
-                    {transaction.type === 'income' ? '+' : '-'}€{transaction.amount.toFixed(2)}
+                    {transaction.type === 'income' ? '+' : '-'}€{(transaction.amount || 0).toFixed(2)}
                   </div>
                 </div>
               ))}
@@ -756,8 +765,375 @@ function DashboardContent() {
   );
 }
 
-// ==================== COMPONENTI PAGINE ====================
+// ==================== COMPONENTE REPORTS CON GRAFICI ====================
 function ReportsContent() {
+  const { transactions, accounts } = useFinancial();
+  const [dateRange, setDateRange] = useState({
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
+  });
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [activeReport, setActiveReport] = useState('overview');
+
+  // Filtra transazioni per data
+  useEffect(() => {
+    const filtered = transactions.filter(transaction => {
+      const transDate = new Date(transaction.date);
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      return transDate >= startDate && transDate <= endDate;
+    });
+    setFilteredTransactions(filtered);
+  }, [transactions, dateRange]);
+
+  // Calcola statistiche
+  const calculateStats = () => {
+    const income = filteredTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    
+    const expenses = filteredTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    
+    const net = income - expenses;
+    
+    return { income, expenses, net };
+  };
+
+  const { income, expenses, net } = calculateStats();
+
+  // Spese per categoria (TOP 10)
+  const expensesByCategory = filteredTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      const categoryName = t.category || 'Senza categoria';
+      acc[categoryName] = (acc[categoryName] || 0) + parseFloat(t.amount || 0);
+      return acc;
+    }, {});
+
+  // Transazioni mensili per il grafico
+  const getMonthlyData = () => {
+    const months = [];
+    const monthlyData = { income: [], expenses: [] };
+    
+    // Crea array degli ultimi 12 mesi
+    const currentDate = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = date.toLocaleDateString('it-IT', { month: 'short' });
+      const year = date.getFullYear();
+      const monthKey = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.push(`${monthName} ${year}`);
+      
+      // Filtra transazioni del mese
+      const monthTransactions = transactions.filter(t => {
+        const transDate = new Date(t.date);
+        return transDate.getFullYear() === date.getFullYear() && 
+               transDate.getMonth() === date.getMonth();
+      });
+      
+      const monthIncome = monthTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      
+      const monthExpenses = monthTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+      
+      monthlyData.income.push(monthIncome);
+      monthlyData.expenses.push(monthExpenses);
+    }
+    
+    return { months, data: monthlyData };
+  };
+
+  const { months, data: monthlyData } = getMonthlyData();
+
+  // Trova il valore massimo per scalare i grafici
+  const maxValue = Math.max(
+    ...monthlyData.income,
+    ...monthlyData.expenses,
+    100 // valore minimo per evitare grafici piatti
+  );
+
+  // Prepara dati per grafico a torta categorie
+  const prepareCategoryChartData = () => {
+    const sortedCategories = Object.entries(expensesByCategory)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8); // Top 8 categorie
+    
+    const otherCategories = Object.entries(expensesByCategory)
+      .sort(([,a], [,b]) => b - a)
+      .slice(8);
+    
+    const otherTotal = otherCategories.reduce((sum, [, amount]) => sum + amount, 0);
+    
+    const chartData = sortedCategories.map(([category, amount]) => ({
+      category,
+      amount,
+      percentage: expenses > 0 ? (amount / expenses) * 100 : 0
+    }));
+    
+    if (otherTotal > 0) {
+      chartData.push({
+        category: 'Altre',
+        amount: otherTotal,
+        percentage: expenses > 0 ? (otherTotal / expenses) * 100 : 0
+      });
+    }
+    
+    return chartData;
+  };
+
+  const categoryChartData = prepareCategoryChartData();
+
+  // Export CSV
+  const exportToCSV = () => {
+    const headers = ['Data', 'Descrizione', 'Categoria', 'Tipo', 'Importo', 'Conto'];
+    const csvData = filteredTransactions.map(t => [
+      t.date,
+      `"${t.description || ''}"`,
+      t.category || '',
+      t.type === 'income' ? 'Entrata' : 'Uscita',
+      t.amount || '0',
+      accounts.find(a => a.id === t.accountId)?.name || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `report_aurora_${dateRange.start}_${dateRange.end}.csv`;
+    link.click();
+  };
+
+  // Formatta data
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  // Componente grafico a barre mensile
+  const MonthlyChart = () => (
+    <div className="chart-container">
+      <div className="chart-header">
+        <h4>Andamento Mensile</h4>
+        <span className="chart-subtitle">Ultimi 12 mesi</span>
+      </div>
+      <div className="chart-bars">
+        {months.map((month, index) => (
+          <div key={month} className="chart-bar-group">
+            <div className="month-label">{month}</div>
+            <div className="bars-container">
+              {monthlyData.income[index] > 0 && (
+                <div 
+                  className="bar income-bar"
+                  style={{ 
+                    height: `${(monthlyData.income[index] / maxValue) * 100}%`,
+                    width: '40%'
+                  }}
+                  title={`Entrate: €${monthlyData.income[index].toFixed(2)}`}
+                >
+                  <div className="bar-value">€{monthlyData.income[index].toFixed(0)}</div>
+                </div>
+              )}
+              {monthlyData.expenses[index] > 0 && (
+                <div 
+                  className="bar expense-bar"
+                  style={{ 
+                    height: `${(monthlyData.expenses[index] / maxValue) * 100}%`,
+                    width: '40%'
+                  }}
+                  title={`Uscite: €${monthlyData.expenses[index].toFixed(2)}`}
+                >
+                  <div className="bar-value">€{monthlyData.expenses[index].toFixed(0)}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="chart-legend">
+        <div className="legend-item">
+          <div className="legend-color income-legend"></div>
+          <span>Entrate</span>
+        </div>
+        <div className="legend-item">
+          <div className="legend-color expense-legend"></div>
+          <span>Uscite</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Componente grafico a torta categorie
+  const CategoryPieChart = () => {
+    const colors = [
+      '#4f46e5', '#06b6d4', '#10b981', '#f59e0b', 
+      '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
+      '#f97316', '#84cc16'
+    ];
+    
+    const totalAngle = 360;
+    let currentAngle = 0;
+    
+    return (
+      <div className="pie-chart-container">
+        <div className="pie-chart-header">
+          <h4>Distribuzione Spese per Categoria</h4>
+          <span className="chart-subtitle">Top categorie</span>
+        </div>
+        <div className="pie-chart-wrapper">
+          <div className="pie-chart">
+            {categoryChartData.map((item, index) => {
+              const percentage = item.percentage;
+              const angle = (percentage / 100) * totalAngle;
+              const sliceStyle = {
+                background: `conic-gradient(${colors[index % colors.length]} 0deg ${angle}deg, transparent ${angle}deg 360deg)`,
+                transform: `rotate(${currentAngle}deg)`
+              };
+              
+              currentAngle += angle;
+              
+              return (
+                <div key={item.category} className="pie-slice" style={sliceStyle}>
+                  <div className="pie-slice-inner"></div>
+                </div>
+              );
+            })}
+            <div className="pie-center">
+              <div className="pie-center-value">€{expenses.toFixed(0)}</div>
+              <div className="pie-center-label">Totale</div>
+            </div>
+          </div>
+          <div className="pie-legend">
+            {categoryChartData.map((item, index) => (
+              <div key={item.category} className="pie-legend-item">
+                <div 
+                  className="pie-legend-color" 
+                  style={{ backgroundColor: colors[index % colors.length] }}
+                ></div>
+                <div className="pie-legend-info">
+                  <span className="pie-legend-name">{item.category}</span>
+                  <span className="pie-legend-value">
+                    €{item.amount.toFixed(2)} ({item.percentage.toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Riepilogo mensile
+  const MonthlySummary = () => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const currentMonthIncome = monthlyData.income[11] || 0;
+    const currentMonthExpenses = monthlyData.expenses[11] || 0;
+    const currentMonthNet = currentMonthIncome - currentMonthExpenses;
+    
+    const previousMonthIncome = monthlyData.income[10] || 0;
+    const previousMonthExpenses = monthlyData.expenses[10] || 0;
+    const previousMonthNet = previousMonthIncome - previousMonthExpenses;
+    
+    const incomeChange = previousMonthIncome > 0 
+      ? ((currentMonthIncome - previousMonthIncome) / previousMonthIncome) * 100 
+      : 0;
+    
+    const expensesChange = previousMonthExpenses > 0 
+      ? ((currentMonthExpenses - previousMonthExpenses) / previousMonthExpenses) * 100 
+      : 0;
+    
+    const netChange = previousMonthNet !== 0 
+      ? ((currentMonthNet - previousMonthNet) / Math.abs(previousMonthNet)) * 100 
+      : 0;
+    
+    return (
+      <div className="monthly-summary">
+        <h4>Riepilogo Mese Corrente</h4>
+        <div className="summary-cards">
+          <div className="summary-card">
+            <div className="summary-card-header">
+              <span className="summary-card-title">Entrate</span>
+              <span className={`summary-change ${incomeChange >= 0 ? 'positive' : 'negative'}`}>
+                {incomeChange >= 0 ? '▲' : '▼'} {Math.abs(incomeChange).toFixed(1)}%
+              </span>
+            </div>
+            <div className="summary-card-value positive">€{currentMonthIncome.toFixed(2)}</div>
+          </div>
+          
+          <div className="summary-card">
+            <div className="summary-card-header">
+              <span className="summary-card-title">Uscite</span>
+              <span className={`summary-change ${expensesChange <= 0 ? 'positive' : 'negative'}`}>
+                {expensesChange >= 0 ? '▲' : '▼'} {Math.abs(expensesChange).toFixed(1)}%
+              </span>
+            </div>
+            <div className="summary-card-value negative">€{currentMonthExpenses.toFixed(2)}</div>
+          </div>
+          
+          <div className="summary-card">
+            <div className="summary-card-header">
+              <span className="summary-card-title">Saldo</span>
+              <span className={`summary-change ${netChange >= 0 ? 'positive' : 'negative'}`}>
+                {netChange >= 0 ? '▲' : '▼'} {Math.abs(netChange).toFixed(1)}%
+              </span>
+            </div>
+            <div className={`summary-card-value ${currentMonthNet >= 0 ? 'positive' : 'negative'}`}>
+              €{currentMonthNet.toFixed(2)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Top 5 categorie spesa
+  const TopCategories = () => (
+    <div className="top-categories-card">
+      <h4>Top 5 Categorie Spesa</h4>
+      <div className="categories-list">
+        {Object.entries(expensesByCategory)
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 5)
+          .map(([category, amount], index) => {
+            const percentage = expenses > 0 ? (amount / expenses) * 100 : 0;
+            return (
+              <div key={category} className="category-item">
+                <div className="category-rank">{index + 1}</div>
+                <div className="category-details">
+                  <div className="category-name">{category}</div>
+                  <div className="category-progress">
+                    <div 
+                      className="category-progress-bar"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="category-amount">
+                  €{amount.toFixed(2)}
+                  <span className="category-percentage">({percentage.toFixed(1)}%)</span>
+                </div>
+              </div>
+            );
+          })}
+      </div>
+    </div>
+  );
+
   return (
     <div className="content-page">
       {/* Background Aurora */}
@@ -769,17 +1145,231 @@ function ReportsContent() {
       
       <div className="dashboard-content">
         <div className="page-header">
-          <h1>Report e Statistiche 📊</h1>
-          <p>Analisi approfondite delle tue finanze</p>
+          <h1>📊 Report Finanziari Avanzati</h1>
+          <p>Analisi dettagliate e grafici delle tue finanze</p>
         </div>
-        <div className="content-placeholder">
-          <h3>Contenuto Report - In sviluppo</h3>
+
+        {/* Filtri e controlli */}
+        <div className="reports-controls">
+          <div className="date-range-controls">
+            <div className="control-group">
+              <FiCalendar />
+              <label>Periodo Analisi:</label>
+              <div className="date-inputs">
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                  className="date-input"
+                />
+                <span className="date-separator">al</span>
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                  className="date-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="report-type-tabs">
+            <button 
+              className={`tab-btn ${activeReport === 'overview' ? 'active' : ''}`}
+              onClick={() => setActiveReport('overview')}
+            >
+              <FiPieChart /> Panoramica
+            </button>
+            <button 
+              className={`tab-btn ${activeReport === 'expenses' ? 'active' : ''}`}
+              onClick={() => setActiveReport('expenses')}
+            >
+              <FiTrendingUp /> Analisi Spese
+            </button>
+            <button 
+              className={`tab-btn ${activeReport === 'trends' ? 'active' : ''}`}
+              onClick={() => setActiveReport('trends')}
+            >
+              <FiBarChart2 /> Trend Mensili
+            </button>
+          </div>
+        </div>
+
+        {/* Statistiche principali */}
+        <div className="reports-main-stats">
+          <div className="main-stat">
+            <div className="main-stat-icon">💰</div>
+            <div className="main-stat-content">
+              <div className="main-stat-value">€{net.toFixed(2)}</div>
+              <div className="main-stat-label">Saldo Netto Periodo</div>
+            </div>
+          </div>
+          <div className="main-stat">
+            <div className="main-stat-icon">📈</div>
+            <div className="main-stat-content">
+              <div className="main-stat-value positive">€{income.toFixed(2)}</div>
+              <div className="main-stat-label">Entrate Totali</div>
+            </div>
+          </div>
+          <div className="main-stat">
+            <div className="main-stat-icon">📉</div>
+            <div className="main-stat-content">
+              <div className="main-stat-value negative">€{expenses.toFixed(2)}</div>
+              <div className="main-stat-label">Uscite Totali</div>
+            </div>
+          </div>
+          <div className="main-stat">
+            <div className="main-stat-icon">📋</div>
+            <div className="main-stat-content">
+              <div className="main-stat-value">{filteredTransactions.length}</div>
+              <div className="main-stat-label">Transazioni</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenuto report attivo */}
+        <div className="report-content-area">
+          {activeReport === 'overview' && (
+            <div className="overview-content">
+              <div className="charts-row">
+                <div className="chart-card full-width">
+                  <MonthlyChart />
+                </div>
+              </div>
+              
+              <div className="charts-row">
+                <div className="chart-card">
+                  <CategoryPieChart />
+                </div>
+                
+                <div className="summary-side">
+                  <MonthlySummary />
+                  <TopCategories />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeReport === 'expenses' && (
+            <div className="expenses-content">
+              <div className="expenses-header">
+                <h3>Analisi Dettagliata delle Spese</h3>
+                <p>Periodo: {formatDate(dateRange.start)} - {formatDate(dateRange.end)}</p>
+              </div>
+              
+              <div className="expenses-grid">
+                <div className="expenses-chart">
+                  <CategoryPieChart />
+                </div>
+                
+                <div className="expenses-breakdown">
+                  <h4>Dettaglio per Categoria</h4>
+                  <div className="breakdown-list">
+                    {Object.entries(expensesByCategory)
+                      .sort(([,a], [,b]) => b - a)
+                      .map(([category, amount]) => {
+                        const percentage = expenses > 0 ? (amount / expenses) * 100 : 0;
+                        return (
+                          <div key={category} className="breakdown-item">
+                            <div className="breakdown-category">
+                              <span>{category}</span>
+                            </div>
+                            <div className="breakdown-details">
+                              <div className="breakdown-bar">
+                                <div 
+                                  className="breakdown-bar-fill"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                              <div className="breakdown-numbers">
+                                <span className="breakdown-amount">€{amount.toFixed(2)}</span>
+                                <span className="breakdown-percentage">{percentage.toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeReport === 'trends' && (
+            <div className="trends-content">
+              <div className="trends-header">
+                <h3>Trend e Andamento Mensile</h3>
+                <p>Analisi degli ultimi 12 mesi</p>
+              </div>
+              
+              <div className="trends-chart-container">
+                <MonthlyChart />
+              </div>
+              
+              <div className="trends-table">
+                <h4>Dati Mensili Dettagliati</h4>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Mese</th>
+                        <th>Entrate</th>
+                        <th>Uscite</th>
+                        <th>Saldo</th>
+                        <th>Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {months.map((month, index) => {
+                        const monthIncome = monthlyData.income[index];
+                        const monthExpenses = monthlyData.expenses[index];
+                        const monthNet = monthIncome - monthExpenses;
+                        const prevMonthIncome = monthlyData.income[index - 1] || 0;
+                        const incomeTrend = prevMonthIncome > 0 
+                          ? ((monthIncome - prevMonthIncome) / prevMonthIncome) * 100 
+                          : monthIncome > 0 ? 100 : 0;
+                        
+                        return (
+                          <tr key={month}>
+                            <td>{month}</td>
+                            <td className="income-cell">€{monthIncome.toFixed(2)}</td>
+                            <td className="expense-cell">€{monthExpenses.toFixed(2)}</td>
+                            <td className={monthNet >= 0 ? 'positive-cell' : 'negative-cell'}>
+                              €{monthNet.toFixed(2)}
+                            </td>
+                            <td>
+                              <span className={`trend-indicator ${incomeTrend >= 0 ? 'positive' : 'negative'}`}>
+                                {incomeTrend >= 0 ? '▲' : '▼'} {Math.abs(incomeTrend).toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Azioni */}
+        <div className="reports-actions">
+          <button onClick={exportToCSV} className="action-btn primary-btn">
+            <FiDownload />
+            Esporta CSV
+          </button>
+          <button onClick={() => window.print()} className="action-btn secondary-btn">
+            <FiPrinter />
+            Stampa Report
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+// ==================== COMPONENTI PAGINE ====================
 function ImportContent() {
   return (
     <div className="content-page">

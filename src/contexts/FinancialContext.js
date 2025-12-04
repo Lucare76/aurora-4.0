@@ -1,5 +1,5 @@
 // src/contexts/FinancialContext.js - VERSIONE CORRETTA
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { 
   db, 
@@ -11,8 +11,8 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from '../services/firebase';
 
 const FinancialContext = createContext();
@@ -24,84 +24,8 @@ export const FinancialProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // ========== CARICAMENTO DATI DA FIREBASE ==========
-  useEffect(() => {
-    if (!user) {
-      setAccounts([]);
-      setCategories([]);
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-
-    // 1. Carica Accounts
-    const accountsRef = collection(db, 'accounts');
-    const accountsQuery = query(accountsRef, where('userId', '==', user.uid));
-    const unsubscribeAccounts = onSnapshot(accountsQuery, (snapshot) => {
-      const accountsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      console.log('📊 Accounts caricati:', accountsData.length);
-      setAccounts(accountsData);
-    });
-
-    // 2. Carica Categories
-    const categoriesRef = collection(db, 'categories');
-    const categoriesQuery = query(categoriesRef, where('userId', '==', user.uid));
-    const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
-      if (snapshot.empty) {
-        console.log('🏷️ Nessuna categoria trovata, creo quelle predefinite');
-        createDefaultCategories();
-      } else {
-        const categoriesData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        console.log('🏷️ Categories caricate:', categoriesData.length);
-        setCategories(categoriesData);
-      }
-    });
-
-    // 3. Carica Transactions (SENZA orderBy per evitare errori di index)
-    const transactionsRef = collection(db, 'transactions');
-    const transactionsQuery = query(
-      transactionsRef, 
-      where('userId', '==', user.uid)
-      // RIMOSSO: orderBy('date', 'desc') - causa bisogno di index
-    );
-    
-    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      const transactionsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          date: data.date?.toDate() || new Date(),
-          // Converti amount in numero se necessario
-          amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount || 0
-        };
-      });
-      
-      // Ordina manualmente per data (più recenti prima)
-      transactionsData.sort((a, b) => b.date - a.date);
-      
-      console.log('💰 Transactions caricate:', transactionsData.length);
-      setTransactions(transactionsData);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeAccounts();
-      unsubscribeCategories();
-      unsubscribeTransactions();
-    };
-  }, [user]);
-
   // ========== CREA CATEGORIE PREDEFINITE ==========
-  const createDefaultCategories = async () => {
+  const createDefaultCategories = useCallback(async () => {
     if (!user) return;
     
     console.log('🏗️ Creazione categorie predefinite...');
@@ -126,14 +50,90 @@ export const FinancialProvider = ({ children }) => {
         await addDoc(collection(db, 'categories'), {
           ...category,
           userId: user.uid,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
+          subCategories: []
         });
         console.log('✅ Categoria creata:', category.name);
       } catch (error) {
         console.error('❌ Errore creazione categoria:', category.name, error);
       }
     }
-  };
+  }, [user]);
+
+  // ========== CARICAMENTO DATI DA FIREBASE ==========
+  useEffect(() => {
+    if (!user) {
+      setAccounts([]);
+      setCategories([]);
+      setTransactions([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    // 1. Carica Accounts
+    const accountsRef = collection(db, 'accounts');
+    const accountsQuery = query(accountsRef, where('userId', '==', user.uid));
+    const unsubscribeAccounts = onSnapshot(accountsQuery, (snapshot) => {
+      const accountsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        balance: parseFloat(doc.data().balance) || 0
+      }));
+      console.log('📊 Accounts caricati:', accountsData.length);
+      setAccounts(accountsData);
+    });
+
+    // 2. Carica Categories
+    const categoriesRef = collection(db, 'categories');
+    const categoriesQuery = query(categoriesRef, where('userId', '==', user.uid));
+    const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
+      if (snapshot.empty) {
+        console.log('🏷️ Nessuna categoria trovata, creo quelle predefinite');
+        createDefaultCategories();
+      } else {
+        const categoriesData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          subCategories: doc.data().subCategories || []
+        }));
+        console.log('🏷️ Categories caricate:', categoriesData.length);
+        setCategories(categoriesData);
+      }
+    });
+
+    // 3. Carica Transactions
+    const transactionsRef = collection(db, 'transactions');
+    const transactionsQuery = query(
+      transactionsRef, 
+      where('userId', '==', user.uid)
+    );
+    
+    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      const transactionsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount || 0,
+          date: data.date?.toDate() || new Date(data.date) || new Date()
+        };
+      });
+      
+      transactionsData.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      console.log('💰 Transactions caricate:', transactionsData.length);
+      setTransactions(transactionsData);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribeAccounts();
+      unsubscribeCategories();
+      unsubscribeTransactions();
+    };
+  }, [user, createDefaultCategories]); // Aggiunto createDefaultCategories
 
   // ========== FUNZIONI ACCOUNTS ==========
   const createAccount = async (accountData) => {
@@ -159,6 +159,10 @@ export const FinancialProvider = ({ children }) => {
     
     if (!user) throw new Error('❌ Utente non autenticato');
     
+    if (updates.balance !== undefined) {
+      updates.balance = parseFloat(updates.balance) || 0;
+    }
+    
     await updateDoc(doc(db, 'accounts', accountId), {
       ...updates,
       updatedAt: serverTimestamp()
@@ -172,9 +176,8 @@ export const FinancialProvider = ({ children }) => {
     
     if (!user) throw new Error('❌ Utente non autenticato');
     
-    // Verifica transazioni associate
     const accountTransactions = transactions.filter(
-      t => t.accountId === accountId || t.targetAccountId === accountId
+      t => t.accountId === accountId
     );
     
     if (accountTransactions.length > 0) {
@@ -191,10 +194,9 @@ export const FinancialProvider = ({ children }) => {
     
     if (!user) throw new Error('❌ Utente non autenticato');
     
-    // Calcola l'importo (negativo per uscite, positivo per entrate)
     const amount = transactionData.type === 'expense' 
-      ? -Math.abs(transactionData.amount) 
-      : Math.abs(transactionData.amount);
+      ? -Math.abs(parseFloat(transactionData.amount) || 0)
+      : Math.abs(parseFloat(transactionData.amount) || 0);
     
     const newTransaction = {
       ...transactionData,
@@ -204,15 +206,13 @@ export const FinancialProvider = ({ children }) => {
       createdAt: serverTimestamp()
     };
     
-    // Crea la transazione
     const docRef = await addDoc(collection(db, 'transactions'), newTransaction);
     console.log('✅ Transazione creata con ID:', docRef.id);
     
-    // Aggiorna il saldo del conto se specificato
     if (transactionData.accountId) {
       const account = accounts.find(acc => acc.id === transactionData.accountId);
       if (account) {
-        const newBalance = (account.balance || 0) + amount;
+        const newBalance = (parseFloat(account.balance) || 0) + amount;
         console.log('💰 Aggiornamento saldo account:', account.name, 'da', account.balance, 'a', newBalance);
         await updateAccount(account.id, { balance: newBalance });
       }
@@ -225,6 +225,17 @@ export const FinancialProvider = ({ children }) => {
     console.log('✏️ Aggiornamento transazione:', transactionId, updates);
     
     if (!user) throw new Error('❌ Utente non autenticato');
+    
+    if (updates.amount !== undefined) {
+      const amount = updates.type === 'expense' 
+        ? -Math.abs(parseFloat(updates.amount) || 0)
+        : Math.abs(parseFloat(updates.amount) || 0);
+      updates.amount = amount;
+    }
+    
+    if (updates.date) {
+      updates.date = new Date(updates.date);
+    }
     
     await updateDoc(doc(db, 'transactions', transactionId), {
       ...updates,
@@ -239,13 +250,11 @@ export const FinancialProvider = ({ children }) => {
     
     if (!user) throw new Error('❌ Utente non autenticato');
     
-    // Trova la transazione da eliminare
     const transactionToDelete = transactions.find(t => t.id === transactionId);
     if (!transactionToDelete) {
       throw new Error('❌ Transazione non trovata');
     }
     
-    // Elimina la transazione
     await deleteDoc(doc(db, 'transactions', transactionId));
     console.log('✅ Transazione eliminata');
   };
@@ -259,7 +268,8 @@ export const FinancialProvider = ({ children }) => {
     const newCategory = {
       ...categoryData,
       userId: user.uid,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      subCategories: categoryData.subCategories || []
     };
     
     const docRef = await addDoc(collection(db, 'categories'), newCategory);
@@ -286,7 +296,6 @@ export const FinancialProvider = ({ children }) => {
     
     if (!user) throw new Error('❌ Utente non autenticato');
     
-    // Verifica transazioni associate
     const categoryTransactions = transactions.filter(t => t.category === categoryId);
     
     if (categoryTransactions.length > 0) {
@@ -295,6 +304,61 @@ export const FinancialProvider = ({ children }) => {
     
     await deleteDoc(doc(db, 'categories', categoryId));
     console.log('✅ Categoria eliminata');
+  };
+
+  // ========== FUNZIONI SOTTOCATEGORIE ==========
+  const addSubCategory = async (categoryId, subCategoryData) => {
+    console.log('➕ Aggiunta sottocategoria:', categoryId, subCategoryData);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    const categoryRef = doc(db, 'categories', categoryId);
+    const categoryDoc = await getDoc(categoryRef);
+    
+    if (!categoryDoc.exists()) {
+      throw new Error('❌ Categoria non trovata');
+    }
+    
+    const currentSubCategories = categoryDoc.data().subCategories || [];
+    const updatedSubCategories = [...currentSubCategories, {
+      id: Date.now().toString(),
+      name: subCategoryData.name,
+      icon: subCategoryData.icon || '📋',
+      color: subCategoryData.color || '#6b7280',
+      createdAt: new Date()
+    }];
+    
+    await updateDoc(categoryRef, {
+      subCategories: updatedSubCategories,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Sottocategoria aggiunta');
+  };
+
+  const removeSubCategory = async (categoryId, subCategoryId) => {
+    console.log('➖ Rimozione sottocategoria:', categoryId, subCategoryId);
+    
+    if (!user) throw new Error('❌ Utente non autenticato');
+    
+    const categoryRef = doc(db, 'categories', categoryId);
+    const categoryDoc = await getDoc(categoryRef);
+    
+    if (!categoryDoc.exists()) {
+      throw new Error('❌ Categoria non trovata');
+    }
+    
+    const currentSubCategories = categoryDoc.data().subCategories || [];
+    const updatedSubCategories = currentSubCategories.filter(
+      sub => sub.id !== subCategoryId
+    );
+    
+    await updateDoc(categoryRef, {
+      subCategories: updatedSubCategories,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Sottocategoria rimossa');
   };
 
   const value = {
@@ -317,7 +381,11 @@ export const FinancialProvider = ({ children }) => {
     // Categories
     addCategory,
     updateCategory,
-    deleteCategory
+    deleteCategory,
+    
+    // SubCategories
+    addSubCategory,
+    removeSubCategory
   };
 
   return (

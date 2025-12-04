@@ -1,29 +1,35 @@
+// src/pages/Transactions.js
 import React, { useState, useMemo } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import AddTransactionForm from './AddTransactionForm';
+import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
 const Transactions = () => {
-  const { transactions, accounts, categories, loading } = useFinancial();
+  const { transactions, accounts, categories, loading, deleteTransaction } = useFinancial();
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'table'
+  const [viewMode, setViewMode] = useState('list');
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Helper per convertire date (gestisce sia Date che Firestore Timestamp)
+  // Helper per convertire date
   const parseDate = (date) => {
     if (!date) return new Date();
     if (date && typeof date === 'object' && 'toDate' in date) {
-      return date.toDate(); // Firestore Timestamp
+      return date.toDate();
     }
-    return new Date(date); // String o Date object
+    return new Date(date);
   };
 
-  // Mappa ID a nome per mostrare nome conto e categoria
+  // Mappa ID a nome
   const accountMap = useMemo(() => 
     Object.fromEntries(accounts.map(acc => [acc.id, acc.name])), 
     [accounts]
@@ -51,7 +57,7 @@ const Transactions = () => {
       return matchesType && matchesAccount && matchesCategory && matchesSearch;
     });
 
-    // Ordinamento per data (più recenti prima)
+    // Ordinamento per data
     filtered.sort((a, b) => {
       const dateA = parseDate(a.date);
       const dateB = parseDate(b.date);
@@ -61,7 +67,7 @@ const Transactions = () => {
     return filtered;
   }, [transactions, filterType, selectedAccount, selectedCategory, searchTerm, accountMap, categoryMap]);
 
-  // Calcola statistiche per il periodo corrente
+  // Calcola statistiche
   const stats = useMemo(() => {
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
@@ -128,6 +134,34 @@ const Transactions = () => {
     if (!categoryId) return '#6b7280';
     const category = categories.find(cat => cat.id === categoryId);
     return category?.color || '#6b7280';
+  };
+
+  // Funzione per eliminare transazione
+  const handleDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+    
+    try {
+      setDeleting(true);
+      await deleteTransaction(transactionToDelete);
+      console.log('✅ Transazione eliminata con successo');
+      setTransactionToDelete(null);
+    } catch (error) {
+      console.error('❌ Errore nell\'eliminazione:', error);
+      alert(`Errore: ${error.message}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Funzione per iniziare eliminazione
+  const startDeleteTransaction = (transactionId) => {
+    setTransactionToDelete(transactionId);
+  };
+
+  // Funzione per iniziare modifica
+  const startEditTransaction = (transaction) => {
+    setTransactionToEdit(transaction);
+    setShowEditForm(true);
   };
 
   if (loading) {
@@ -271,6 +305,47 @@ const Transactions = () => {
         </div>
       )}
 
+      {/* Modal per modificare transazione */}
+      {showEditForm && transactionToEdit && (
+        <div className="modal-backdrop" onClick={() => setShowEditForm(false)}>
+          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <EditTransactionForm 
+              transaction={transactionToEdit}
+              onClose={() => {
+                setShowEditForm(false);
+                setTransactionToEdit(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Modal di conferma eliminazione */}
+      {transactionToDelete && (
+        <div className="modal-backdrop">
+          <div className="confirm-modal">
+            <h3>Conferma Eliminazione</h3>
+            <p>Sei sicuro di voler eliminare questa transazione? Questa azione non può essere annullata.</p>
+            <div className="modal-actions">
+              <button 
+                onClick={() => setTransactionToDelete(null)}
+                className="secondary-btn"
+                disabled={deleting}
+              >
+                Annulla
+              </button>
+              <button 
+                onClick={handleDeleteTransaction}
+                className="delete-confirm-btn"
+                disabled={deleting}
+              >
+                {deleting ? 'Eliminazione...' : 'Elimina'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lista/Tabella Transazioni */}
       {viewMode === 'list' ? (
         <div className="transactions-list">
@@ -302,6 +377,23 @@ const Transactions = () => {
                   <span className="transaction-date">{formatDate(tx.date)} • {formatTime(tx.date)}</span>
                 </div>
               </div>
+
+              <div className="transaction-actions">
+                <button 
+                  onClick={() => startEditTransaction(tx)}
+                  className="edit-btn"
+                  title="Modifica transazione"
+                >
+                  ✏️
+                </button>
+                <button 
+                  onClick={() => startDeleteTransaction(tx.id)}
+                  className="delete-btn"
+                  title="Elimina transazione"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -315,6 +407,7 @@ const Transactions = () => {
                 <th>Categoria</th>
                 <th>Conto</th>
                 <th>Importo</th>
+                <th>Azioni</th>
               </tr>
             </thead>
             <tbody>
@@ -346,6 +439,22 @@ const Transactions = () => {
                     <span className={`amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
                       {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
                     </span>
+                  </td>
+                  <td className="actions-cell">
+                    <button 
+                      onClick={() => startEditTransaction(tx)}
+                      className="edit-btn-table"
+                      title="Modifica transazione"
+                    >
+                      ✏️
+                    </button>
+                    <button 
+                      onClick={() => startDeleteTransaction(tx.id)}
+                      className="delete-btn-table"
+                      title="Elimina transazione"
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
               ))}
