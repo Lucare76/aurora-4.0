@@ -3,15 +3,12 @@ import React, { useState, useMemo } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import AddTransactionForm from './AddTransactionForm';
-import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
 const Transactions = () => {
   const { transactions, accounts, categories, loading, deleteTransaction } = useFinancial();
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -20,13 +17,56 @@ const Transactions = () => {
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Helper per convertire date
+  // CORREZIONE: Funzione per convertire date SENZA modificare il fuso orario
   const parseDate = (date) => {
     if (!date) return new Date();
+    
+    // Se è un oggetto Firestore Timestamp
     if (date && typeof date === 'object' && 'toDate' in date) {
       return date.toDate();
     }
+    
+    // Se è già un oggetto Date
+    if (date instanceof Date) {
+      return date;
+    }
+    
+    // Se è una stringa, convertila
     return new Date(date);
+  };
+
+  // CORREZIONE: Funzione per formattare l'ora locale CORRETTAMENTE
+  const formatTime = (date) => {
+    const d = parseDate(date);
+    
+    // Usa toLocaleTimeString SENZA specificare timeZone
+    // Lascia che JavaScript usi il fuso orario del browser/OS
+    return d.toLocaleTimeString('it-IT', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
+  // Funzione per formattare la data
+  const formatDate = (date) => {
+    const d = parseDate(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Confronta le date senza ore/minuti
+    const isToday = d.toDateString() === today.toDateString();
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    
+    if (isToday) return 'Oggi';
+    if (isYesterday) return 'Ieri';
+    
+    return d.toLocaleDateString('it-IT', { 
+      day: '2-digit', 
+      month: '2-digit',
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+    });
   };
 
   // Mappa ID a nome
@@ -34,6 +74,7 @@ const Transactions = () => {
     Object.fromEntries(accounts.map(acc => [acc.id, acc.name])), 
     [accounts]
   );
+  
   const categoryMap = useMemo(() => 
     Object.fromEntries(categories.map(cat => [cat.id, cat.name])), 
     [categories]
@@ -57,7 +98,7 @@ const Transactions = () => {
       return matchesType && matchesAccount && matchesCategory && matchesSearch;
     });
 
-    // Ordinamento per data
+    // Ordinamento per data (più recente prima)
     filtered.sort((a, b) => {
       const dateA = parseDate(a.date);
       const dateB = parseDate(b.date);
@@ -103,27 +144,6 @@ const Transactions = () => {
     };
   }, [transactions]);
 
-  const formatDate = (date) => {
-    const d = parseDate(date);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (d.toDateString() === today.toDateString()) return 'Oggi';
-    if (d.toDateString() === yesterday.toDateString()) return 'Ieri';
-    
-    return d.toLocaleDateString('it-IT', { 
-      day: '2-digit', 
-      month: '2-digit',
-      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-    });
-  };
-
-  const formatTime = (date) => {
-    const d = parseDate(date);
-    return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
-  };
-
   const getCategoryIcon = (categoryId) => {
     if (!categoryId) return '💰';
     const category = categories.find(cat => cat.id === categoryId);
@@ -136,7 +156,6 @@ const Transactions = () => {
     return category?.color || '#6b7280';
   };
 
-  // Funzione per eliminare transazione
   const handleDeleteTransaction = async () => {
     if (!transactionToDelete) return;
     
@@ -153,15 +172,8 @@ const Transactions = () => {
     }
   };
 
-  // Funzione per iniziare eliminazione
   const startDeleteTransaction = (transactionId) => {
     setTransactionToDelete(transactionId);
-  };
-
-  // Funzione per iniziare modifica
-  const startEditTransaction = (transaction) => {
-    setTransactionToEdit(transaction);
-    setShowEditForm(true);
   };
 
   if (loading) {
@@ -305,21 +317,6 @@ const Transactions = () => {
         </div>
       )}
 
-      {/* Modal per modificare transazione */}
-      {showEditForm && transactionToEdit && (
-        <div className="modal-backdrop" onClick={() => setShowEditForm(false)}>
-          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-            <EditTransactionForm 
-              transaction={transactionToEdit}
-              onClose={() => {
-                setShowEditForm(false);
-                setTransactionToEdit(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Modal di conferma eliminazione */}
       {transactionToDelete && (
         <div className="modal-backdrop">
@@ -367,29 +364,31 @@ const Transactions = () => {
                 <div className="transaction-primary">
                   <h4 className="transaction-title">{tx.description || 'Transazione senza descrizione'}</h4>
                   <div className={`transaction-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                    {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
+                    {tx.amount >= 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
                   </div>
                 </div>
                 
                 <div className="transaction-secondary">
                   <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
-                  <span className="transaction-category">{categoryMap[tx.category] || 'Senza categoria'}</span>
-                  <span className="transaction-date">{formatDate(tx.date)} • {formatTime(tx.date)}</span>
+                  <span className="transaction-category">
+                    {categoryMap[tx.category] || 'Senza categoria'}
+                  </span>
+                  <span className="transaction-date">
+                    {formatDate(tx.date)} • {formatTime(tx.date)}
+                  </span>
                 </div>
               </div>
 
               <div className="transaction-actions">
                 <button 
-                  onClick={() => startEditTransaction(tx)}
+                  onClick={() => {/* Funzione modifica se implementata */}}
                   className="edit-btn"
-                  title="Modifica transazione"
                 >
                   ✏️
                 </button>
                 <button 
                   onClick={() => startDeleteTransaction(tx.id)}
                   className="delete-btn"
-                  title="Elimina transazione"
                 >
                   🗑️
                 </button>
@@ -430,28 +429,33 @@ const Transactions = () => {
                   </td>
                   <td className="category-cell">
                     <div className="category-info">
-                      <span className="category-icon">{getCategoryIcon(tx.category)}</span>
-                      {categoryMap[tx.category] || 'Senza categoria'}
+                      <span 
+                        className="category-icon" 
+                        style={{ color: getCategoryColor(tx.category) }}
+                      >
+                        {getCategoryIcon(tx.category)}
+                      </span>
+                      <span className="category-name">
+                        {categoryMap[tx.category] || 'Senza categoria'}
+                      </span>
                     </div>
                   </td>
                   <td className="account-cell">{accountMap[tx.accountId] || 'Conto sconosciuto'}</td>
                   <td className="amount-cell">
                     <span className={`amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                      {tx.amount > 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
+                      {tx.amount >= 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
                     </span>
                   </td>
                   <td className="actions-cell">
                     <button 
-                      onClick={() => startEditTransaction(tx)}
+                      onClick={() => {/* Funzione modifica se implementata */}}
                       className="edit-btn-table"
-                      title="Modifica transazione"
                     >
                       ✏️
                     </button>
                     <button 
                       onClick={() => startDeleteTransaction(tx.id)}
                       className="delete-btn-table"
-                      title="Elimina transazione"
                     >
                       🗑️
                     </button>

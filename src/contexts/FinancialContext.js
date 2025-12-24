@@ -1,21 +1,64 @@
-// src/contexts/FinancialContext.js - VERSIONE CORRETTA
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+// src/contexts/FinancialContext.js
+import React, {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  useCallback,
+} from 'react';
 import { useAuth } from './AuthContext';
-import { 
-  db, 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
+import {
+  db,
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   onSnapshot,
   query,
   where,
   serverTimestamp,
-  getDoc
+  getDoc,
 } from '../services/firebase';
 
 const FinancialContext = createContext();
+
+/**
+ * Sottocategorie di default per le categorie "note"
+ */
+const defaultSubCategoryNames = {
+  expense: {
+    Alimentari: ['Supermercato', 'Alimentari', 'Frutta e Verdura'],
+    Trasporti: ['Benzina', 'Mezzi Pubblici', 'Taxi/Uber'],
+    Casa: ['Affitto', 'Mutuo', 'Manutenzione'],
+    Intrattenimento: ['Cinema', 'Teatro', 'Concerti'],
+    Salute: ['Farmacia', 'Visite mediche', 'Palestra'],
+    Shopping: ['Abbigliamento', 'Elettronica', 'Articoli per la casa'],
+    Ristoranti: ['Pranzo', 'Cena', 'Aperitivo'],
+    Bollette: ['Luce', 'Gas', 'Acqua', 'Internet'],
+  },
+  income: {
+    Stipendio: ['Stipendio base', 'Straordinari', 'Bonus'],
+    Investimenti: ['Dividendi', 'Interessi', 'Rendite'],
+    Freelance: ['Consulenze', 'Progetti', 'Collaborazioni'],
+    Regali: ['Compleanni', 'Festività', 'Occasioni'],
+    Vendite: ['Prodotti', 'Servizi', 'Usato'],
+    Bonus: ['Tredicesima', 'Premi', 'Incentivi'],
+  },
+};
+
+// Costruisce oggetti sottocategoria a partire da una lista di nomi
+const buildSubCategoryObjects = (names, baseColor) => {
+  const color = baseColor || '#6b7280';
+
+  return names.map((name) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    name,
+    icon: '📋',
+    color,
+    createdAt: new Date(),
+  }));
+};
 
 export const FinancialProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
@@ -24,12 +67,20 @@ export const FinancialProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // ========== CREA CATEGORIE PREDEFINITE ==========
+  // ========== CREA CATEGORIE PREDEFINITE (UNA SOLA VOLTA PER UTENTE) ==========
   const createDefaultCategories = useCallback(async () => {
     if (!user) return;
-    
+
+    const flagKey = `defaults_created_${user.uid}`;
+
+    // Se già create su questo browser, non ricreare
+    if (localStorage.getItem(flagKey) === '1') {
+      console.log('ℹ️ Default categories già inizializzate (localStorage), skip');
+      return;
+    }
+
     console.log('🏗️ Creazione categorie predefinite...');
-    
+
     const defaultCategories = [
       // Uscite
       { name: 'Alimentari', icon: '🍕', color: '#ef4444', type: 'expense' },
@@ -42,21 +93,24 @@ export const FinancialProvider = ({ children }) => {
       { name: 'Stipendio', icon: '💼', color: '#06b6d4', type: 'income' },
       { name: 'Investimenti', icon: '📈', color: '#84cc16', type: 'income' },
       { name: 'Regali', icon: '🎁', color: '#f97316', type: 'income' },
-      { name: 'Freelance', icon: '💻', color: '#6366f1', type: 'income' }
+      { name: 'Freelance', icon: '💻', color: '#6366f1', type: 'income' },
     ];
 
-    for (const category of defaultCategories) {
-      try {
+    try {
+      for (const category of defaultCategories) {
         await addDoc(collection(db, 'categories'), {
           ...category,
           userId: user.uid,
           createdAt: serverTimestamp(),
-          subCategories: []
+          subCategories: [], // coerente (array di oggetti, ma vuoto va bene)
         });
         console.log('✅ Categoria creata:', category.name);
-      } catch (error) {
-        console.error('❌ Errore creazione categoria:', category.name, error);
       }
+
+      localStorage.setItem(flagKey, '1');
+      console.log('✅ Default categories inizializzate, flag salvato');
+    } catch (error) {
+      console.error('❌ Errore creazione categorie predefinite:', error);
     }
   }, [user]);
 
@@ -70,335 +124,362 @@ export const FinancialProvider = ({ children }) => {
       return;
     }
 
+    console.log('🔄 [useEffect] Inizializzazione listeners Firebase per user:', user.uid);
     setLoading(true);
 
-    // 1. Carica Accounts
+    // 1. Accounts
     const accountsRef = collection(db, 'accounts');
     const accountsQuery = query(accountsRef, where('userId', '==', user.uid));
-    const unsubscribeAccounts = onSnapshot(accountsQuery, (snapshot) => {
-      const accountsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        balance: parseFloat(doc.data().balance) || 0
-      }));
-      console.log('📊 Accounts caricati:', accountsData.length);
-      setAccounts(accountsData);
-    });
+    const unsubscribeAccounts = onSnapshot(
+      accountsQuery,
+      (snapshot) => {
+        const accountsData = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+          balance: parseFloat(docSnap.data().balance) || 0,
+        }));
+        console.log('📊 Accounts caricati:', accountsData.length);
+        setAccounts(accountsData);
+      },
+      (error) => {
+        console.error('❌ Errore caricamento accounts:', error);
+      }
+    );
 
-    // 2. Carica Categories
+    // 2. Categories
     const categoriesRef = collection(db, 'categories');
     const categoriesQuery = query(categoriesRef, where('userId', '==', user.uid));
-    const unsubscribeCategories = onSnapshot(categoriesQuery, (snapshot) => {
-      if (snapshot.empty) {
-        console.log('🏷️ Nessuna categoria trovata, creo quelle predefinite');
-        createDefaultCategories();
-      } else {
-        const categoriesData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          subCategories: doc.data().subCategories || []
-        }));
+
+    const unsubscribeCategories = onSnapshot(
+      categoriesQuery,
+      async (snapshot) => {
+        console.log('📸 [onSnapshot Categories] Snapshot ricevuto');
+        console.log('   - Numero documenti:', snapshot.docs.length);
+        console.log('   - Snapshot vuoto?', snapshot.empty);
+
+        // Se non ci sono categorie, inizializza solo se NON è già stato fatto
+        if (snapshot.empty) {
+          console.log('🏷️ Nessuna categoria trovata');
+          await createDefaultCategories();
+          return;
+        }
+
+        const updatePromises = [];
+
+        const categoriesData = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+
+          // Normalizza: subCategories deve essere sempre array di OGGETTI
+          let subCategoriesRaw = data.subCategories || data.subcategories || [];
+          let subCategories = subCategoriesRaw.map((sub) =>
+            typeof sub === 'string'
+              ? {
+                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                  name: sub,
+                  icon: '📋',
+                  color: data.color || '#6b7280',
+                  createdAt: new Date(),
+                }
+              : sub
+          );
+
+          // Se non ci sono sottocategorie, aggiungi quelle di default (una volta)
+          if (!subCategories.length) {
+            const defaultsForType = defaultSubCategoryNames[data.type] || {};
+            const defaultNames = defaultsForType[data.name];
+
+            if (defaultNames && defaultNames.length) {
+              subCategories = buildSubCategoryObjects(defaultNames, data.color);
+
+              updatePromises.push(
+                updateDoc(doc(db, 'categories', docSnap.id), {
+                  subCategories,
+                  updatedAt: serverTimestamp(),
+                }).catch((err) => {
+                  console.error('❌ Errore aggiornando sottocategorie di default per', data.name, err);
+                })
+              );
+            }
+          }
+
+          return {
+            id: docSnap.id,
+            ...data,
+            subCategories,
+          };
+        });
+
+        if (updatePromises.length) {
+          console.log('✨ Aggiunta sottocategorie di default a', updatePromises.length, 'categorie');
+          try {
+            await Promise.all(updatePromises);
+          } catch {
+            // errori già loggati
+          }
+        }
+
         console.log('🏷️ Categories caricate:', categoriesData.length);
         setCategories(categoriesData);
+      },
+      (error) => {
+        console.error('❌ Errore caricamento categories:', error);
       }
-    });
-
-    // 3. Carica Transactions
-    const transactionsRef = collection(db, 'transactions');
-    const transactionsQuery = query(
-      transactionsRef, 
-      where('userId', '==', user.uid)
     );
-    
-    const unsubscribeTransactions = onSnapshot(transactionsQuery, (snapshot) => {
-      const transactionsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          amount: typeof data.amount === 'string' ? parseFloat(data.amount) : data.amount || 0,
-          date: data.date?.toDate() || new Date(data.date) || new Date()
-        };
-      });
-      
-      transactionsData.sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      console.log('💰 Transactions caricate:', transactionsData.length);
-      setTransactions(transactionsData);
-      setLoading(false);
-    });
+
+    // 3. Transactions
+    const transactionsRef = collection(db, 'transactions');
+    const transactionsQuery = query(transactionsRef, where('userId', '==', user.uid));
+
+    const unsubscribeTransactions = onSnapshot(
+      transactionsQuery,
+      (snapshot) => {
+        const transactionsData = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data();
+
+          let dateValue = new Date();
+          if (data.date) {
+            if (typeof data.date.toDate === 'function') {
+              dateValue = data.date.toDate();
+            } else {
+              const parsed = new Date(data.date);
+              if (!isNaN(parsed.getTime())) {
+                dateValue = parsed;
+              }
+            }
+          }
+
+          return {
+            id: docSnap.id,
+            ...data,
+            amount: typeof data.amount === 'string' ? parseFloat(data.amount) || 0 : data.amount || 0,
+            date: dateValue,
+          };
+        });
+
+        transactionsData.sort((a, b) => b.date - a.date);
+
+        console.log('💰 Transactions caricate:', transactionsData.length);
+        setTransactions(transactionsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('❌ Errore caricamento transactions:', error);
+        setLoading(false);
+      }
+    );
 
     return () => {
       unsubscribeAccounts();
       unsubscribeCategories();
       unsubscribeTransactions();
     };
-  }, [user, createDefaultCategories]); // Aggiunto createDefaultCategories
+  }, [user, createDefaultCategories]);
 
   // ========== FUNZIONI ACCOUNTS ==========
   const createAccount = async (accountData) => {
-    console.log('🎯 Creazione account:', accountData);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
+
     const newAccount = {
       ...accountData,
       userId: user.uid,
       createdAt: serverTimestamp(),
-      balance: parseFloat(accountData.balance) || 0
+      balance: parseFloat(accountData.balance) || 0,
     };
-    
+
     const docRef = await addDoc(collection(db, 'accounts'), newAccount);
-    console.log('✅ Account creato con ID:', docRef.id);
-    
     return { id: docRef.id, ...newAccount };
   };
 
   const updateAccount = async (accountId, updates) => {
-    console.log('✏️ Aggiornamento account:', accountId, updates);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
-    if (updates.balance !== undefined) {
-      updates.balance = parseFloat(updates.balance) || 0;
-    }
-    
+
+    const patched = { ...updates };
+    if (patched.balance !== undefined) patched.balance = parseFloat(patched.balance) || 0;
+
     await updateDoc(doc(db, 'accounts', accountId), {
-      ...updates,
-      updatedAt: serverTimestamp()
+      ...patched,
+      updatedAt: serverTimestamp(),
     });
-    
-    console.log('✅ Account aggiornato');
   };
 
   const deleteAccount = async (accountId) => {
-    console.log('🗑️ Eliminazione account:', accountId);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
-    const accountTransactions = transactions.filter(
-      t => t.accountId === accountId
-    );
-    
+
+    const accountTransactions = transactions.filter((t) => t.accountId === accountId);
     if (accountTransactions.length > 0) {
       throw new Error(`❌ Impossibile eliminare: ${accountTransactions.length} transazioni associate`);
     }
-    
+
     await deleteDoc(doc(db, 'accounts', accountId));
-    console.log('✅ Account eliminato');
   };
 
   // ========== FUNZIONI TRANSACTIONS ==========
   const createTransaction = async (transactionData) => {
-    console.log('🎯 Creazione transazione:', transactionData);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
-    const amount = transactionData.type === 'expense' 
-      ? -Math.abs(parseFloat(transactionData.amount) || 0)
-      : Math.abs(parseFloat(transactionData.amount) || 0);
-    
+
+    const baseAmount = parseFloat(transactionData.amount) || 0;
+
+    let amount = baseAmount;
+    if (transactionData.type === 'expense') amount = -Math.abs(baseAmount);
+    else if (transactionData.type === 'income') amount = Math.abs(baseAmount);
+
     const newTransaction = {
       ...transactionData,
       userId: user.uid,
       date: new Date(transactionData.date),
-      amount: amount,
-      createdAt: serverTimestamp()
+      amount,
+      createdAt: serverTimestamp(),
     };
-    
+
     const docRef = await addDoc(collection(db, 'transactions'), newTransaction);
-    console.log('✅ Transazione creata con ID:', docRef.id);
-    
+
     if (transactionData.accountId) {
-      const account = accounts.find(acc => acc.id === transactionData.accountId);
+      const account = accounts.find((acc) => acc.id === transactionData.accountId);
       if (account) {
         const newBalance = (parseFloat(account.balance) || 0) + amount;
-        console.log('💰 Aggiornamento saldo account:', account.name, 'da', account.balance, 'a', newBalance);
         await updateAccount(account.id, { balance: newBalance });
       }
     }
-    
+
     return { id: docRef.id, ...newTransaction };
   };
 
   const updateTransaction = async (transactionId, updates) => {
-    console.log('✏️ Aggiornamento transazione:', transactionId, updates);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
-    if (updates.amount !== undefined) {
-      const amount = updates.type === 'expense' 
-        ? -Math.abs(parseFloat(updates.amount) || 0)
-        : Math.abs(parseFloat(updates.amount) || 0);
-      updates.amount = amount;
+
+    const patched = { ...updates };
+
+    if (patched.amount !== undefined && patched.type) {
+      const baseAmount = parseFloat(patched.amount) || 0;
+      patched.amount = patched.type === 'expense' ? -Math.abs(baseAmount) : Math.abs(baseAmount);
     }
-    
-    if (updates.date) {
-      updates.date = new Date(updates.date);
-    }
-    
+
+    if (patched.date) patched.date = new Date(patched.date);
+
     await updateDoc(doc(db, 'transactions', transactionId), {
-      ...updates,
-      updatedAt: serverTimestamp()
+      ...patched,
+      updatedAt: serverTimestamp(),
     });
-    
-    console.log('✅ Transazione aggiornata');
   };
 
   const deleteTransaction = async (transactionId) => {
-    console.log('🗑️ Eliminazione transazione:', transactionId);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
-    const transactionToDelete = transactions.find(t => t.id === transactionId);
-    if (!transactionToDelete) {
-      throw new Error('❌ Transazione non trovata');
-    }
-    
+
+    const transactionToDelete = transactions.find((t) => t.id === transactionId);
+    if (!transactionToDelete) throw new Error('❌ Transazione non trovata');
+
     await deleteDoc(doc(db, 'transactions', transactionId));
-    console.log('✅ Transazione eliminata');
   };
 
   // ========== FUNZIONI CATEGORIES ==========
   const addCategory = async (categoryData) => {
-    console.log('🏷️ Aggiunta categoria:', categoryData);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
+
     const newCategory = {
       ...categoryData,
       userId: user.uid,
       createdAt: serverTimestamp(),
-      subCategories: categoryData.subCategories || []
+      // subCategories sempre array di OGGETTI
+      subCategories: categoryData.subCategories || [],
     };
-    
+
     const docRef = await addDoc(collection(db, 'categories'), newCategory);
-    console.log('✅ Categoria aggiunta con ID:', docRef.id);
-    
     return { id: docRef.id, ...newCategory };
   };
 
   const updateCategory = async (categoryId, updates) => {
-    console.log('✏️ Aggiornamento categoria:', categoryId, updates);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
+
     await updateDoc(doc(db, 'categories', categoryId), {
       ...updates,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
-    
-    console.log('✅ Categoria aggiornata');
   };
 
   const deleteCategory = async (categoryId) => {
-    console.log('🗑️ Eliminazione categoria:', categoryId);
-    
-    if (!user) throw new Error('❌ Utente non autenticato');
-    
-    const categoryTransactions = transactions.filter(t => t.category === categoryId);
-    
-    if (categoryTransactions.length > 0) {
-      throw new Error(`❌ Impossibile eliminare: ${categoryTransactions.length} transazioni associate`);
-    }
-    
-    await deleteDoc(doc(db, 'categories', categoryId));
-    console.log('✅ Categoria eliminata');
+    if (!user) throw new Error('Utente non autenticato');
+    if (!categoryId) throw new Error('ID categoria non valido o mancante');
+
+    const categoryRef = doc(db, 'categories', categoryId);
+    const categorySnap = await getDoc(categoryRef);
+
+    if (!categorySnap.exists()) throw new Error('Categoria non trovata nel database');
+
+    const categoryData = categorySnap.data();
+    if (categoryData.userId !== user.uid) throw new Error('Non hai i permessi per eliminare questa categoria');
+
+    await deleteDoc(categoryRef);
   };
 
   // ========== FUNZIONI SOTTOCATEGORIE ==========
   const addSubCategory = async (categoryId, subCategoryData) => {
-    console.log('➕ Aggiunta sottocategoria:', categoryId, subCategoryData);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
+
     const categoryRef = doc(db, 'categories', categoryId);
     const categoryDoc = await getDoc(categoryRef);
-    
-    if (!categoryDoc.exists()) {
-      throw new Error('❌ Categoria non trovata');
-    }
-    
+    if (!categoryDoc.exists()) throw new Error('❌ Categoria non trovata');
+
     const currentSubCategories = categoryDoc.data().subCategories || [];
-    const updatedSubCategories = [...currentSubCategories, {
-      id: Date.now().toString(),
-      name: subCategoryData.name,
-      icon: subCategoryData.icon || '📋',
-      color: subCategoryData.color || '#6b7280',
-      createdAt: new Date()
-    }];
-    
+    const updatedSubCategories = [
+      ...currentSubCategories,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        name: subCategoryData.name,
+        icon: subCategoryData.icon || '📋',
+        color: subCategoryData.color || '#6b7280',
+        createdAt: new Date(),
+      },
+    ];
+
     await updateDoc(categoryRef, {
       subCategories: updatedSubCategories,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
-    
-    console.log('✅ Sottocategoria aggiunta');
   };
 
   const removeSubCategory = async (categoryId, subCategoryId) => {
-    console.log('➖ Rimozione sottocategoria:', categoryId, subCategoryId);
-    
     if (!user) throw new Error('❌ Utente non autenticato');
-    
+
     const categoryRef = doc(db, 'categories', categoryId);
     const categoryDoc = await getDoc(categoryRef);
-    
-    if (!categoryDoc.exists()) {
-      throw new Error('❌ Categoria non trovata');
-    }
-    
+    if (!categoryDoc.exists()) throw new Error('❌ Categoria non trovata');
+
     const currentSubCategories = categoryDoc.data().subCategories || [];
-    const updatedSubCategories = currentSubCategories.filter(
-      sub => sub.id !== subCategoryId
-    );
-    
+    const updatedSubCategories = currentSubCategories.filter((sub) => sub.id !== subCategoryId);
+
     await updateDoc(categoryRef, {
       subCategories: updatedSubCategories,
-      updatedAt: serverTimestamp()
+      updatedAt: serverTimestamp(),
     });
-    
-    console.log('✅ Sottocategoria rimossa');
   };
 
   const value = {
-    // Dati
     transactions,
     accounts,
     categories,
     loading,
-    
-    // Accounts
+
     createAccount,
     updateAccount,
     deleteAccount,
-    
-    // Transactions
+
     createTransaction,
     updateTransaction,
     deleteTransaction,
-    
-    // Categories
+
     addCategory,
     updateCategory,
     deleteCategory,
-    
-    // SubCategories
+
     addSubCategory,
-    removeSubCategory
+    removeSubCategory,
   };
 
-  return (
-    <FinancialContext.Provider value={value}>
-      {children}
-    </FinancialContext.Provider>
-  );
+  return <FinancialContext.Provider value={value}>{children}</FinancialContext.Provider>;
 };
 
 export const useFinancial = () => {
   const context = useContext(FinancialContext);
-  if (!context) {
-    throw new Error('useFinancial deve essere usato dentro FinancialProvider');
-  }
+  if (!context) throw new Error('useFinancial deve essere usato dentro FinancialProvider');
   return context;
 };

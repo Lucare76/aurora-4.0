@@ -1,63 +1,35 @@
-import React, { useState } from 'react';
+// src/components/CreateFirstAccount.js
+import React from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
+import '../pages/Accounts.css'; // ✅ path corretto
 
+/**
+ * Mostra un box di benvenuto SOLO se non esistono ancora account.
+ */
 const CreateFirstAccount = () => {
-  const { createAccount, accounts } = useFinancial();
-  const [isCreating, setIsCreating] = useState(false);
+  const { accounts } = useFinancial();
 
-  const handleCreateFirstAccount = async () => {
-    if (isCreating) return;
-    
-    setIsCreating(true);
-    try {
-      await createAccount({
-        name: 'Conto Corrente',
-        type: 'bank',
-        balance: 0,
-        color: '#4f46e5'
-      });
-      console.log("✅ Primo conto creato!");
-    } catch (error) {
-      console.error("❌ Errore creazione conto:", error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
-  // Se non ci sono conti, mostra il pulsante per crearne uno
-  if (accounts.length === 0) {
-    return (
-      <div style={{
-        textAlign: 'center',
-        padding: '40px 20px',
-        background: 'var(--bg-primary)',
-        borderRadius: '12px',
-        border: '2px dashed var(--border-color)',
-        margin: '20px 0'
-      }}>
-        <h3>🎯 Crea il tuo primo conto</h3>
-        <p>Per aggiungere transazioni, hai bisogno di almeno un conto</p>
-        <button 
-          onClick={handleCreateFirstAccount}
-          disabled={isCreating}
-          style={{
-            background: 'var(--primary-color)',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            marginTop: '15px'
-          }}
-        >
-          {isCreating ? 'Creazione...' : 'Crea Primo Conto'}
-        </button>
-      </div>
-    );
+  // Se esiste almeno un account, non mostra nulla
+  if (!accounts || accounts.length > 0) {
+    return null;
   }
 
-  return null;
+  return (
+    <div className="first-account-wrapper">
+      <div className="first-account-card">
+        <div className="first-account-icon">🌅</div>
+        <h2 className="first-account-title">Benvenuto in Aurora 4.0</h2>
+        <p className="first-account-text">
+          Qui puoi gestire conti correnti, risparmi, carte di credito e contanti
+          in un’unica dashboard elegante e intuitiva.
+        </p>
+        <p className="first-account-note">
+          Per iniziare, clicca sul pulsante <strong>"New Account"</strong> in alto a destra
+          e crea il tuo primo conto.
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default CreateFirstAccount;
