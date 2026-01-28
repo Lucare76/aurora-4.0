@@ -1,0 +1,115 @@
+.transactions-page {
+    padding: 20px;
+  }
+  
+  .transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  
+  .header-actions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+  }
+  
+  .filter-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background: white;
+  }
+  
+  /* Lista Transazioni */
+  .transactions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .transaction-item {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid #e74c3c;
+  }
+  
+  .transaction-item.income {
+    border-left-color: #2ecc71;
+  }
+  
+  .transaction-item.transfer {
+    border-left-color: #3498db;
+  }
+  
+  .transaction-icon {
+    font-size: 1.5rem;
+    margin-right: 15px;
+  }
+  
+  .transaction-details {
+    flex: 1;
+  }
+  
+  .transaction-description {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 5px;
+  }
+  
+  .transaction-meta {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+    margin-bottom: 3px;
+  }
+  
+  .transaction-date {
+    font-size: 0.8rem;
+    color: #95a5a6;
+  }
+  
+  .transaction-amount {
+    font-weight: bold;
+    font-size: 1.1rem;
+  }
+  
+  .transaction-amount.income {
+    color: #2ecc71;
+  }
+  
+  .transaction-amount.expense {
+    color: #e74c3c;
+  }
+  
+  .transaction-amount.transfer {
+    color: #3498db;
+  }
+  
+  /* Form Stili */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+  
+  @media (max-width: 768px) {
+    .transactions-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .header-actions {
+      justify-content: space-between;
+    }
+    
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
