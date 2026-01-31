@@ -1,17 +1,21 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
+
+import Reports from './pages/Reports';
 import Transactions from './pages/Transactions';
 import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
-import { 
-  FiHome, 
-  FiCreditCard, 
-  FiBarChart2, 
-  FiUpload, 
-  FiGift, 
+
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
+
+import {
+  FiHome,
+  FiCreditCard,
+  FiBarChart2,
+  FiUpload,
+  FiGift,
   FiSettings,
   FiDollarSign,
   FiUser,
@@ -20,11 +24,9 @@ import {
   FiX,
   FiTrendingUp,
   FiPieChart,
-  FiLogOut,
-  FiDownload,
-  FiPrinter,
-  FiCalendar
+  FiLogOut
 } from 'react-icons/fi';
+
 import { WiDaySunny } from 'react-icons/wi';
 import './App.css';
 
@@ -45,10 +47,13 @@ function Login() {
     try {
       setLoading(true);
       setError('');
-      await loginWithGoogle();
+      const res = await loginWithGoogle();
+      if (res && res.success === false) {
+        setError(res.error || 'Errore login Google');
+      }
     } catch (error) {
       console.error('Errore Google login:', error);
-      setError('Errore durante il login con Google: ' + error.message);
+      setError('Errore durante il login con Google: ' + (error?.message || ''));
     } finally {
       setLoading(false);
     }
@@ -63,14 +68,21 @@ function Login() {
 
     try {
       if (activePanel === 'login') {
-        await login(formData.email, formData.password);
+        const res = await login(formData.email, formData.password);
+        if (res && res.success === false) {
+          setError(res.error || 'Errore login');
+        }
       } else {
-        await signup(formData.email, formData.password, formData.displayName);
+        // AuthContext si aspetta additionalData come oggetto
+        const res = await signup(formData.email, formData.password, { displayName: formData.displayName });
+        if (res && res.success === false) {
+          setError(res.error || 'Errore registrazione');
+        }
       }
     } catch (error) {
       console.error('Errore autenticazione:', error);
       setError(
-        `Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${error.message}`
+        `Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${error?.message || ''}`
       );
     } finally {
       setLoading(false);
@@ -147,12 +159,14 @@ function Login() {
             <button
               className={`tab ${activePanel === 'login' ? 'active' : ''}`}
               onClick={() => setActivePanel('login')}
+              type="button"
             >
               Accedi
             </button>
             <button
               className={`tab ${activePanel === 'register' ? 'active' : ''}`}
               onClick={() => setActivePanel('register')}
+              type="button"
             >
               Registrati
             </button>
@@ -162,7 +176,6 @@ function Login() {
           <div className="auth-content">
             {activePanel === 'login' ? (
               <>
-                {/* Login Panel */}
                 <div className="welcome-message">
                   <h2>Bentornato! 👋</h2>
                   <p>Accedi al tuo spazio finanziario personale</p>
@@ -172,6 +185,7 @@ function Login() {
                   className="google-login-btn-premium"
                   onClick={handleGoogleLogin}
                   disabled={loading || authLoading}
+                  type="button"
                 >
                   <div className="google-btn-content">
                     <div className="google-icon-wrapper">
@@ -270,7 +284,6 @@ function Login() {
               </>
             ) : (
               <>
-                {/* Register Panel */}
                 <div className="welcome-message">
                   <h2>Unisciti a Noi! 🚀</h2>
                   <p>Crea il tuo spazio finanziario personalizzato</p>
@@ -375,7 +388,6 @@ function Login() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="login-footer">
             <p>
               {activePanel === 'login' ? 'Nuovo su Aurora? ' : 'Hai già un account? '}
@@ -390,7 +402,7 @@ function Login() {
           </div>
         </div>
 
-        {/* Side Panel con Features */}
+        {/* Side Panel */}
         <div className="features-panel">
           <div className="features-content">
             <h3>Scopri Aurora 4.0</h3>
@@ -419,12 +431,13 @@ function Login() {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
 }
 
-// ==================== COMPONENTE SIDEBAR AURORA ====================
+// ==================== COMPONENTE SIDEBAR ====================
 function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
   const { user, logout } = useAuth();
 
@@ -452,7 +465,6 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <div className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
-        {/* Background Aurora */}
         <div className="aurora-background">
           <div className="aurora-layer-1"></div>
           <div className="aurora-layer-2"></div>
@@ -471,7 +483,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
                 <span>4.0</span>
               </div>
             </div>
-            <button className="close-sidebar" onClick={() => setSidebarOpen(false)}>
+            <button className="close-sidebar" onClick={() => setSidebarOpen(false)} type="button">
               <FiX />
             </button>
           </div>
@@ -486,6 +498,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
                   setSidebarOpen(false);
                 }}
                 style={{ '--accent-color': item.color }}
+                type="button"
               >
                 <div className="nav-icon-wrapper">{item.icon}</div>
                 <span className="nav-label">{item.label}</span>
@@ -515,28 +528,27 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
                 <div className="user-name">{user?.displayName || 'Utente'}</div>
                 <div className="user-status">Online</div>
               </div>
-              <button className="logout-btn" onClick={handleLogout} title="Logout">
+              <button className="logout-btn" onClick={handleLogout} title="Logout" type="button">
                 <FiLogOut />
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </>
   );
 }
 
-// ==================== COMPONENTE HEADER AURORA ====================
+// ==================== HEADER ====================
 function Header({ setSidebarOpen }) {
   const { user } = useAuth();
   const { accounts } = useFinancial();
 
-  // Calcola il saldo totale reale
-  const totalBalance = accounts.reduce((sum, account) => sum + (account.balance || 0), 0);
+  const totalBalance = (accounts || []).reduce((sum, account) => sum + (Number(account.balance) || 0), 0);
 
   return (
     <header className="header">
-      {/* Background Aurora */}
       <div className="aurora-background">
         <div className="aurora-layer-1"></div>
         <div className="aurora-layer-2"></div>
@@ -544,7 +556,7 @@ function Header({ setSidebarOpen }) {
       </div>
 
       <div className="header-content">
-        <button className="menu-toggle" onClick={() => setSidebarOpen(true)}>
+        <button className="menu-toggle" onClick={() => setSidebarOpen(true)} type="button">
           <FiMenu />
         </button>
 
@@ -553,7 +565,7 @@ function Header({ setSidebarOpen }) {
         </div>
 
         <div className="header-actions">
-          <button className="action-btn notification-btn">
+          <button className="action-btn notification-btn" type="button">
             <FiBell />
             <span className="notification-badge">3</span>
           </button>
@@ -573,24 +585,21 @@ function Header({ setSidebarOpen }) {
     </header>
   );
 }
-// ==================== COMPONENTE DASHBOARD AURORA ====================
-// ==================== COMPONENTE DASHBOARD AURORA ====================
+
+// ==================== DASHBOARD ====================
 function DashboardContent() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { user } = useAuth();
-  const { transactions, accounts, categories } = useFinancial();
+  const { transactions = [], accounts = [], categories = [] } = useFinancial();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // ---- Helpers robusti (date Firestore + importi) ----
   const parseDate = (date) => {
     if (!date) return new Date();
-    if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
-      return date.toDate(); // Firestore Timestamp
-    }
+    if (date && typeof date === 'object' && typeof date.toDate === 'function') return date.toDate();
     if (date instanceof Date) return date;
     return new Date(date);
   };
@@ -600,7 +609,6 @@ function DashboardContent() {
     return Number.isFinite(n) ? n : 0;
   };
 
-  // Se type non c'è, lo deduco dal segno dell'importo
   const getType = (t) => {
     if (t?.type === 'income' || t?.type === 'expense' || t?.type === 'transfer') return t.type;
     return getAmount(t) >= 0 ? 'income' : 'expense';
@@ -611,54 +619,45 @@ function DashboardContent() {
     return acc?.name || 'Conto';
   };
 
-  // t.category potrebbe essere ID oppure nome (o categoryId)
   const getCategoryName = (t) => {
-  const raw = t?.categoryId || t?.category;
-  if (!raw) return 'Senza categoria';
+    const raw = t?.categoryId || t?.category;
+    if (!raw) return 'Senza categoria';
 
-  const found = categories.find((c) => c.id === raw);
-  if (found?.name) return found.name;
+    const found = categories.find((c) => c.id === raw);
+    if (found?.name) return found.name;
 
-  if (typeof raw === 'string') return raw;
-  return 'Senza categoria';
-};
+    if (typeof raw === 'string') return raw;
+    return 'Senza categoria';
+  };
+
+  const getSubCategoryName = (t) => {
+    const raw = t?.subCategoryId || t?.subCategory || t?.subcategory;
+    if (!raw) return '';
+
+    const catRaw = t?.categoryId || t?.category;
+    const catObj =
+      categories.find((c) => c.id === catRaw) ||
+      categories.find((c) => (c.name || '').toLowerCase() === String(catRaw || '').toLowerCase());
+
+    const subs = catObj?.subCategories || catObj?.subcategories || catObj?.children || [];
+    const found =
+      subs.find((s) => s?.id === raw) ||
+      subs.find((s) => String(s?.name || '').toLowerCase() === String(raw || '').toLowerCase());
+
+    if (found?.name) return found.name;
+    if (typeof raw === 'string' && raw.trim()) return raw.trim();
+    return '';
+  };
 
   const getDisplayName = (t) => {
-  const desc = (t?.description || '').trim();
-
-  const cat = getCategoryName(t);
-  const sub = getSubCategoryName(t);
-  const acc = getAccountName(t);
-
-  const catLabel = sub ? `${cat} / ${sub}` : cat;
-
-  if (desc) return `${desc} • ${catLabel}`;
-  return `${catLabel} • ${acc}`;
-};
-const getSubCategoryName = (t) => {
-  const raw = t?.subCategoryId || t?.subCategory || t?.subcategory;
-  if (!raw) return '';
-
-  // 1) Trovo la categoria (per cercare dentro le sue sottocategorie)
-  const catRaw = t?.categoryId || t?.category;
-  const catObj =
-    categories.find((c) => c.id === catRaw) ||
-    categories.find((c) => (c.name || '').toLowerCase() === String(catRaw || '').toLowerCase());
-
-  const subs = catObj?.subCategories || catObj?.subcategories || catObj?.children || [];
-
-  // 2) Se raw è un ID (stringa), cerco match per id o per name
-  const found =
-    subs.find((s) => s?.id === raw) ||
-    subs.find((s) => String(s?.name || '').toLowerCase() === String(raw || '').toLowerCase());
-
-  if (found?.name) return found.name;
-
-  // 3) Fallback: se NON ho trovato nulla, allora lo tratto come testo (legacy)
-  if (typeof raw === 'string' && raw.trim()) return raw.trim();
-
-  return '';
-};
+    const desc = (t?.description || '').trim();
+    const cat = getCategoryName(t);
+    const sub = getSubCategoryName(t);
+    const acc = getAccountName(t);
+    const catLabel = sub ? `${cat} / ${sub}` : cat;
+    if (desc) return `${desc} • ${catLabel}`;
+    return `${catLabel} • ${acc}`;
+  };
 
   const getTransactionIcon = (t) => {
     const type = getType(t);
@@ -682,7 +681,6 @@ const getSubCategoryName = (t) => {
     return `${diffDays} giorni fa`;
   };
 
-  // ---- Statistiche mese corrente (robuste) ----
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
 
@@ -701,16 +699,14 @@ const getSubCategoryName = (t) => {
 
   const monthlySavings = monthlyIncome - monthlyExpenses;
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
+  const totalBalance = accounts.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0);
 
-  // Ultime 4 transazioni (robuste)
   const recentTransactions = [...transactions]
     .sort((a, b) => parseDate(b.date) - parseDate(a.date))
     .slice(0, 4);
 
   return (
     <div className="content-page">
-      {/* Background Aurora */}
       <div className="aurora-background">
         <div className="aurora-layer-1"></div>
         <div className="aurora-layer-2"></div>
@@ -795,13 +791,13 @@ const getSubCategoryName = (t) => {
                   ></div>
                   <div className="account-info">
                     <div className="account-name">{account.name}</div>
-                    <div className="account-balance">€ {(account.balance || 0).toFixed(2)}</div>
+                    <div className="account-balance">€ {(Number(account.balance) || 0).toFixed(2)}</div>
                   </div>
                   <div className="account-actions">
-                    <button className="btn-icon">
+                    <button className="btn-icon" type="button">
                       <FiPieChart />
                     </button>
-                    <button className="btn-icon">
+                    <button className="btn-icon" type="button">
                       <FiTrendingUp />
                     </button>
                   </div>
@@ -847,543 +843,13 @@ const getSubCategoryName = (t) => {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );
 }
-// ==================== COMPONENTE REPORTS CON GRAFICI ====================
-function ReportsContent() {
-  const { transactions, accounts, categories = [] } = useFinancial();
 
-  // ---- Helpers (robusti: Firestore Timestamp + Date + string) ----
-  const parseDate = (date) => {
-    if (!date) return new Date();
-    if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
-      return date.toDate();
-    }
-    if (date instanceof Date) return date;
-    return new Date(date);
-  };
-
-  const getAmount = (t) => {
-    const n = Number(t?.amount);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const getType = (t) => {
-    if (t?.type === 'income' || t?.type === 'expense' || t?.type === 'transfer') return t.type;
-    return getAmount(t) >= 0 ? 'income' : 'expense';
-  };
-
-  const getAccountName = (t) => {
-    const acc = accounts.find((a) => a.id === t?.accountId);
-    return acc?.name || 'Conto';
-  };
-
-  // ✅ UNICA getCategoryName
-  const getCategoryName = (t) => {
-    const raw = t?.categoryId || t?.category;
-    if (!raw) return 'Senza categoria';
-
-    const byId = categories.find((c) => c.id === raw);
-    if (byId?.name) return byId.name;
-
-    if (typeof raw === 'string') return raw;
-    return 'Senza categoria';
-  };
-
-  const getSubCategoryName = (t) => {
-  const raw = t?.subCategoryId || t?.subCategory || t?.subcategory;
-  if (!raw) return '';
-
-  // se è già un nome leggibile (no ID)
-  if (typeof raw === 'string' && !raw.includes('-') && raw.length < 30) {
-    return raw;
-  }
-
-  const catId = t?.categoryId || t?.category;
-  const catObj = categories.find((c) => c.id === catId);
-
-  const subs = catObj?.subCategories || [];
-
-  const found = subs.find(
-    (s) => s.id === raw || s.name === raw
-  );
-
-  return found?.name || '';
-};
-
-  const getDisplayName = (t) => {
-    const desc = (t?.description || '').trim();
-    if (desc) return desc;
-
-    const cat = getCategoryName(t);
-    const sub = getSubCategoryName(t);
-    const acc = getAccountName(t);
-
-    const catLabel = sub ? `${cat} / ${sub}` : cat;
-    return `${catLabel} • ${acc}`;
-  };
-
-  const getTransactionIcon = (t) => {
-    const type = getType(t);
-    if (type === 'income') return '💼';
-    if (type === 'transfer') return '🔄';
-    return '💸';
-  };
-
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [activeReport, setActiveReport] = useState('overview');
-
-  // ✅ Filtra transazioni per data (usa parseDate!)
-  useEffect(() => {
-    const startDate = new Date(dateRange.start);
-    const endDate = new Date(dateRange.end);
-    endDate.setHours(23, 59, 59, 999);
-
-    const filtered = transactions.filter((t) => {
-      const transDate = parseDate(t.date);
-      return transDate >= startDate && transDate <= endDate;
-    });
-
-    setFilteredTransactions(filtered);
-  }, [transactions, dateRange]);
-
-  // ✅ Calcola statistiche (usa getType/getAmount)
-  const calculateStats = () => {
-    const income = filteredTransactions
-      .filter((t) => getType(t) === 'income')
-      .reduce((sum, t) => sum + Math.abs(getAmount(t)), 0);
-
-    const expenses = filteredTransactions
-      .filter((t) => getType(t) === 'expense')
-      .reduce((sum, t) => sum + Math.abs(getAmount(t)), 0);
-
-    return { income, expenses, net: income - expenses };
-  };
-
-  const { income, expenses, net } = calculateStats();
-
-  // ✅ Spese per categoria + sottocategoria
-  const expensesByCategory = filteredTransactions
-  .filter(t => getType(t) === 'expense')
-  .reduce((acc, t) => {
-    const cat = getCategoryName(t);
-    const sub = getSubCategoryName(t);
-    const label = sub ? `${cat} / ${sub}` : cat;
-
-    acc[label] = (acc[label] || 0) + Math.abs(getAmount(t));
-    return acc;
-  }, {});
-
-  // ✅ Transazioni mensili per grafico (usa parseDate!)
-  const getMonthlyData = () => {
-    const months = [];
-    const monthlyData = { income: [], expenses: [] };
-
-    const currentDate = new Date();
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const monthName = d.toLocaleDateString('it-IT', { month: 'short' });
-      months.push(`${monthName} ${d.getFullYear()}`);
-
-      const monthTransactions = transactions.filter((t) => {
-        const td = parseDate(t.date);
-        return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth();
-      });
-
-      const monthIncome = monthTransactions
-        .filter((t) => getType(t) === 'income')
-        .reduce((sum, t) => sum + Math.abs(getAmount(t)), 0);
-
-      const monthExpenses = monthTransactions
-        .filter((t) => getType(t) === 'expense')
-        .reduce((sum, t) => sum + Math.abs(getAmount(t)), 0);
-
-      monthlyData.income.push(monthIncome);
-      monthlyData.expenses.push(monthExpenses);
-    }
-
-    return { months, data: monthlyData };
-  };
-
-  const { months, data: monthlyData } = getMonthlyData();
-  const maxValue = Math.max(...monthlyData.income, ...monthlyData.expenses, 100);
-
-  const prepareCategoryChartData = () => {
-    const sorted = Object.entries(expensesByCategory).sort(([, a], [, b]) => b - a);
-
-    const top = sorted.slice(0, 8);
-    const other = sorted.slice(8);
-    const otherTotal = other.reduce((sum, [, amount]) => sum + amount, 0);
-
-    const chartData = top.map(([category, amount]) => ({
-      category,
-      amount,
-      percentage: expenses > 0 ? (amount / expenses) * 100 : 0
-    }));
-
-    if (otherTotal > 0) {
-      chartData.push({
-        category: 'Altre',
-        amount: otherTotal,
-        percentage: expenses > 0 ? (otherTotal / expenses) * 100 : 0
-      });
-    }
-
-    return chartData;
-  };
-
-  const categoryChartData = prepareCategoryChartData();
-
-  const exportToCSV = () => {
-    const headers = ['Data', 'Descrizione', 'Categoria', 'Tipo', 'Importo', 'Conto'];
-
-    const csvData = filteredTransactions.map((t) => {
-      const cat = getCategoryName(t);
-      const sub = getSubCategoryName(t);
-      const catLabel = sub ? `${cat} / ${sub}` : cat;
-
-      return [
-        parseDate(t.date).toISOString().split('T')[0],
-        `"${(t.description || '').replaceAll('"', '""')}"`,
-        `"${catLabel.replaceAll('"', '""')}"`,
-        getType(t) === 'income' ? 'Entrata' : 'Uscita',
-        String(getAmount(t)),
-        `"${getAccountName(t).replaceAll('"', '""')}"`
-      ];
-    });
-
-    const csvContent = [headers.join(','), ...csvData.map((row) => row.join(','))].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `report_aurora_${dateRange.start}_${dateRange.end}.csv`;
-    link.click();
-  };
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const MonthlyChart = () => (
-    <div className="chart-container">
-      <div className="chart-header">
-        <h4>Andamento Mensile</h4>
-        <span className="chart-subtitle">Ultimi 12 mesi</span>
-      </div>
-      <div className="chart-bars">
-        {months.map((month, index) => (
-          <div key={month} className="chart-bar-group">
-            <div className="month-label">{month}</div>
-            <div className="bars-container">
-              {monthlyData.income[index] > 0 && (
-                <div
-                  className="bar income-bar"
-                  style={{
-                    height: `${(monthlyData.income[index] / maxValue) * 100}%`,
-                    width: '40%'
-                  }}
-                  title={`Entrate: €${monthlyData.income[index].toFixed(2)}`}
-                >
-                  <div className="bar-value">€{monthlyData.income[index].toFixed(0)}</div>
-                </div>
-              )}
-              {monthlyData.expenses[index] > 0 && (
-                <div
-                  className="bar expense-bar"
-                  style={{
-                    height: `${(monthlyData.expenses[index] / maxValue) * 100}%`,
-                    width: '40%'
-                  }}
-                  title={`Uscite: €${monthlyData.expenses[index].toFixed(2)}`}
-                >
-                  <div className="bar-value">€{monthlyData.expenses[index].toFixed(0)}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="chart-legend">
-        <div className="legend-item">
-          <div className="legend-color income-legend"></div>
-          <span>Entrate</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color expense-legend"></div>
-          <span>Uscite</span>
-        </div>
-      </div>
-    </div>
-  );
-
-  const CategoryPieChart = () => {
-    const colors = [
-      '#4f46e5',
-      '#06b6d4',
-      '#10b981',
-      '#f59e0b',
-      '#ef4444',
-      '#8b5cf6',
-      '#ec4899',
-      '#14b8a6',
-      '#f97316',
-      '#84cc16'
-    ];
-
-    const totalAngle = 360;
-    let currentAngle = 0;
-
-    return (
-      <div className="pie-chart-container">
-        <div className="pie-chart-header">
-          <h4>Distribuzione Spese per Categoria</h4>
-          <span className="chart-subtitle">Top categorie</span>
-        </div>
-        <div className="pie-chart-wrapper">
-          <div className="pie-chart">
-            {categoryChartData.map((item, index) => {
-              const angle = (item.percentage / 100) * totalAngle;
-              const sliceStyle = {
-                background: `conic-gradient(${colors[index % colors.length]} 0deg ${angle}deg, transparent ${angle}deg 360deg)`,
-                transform: `rotate(${currentAngle}deg)`
-              };
-
-              currentAngle += angle;
-
-              return (
-                <div key={item.category} className="pie-slice" style={sliceStyle}>
-                  <div className="pie-slice-inner"></div>
-                </div>
-              );
-            })}
-            <div className="pie-center">
-              <div className="pie-center-value">€{expenses.toFixed(0)}</div>
-              <div className="pie-center-label">Totale</div>
-            </div>
-          </div>
-
-          <div className="pie-legend">
-            {categoryChartData.map((item, index) => (
-              <div key={item.category} className="pie-legend-item">
-                <div
-                  className="pie-legend-color"
-                  style={{ backgroundColor: colors[index % colors.length] }}
-                ></div>
-                <div className="pie-legend-info">
-                  <span className="pie-legend-name">{item.category}</span>
-                  <span className="pie-legend-value">
-                    €{item.amount.toFixed(2)} ({item.percentage.toFixed(1)}%)
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // --- UI (lascia il tuo JSX originale sotto, qui non lo cambio) ---
-  return (
-    <div className="content-page">
-      {/* Background Aurora */}
-      <div className="aurora-background">
-        <div className="aurora-layer-1"></div>
-        <div className="aurora-layer-2"></div>
-        <div className="aurora-layer-3"></div>
-      </div>
-
-      <div className="dashboard-content">
-        <div className="page-header">
-          <h1>📊 Report Finanziari Avanzati</h1>
-          <p>Analisi dettagliate e grafici delle tue finanze</p>
-        </div>
-
-        {/* Filtri e controlli */}
-        <div className="reports-controls">
-          <div className="date-range-controls">
-            <div className="control-group">
-              <FiCalendar />
-              <label>Periodo Analisi:</label>
-              <div className="date-inputs">
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                  className="date-input"
-                />
-                <span className="date-separator">al</span>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                  className="date-input"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="report-type-tabs">
-            <button
-              className={`tab-btn ${activeReport === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveReport('overview')}
-            >
-              <FiPieChart /> Panoramica
-            </button>
-            <button
-              className={`tab-btn ${activeReport === 'expenses' ? 'active' : ''}`}
-              onClick={() => setActiveReport('expenses')}
-            >
-              <FiTrendingUp /> Analisi Spese
-            </button>
-            <button
-              className={`tab-btn ${activeReport === 'trends' ? 'active' : ''}`}
-              onClick={() => setActiveReport('trends')}
-            >
-              <FiBarChart2 /> Trend Mensili
-            </button>
-          </div>
-        </div>
-
-        {/* Statistiche principali */}
-        <div className="reports-main-stats">
-          <div className="main-stat">
-            <div className="main-stat-icon">💰</div>
-            <div className="main-stat-content">
-              <div className="main-stat-value">€{net.toFixed(2)}</div>
-              <div className="main-stat-label">Saldo Netto Periodo</div>
-            </div>
-          </div>
-          <div className="main-stat">
-            <div className="main-stat-icon">📈</div>
-            <div className="main-stat-content">
-              <div className="main-stat-value positive">€{income.toFixed(2)}</div>
-              <div className="main-stat-label">Entrate Totali</div>
-            </div>
-          </div>
-          <div className="main-stat">
-            <div className="main-stat-icon">📉</div>
-            <div className="main-stat-content">
-              <div className="main-stat-value negative">€{expenses.toFixed(2)}</div>
-              <div className="main-stat-label">Uscite Totali</div>
-            </div>
-          </div>
-          <div className="main-stat">
-            <div className="main-stat-icon">📋</div>
-            <div className="main-stat-content">
-              <div className="main-stat-value">{filteredTransactions.length}</div>
-              <div className="main-stat-label">Transazioni</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Contenuto report attivo */}
-        <div className="report-content-area">
-          {activeReport === 'overview' && (
-            <div className="overview-content">
-              <div className="charts-row">
-                <div className="chart-card full-width">
-                  <MonthlyChart />
-                </div>
-              </div>
-
-              <div className="charts-row">
-                <div className="chart-card">
-                  <CategoryPieChart />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeReport === 'expenses' && (
-            <div className="expenses-content">
-              <div className="expenses-header">
-                <h3>Analisi Dettagliata delle Spese</h3>
-                <p>
-                  Periodo: {formatDate(dateRange.start)} - {formatDate(dateRange.end)}
-                </p>
-              </div>
-
-              <div className="expenses-grid">
-                <div className="expenses-chart">
-                  <CategoryPieChart />
-                </div>
-
-                <div className="expenses-breakdown">
-                  <h4>Dettaglio per Categoria</h4>
-                  <div className="breakdown-list">
-                    {Object.entries(expensesByCategory)
-                      .sort(([, a], [, b]) => b - a)
-                      .map(([category, amount]) => {
-                        const percentage = expenses > 0 ? (amount / expenses) * 100 : 0;
-                        return (
-                          <div key={category} className="breakdown-item">
-                            <div className="breakdown-category">
-                              <span>{category}</span>
-                            </div>
-                            <div className="breakdown-details">
-                              <div className="breakdown-bar">
-                                <div
-                                  className="breakdown-bar-fill"
-                                  style={{ width: `${percentage}%` }}
-                                ></div>
-                              </div>
-                              <div className="breakdown-numbers">
-                                <span className="breakdown-amount">€{amount.toFixed(2)}</span>
-                                <span className="breakdown-percentage">{percentage.toFixed(1)}%</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeReport === 'trends' && (
-            <div className="trends-content">
-              <div className="trends-header">
-                <h3>Trend e Andamento Mensile</h3>
-                <p>Analisi degli ultimi 12 mesi</p>
-              </div>
-
-              <div className="trends-chart-container">
-                <MonthlyChart />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Azioni */}
-        <div className="reports-actions">
-          <button onClick={exportToCSV} className="action-btn primary-btn">
-            <FiDownload />
-            Esporta CSV
-          </button>
-          <button onClick={() => window.print()} className="action-btn secondary-btn">
-            <FiPrinter />
-            Stampa Report
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-// ==================== COMPONENTI PAGINE ====================
+// ==================== COMPONENTI PAGINE "placeholder" ====================
 function ImportContent() {
   return (
     <div className="content-page">
@@ -1464,6 +930,7 @@ function SettingsContent() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }
@@ -1481,7 +948,7 @@ function MainContent({ activeMenu, setSidebarOpen }) {
       case 'categories':
         return <Categories />;
       case 'reports':
-        return <ReportsContent />;
+        return <Reports />; // ✅ SOLO questo
       case 'import':
         return <ImportContent />;
       case 'birthdays':
@@ -1554,4 +1021,5 @@ function App() {
     </Router>
   );
 }
+
 export default App;
