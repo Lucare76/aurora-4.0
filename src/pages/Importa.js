@@ -1,14 +1,11 @@
 // src/pages/Importa.js
 import React, { useMemo, useState } from "react";
-
-import parseBancoPostaExcel from "../utils/bancopostaExcelParser";
-import autoCategorize from "../utils/autoCategorize";
-
-import { useAuth } from "../contexts/AuthContext";
+import { parseBancoPostaExcel } from "../utils/bancopostaExcelParser";
+import { parseAmexCsv } from "../utils/amexCsvParser";
+import { autoCategorize } from "../utils/autoCategorize";
 import { useFinancial } from "../contexts/FinancialContext";
 
 export default function Importa() {
-  const { user } = useAuth();
   const { accounts = [], createTransaction } = useFinancial();
 
   const [loading, setLoading] = useState(false);
@@ -18,11 +15,37 @@ export default function Importa() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState("");
 
-  const [accountId, setAccountId] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState("");
 
-  const canSave = useMemo(() => {
-    return !!user?.uid && !!accountId && rows.length > 0 && !loading && !saving;
-  }, [user?.uid, accountId, rows.length, loading, saving]);
+  // auto-seleziona "American Express" se esiste
+  useMemo(() => {
+    if (selectedAccountId) return;
+    const amex = accounts.find((a) => (a.name || "").toLowerCase().includes("american express") || (a.name || "").toLowerCase().includes("amex"));
+    if (amex?.id) setSelectedAccountId(amex.id);
+    else if (accounts[0]?.id) setSelectedAccountId(accounts[0].id);
+  }, [accounts, selectedAccountId]);
+
+  const detectFileType = (file) => {
+    const name = (file?.name || "").toLowerCase();
+    if (name.endsWith(".csv")) return "csv";
+    if (name.endsWith(".xlsx") || name.endsWith(".xls")) return "excel";
+    // fallback per mime
+    if ((file?.type || "").includes("csv")) return "csv";
+    return "excel";
+  };
+
+  const enrich = (transactions) => {
+    return transactions.map((t) => {
+      const categoryGuess = autoCategorize(t);
+      const d = t.date instanceof Date ? t.date : new Date(t.date);
+      const dateISO = Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+      return {
+        ...t,
+        category: categoryGuess,
+        dateISO
+      };
+    });
+  };
 
   const onFile = async (e) => {
     const file = e.target.files?.[0];
@@ -34,107 +57,69 @@ export default function Importa() {
     setRows([]);
 
     try {
-      const res = await parseBancoPostaExcel(file);
+      const kind = detectFileType(file);
 
-      const enriched = (res.transactions || [])
-        .map((t) => {
-          const dateObj = t.date instanceof Date ? t.date : t.date?.toDate?.() || null;
-          const dateISO = dateObj ? dateObj.toISOString().slice(0, 10) : "";
+      let res;
+      if (kind === "csv") {
+        res = await parseAmexCsv(file);
+      } else {
+        res = await parseBancoPostaExcel(file);
+      }
 
-          const amountNum = Number(t.amount);
-          const amount = Number.isFinite(amountNum) ? amountNum : 0;
-
-          const description = String(t.description || "").trim();
-          if (!description) return null;
-
-          // Per import: teniamo amount SIGNATO così com'è (positivo/negativo)
-          // Il FinancialContext poi lo normalizza in base al "type".
-          const type = amount >= 0 ? "income" : "expense";
-
-          const categoryGuess = autoCategorize({
-            description,
-            amount,
-            date: dateObj,
-            type,
-          });
-
-          return {
-            date: dateObj || new Date(),
-            dateISO,
-            description,
-            amount,     // signed
-            type,       // income/expense
-            category: categoryGuess || "",
-
-            _dedupKey: `${dateISO}|${description}|${amount.toFixed(2)}`,
-          };
-        })
-        .filter(Boolean);
-
-      // dedup client-side
-      const seen = new Set();
-      const deduped = enriched.filter((r) => {
-        if (seen.has(r._dedupKey)) return false;
-        seen.add(r._dedupKey);
-        return true;
-      });
+      const enriched = enrich(res.transactions);
 
       setMeta({
-        ...(res.meta || {}),
-        parsed: enriched.length,
-        deduped: deduped.length,
+        ...res.meta,
+        source: kind === "csv" ? "AMEX CSV" : "BancoPosta Excel"
       });
-
-      setRows(deduped);
+      setRows(enriched);
     } catch (err) {
-      console.error(err);
       setError(err?.message || "Errore import");
     } finally {
       setLoading(false);
     }
   };
 
+  // Salvataggio: crea transazioni in serie (più stabile) con progress
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
   const onConfirmImport = async () => {
-    if (!canSave) return;
+    if (!rows.length) return;
+
+    if (!selectedAccountId) {
+      setError("Seleziona un conto su cui importare le transazioni (es. American Express).");
+      return;
+    }
 
     setSaving(true);
     setError("");
+    setProgress({ done: 0, total: rows.length });
 
     try {
-      // Salvataggio “sicuro” usando FinancialContext.createTransaction
-      // (quello salva in collection(db,'transactions') e setta userId correttamente)
-      let inserted = 0;
+      // Nota: createTransaction si occupa di userId / saldi / normalizzazione
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
 
-      for (const r of rows) {
+        // Qui creiamo un payload compatibile con FinancialContext.createTransaction
         await createTransaction({
-          accountId,
+          accountId: selectedAccountId,
           date: r.date,
-
           description: r.description,
-
-          // IMPORTANTISSIMO:
-          // createTransaction nel context fa getSignedAmount(type, amount)
-          // quindi qui passiamo l'IMPORTO ASSOLUTO e lasciamo che il type lo segni.
-          amount: Math.abs(Number(r.amount) || 0),
-          type: r.type, // income/expense
-
-          // Qui passiamo la categoria come "nome" (il context la risolve in categoryId/categoryName)
-          category: r.category || "Senza categoria",
-
-          source: "import-excel",
+          amount: Math.abs(r.amount), // FinancialContext firma e mette segno in base al type
+          type: r.amount >= 0 ? "income" : "expense",
+          category: r.category // può essere nome, verrà risolto
         });
 
-        inserted += 1;
+        if ((i + 1) % 5 === 0 || i === rows.length - 1) {
+          setProgress({ done: i + 1, total: rows.length });
+        }
       }
 
-      alert(`✅ Import completato: ${inserted} transazioni salvate!`);
-
-      // reset UI
+      // reset preview dopo import
+      setMeta((m) => (m ? { ...m, imported: rows.length } : null));
       setRows([]);
-      setMeta(null);
     } catch (err) {
-      console.error(err);
-      setError(err?.message || "Errore durante il salvataggio");
+      setError(err?.message || "Errore durante il salvataggio delle transazioni");
     } finally {
       setSaving(false);
     }
@@ -142,58 +127,68 @@ export default function Importa() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h2>Importa Estratto Conto (Excel)</h2>
+      <h2>Importa Estratto Conto</h2>
 
-      {!user?.uid && (
-        <p style={{ color: "tomato" }}>Devi essere loggato per importare.</p>
-      )}
+      <p style={{ opacity: 0.85, marginTop: 6 }}>
+        Supporta <b>BancoPosta Excel (.xlsx)</b> e <b>AMEX CSV (.csv)</b>.
+      </p>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 12 }}>
-        <input type="file" accept=".xlsx,.xls" onChange={onFile} />
+      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 14, flexWrap: "wrap" }}>
+        <input type="file" accept=".xlsx,.xls,.csv" onChange={onFile} />
 
-        <select
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          style={{ padding: 8, minWidth: 260 }}
-          disabled={accounts.length === 0}
-        >
-          <option value="">Seleziona conto…</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name || "Conto"} — € {(Number(a.balance) || 0).toFixed(2)}
-            </option>
-          ))}
-        </select>
-
-        <button
-          onClick={onConfirmImport}
-          disabled={!canSave}
-          style={{
-            padding: "10px 14px",
-            cursor: canSave ? "pointer" : "not-allowed",
-            opacity: canSave ? 1 : 0.5,
-          }}
-          type="button"
-        >
-          {saving ? "Salvataggio in corso…" : "Conferma Import"}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <span style={{ opacity: 0.85 }}>Importa su conto:</span>
+          <select
+            value={selectedAccountId}
+            onChange={(e) => setSelectedAccountId(e.target.value)}
+            style={{ padding: "8px 10px", borderRadius: 8 }}
+          >
+            <option value="">— Seleziona conto —</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {loading && <p style={{ marginTop: 10 }}>Import in corso…</p>}
-      {error && <p style={{ marginTop: 10, color: "tomato" }}>{error}</p>}
+      {loading && <p style={{ marginTop: 12 }}>Import in corso…</p>}
+      {error && <p style={{ color: "tomato", marginTop: 12 }}>{error}</p>}
 
       {meta && (
         <div style={{ marginTop: 12, opacity: 0.9 }}>
-          <div>Foglio: {meta.sheetName}</div>
-          <div>Header trovato alla riga: {Number(meta.headerRowIndex) + 1}</div>
-          <div>Righe lette: {meta.parsed} — Dedup: {meta.deduped}</div>
+          <div><b>Sorgente:</b> {meta.source}</div>
+          {meta.sheetName ? <div><b>Foglio:</b> {meta.sheetName}</div> : null}
+          {typeof meta.headerRowIndex === "number" ? (
+            <div><b>Header trovato alla riga:</b> {meta.headerRowIndex + 1}</div>
+          ) : null}
+          <div><b>Righe lette:</b> {meta.parsed} — <b>Dedup:</b> {meta.deduped}</div>
+          {meta.imported ? <div style={{ color: "lightgreen" }}>✅ Importate: {meta.imported}</div> : null}
         </div>
       )}
 
       {rows.length > 0 && (
         <>
-          <h3 style={{ marginTop: 18 }}>Anteprima</h3>
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+            <h3 style={{ margin: 0 }}>Anteprima</h3>
+
+            <button
+              onClick={onConfirmImport}
+              disabled={saving}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid #333",
+                cursor: saving ? "not-allowed" : "pointer"
+              }}
+              type="button"
+            >
+              {saving ? `Salvataggio... (${progress.done}/${progress.total})` : "Conferma Import (salva su Transazioni)"}
+            </button>
+          </div>
+
+          <div style={{ overflowX: "auto", marginTop: 10 }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -201,7 +196,6 @@ export default function Importa() {
                   <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #333" }}>Descrizione</th>
                   <th style={{ textAlign: "right", padding: 8, borderBottom: "1px solid #333" }}>Importo</th>
                   <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #333" }}>Categoria</th>
-                  <th style={{ textAlign: "left", padding: 8, borderBottom: "1px solid #333" }}>Tipo</th>
                 </tr>
               </thead>
               <tbody>
@@ -210,12 +204,9 @@ export default function Importa() {
                     <td style={{ padding: 8, borderBottom: "1px solid #222" }}>{r.dateISO}</td>
                     <td style={{ padding: 8, borderBottom: "1px solid #222" }}>{r.description}</td>
                     <td style={{ padding: 8, borderBottom: "1px solid #222", textAlign: "right" }}>
-                      {Number(r.amount || 0).toFixed(2)}
+                      {r.amount >= 0 ? "+" : "-"}{Math.abs(r.amount).toFixed(2)}
                     </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #222" }}>
-                      {r.category || "Senza categoria"}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #222" }}>{r.type}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #222" }}>{r.category}</td>
                   </tr>
                 ))}
               </tbody>
