@@ -6,6 +6,7 @@ import Reports from './pages/Reports';
 import Transactions from './pages/Transactions';
 import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
+import Importa from './pages/Importa'; // ✅ USA LA PAGINA REALE
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
@@ -73,7 +74,6 @@ function Login() {
           setError(res.error || 'Errore login');
         }
       } else {
-        // AuthContext si aspetta additionalData come oggetto
         const res = await signup(formData.email, formData.password, { displayName: formData.displayName });
         if (res && res.success === false) {
           setError(res.error || 'Errore registrazione');
@@ -81,9 +81,7 @@ function Login() {
       }
     } catch (error) {
       console.error('Errore autenticazione:', error);
-      setError(
-        `Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${error?.message || ''}`
-      );
+      setError(`Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${error?.message || ''}`);
     } finally {
       setLoading(false);
     }
@@ -136,9 +134,7 @@ function Login() {
       </div>
 
       <div className="login-container-premium">
-        {/* Card Principale */}
         <div className="login-card-premium">
-          {/* Header con Logo Animato */}
           <div className="login-header">
             <div className="logo-premium">
               <div className="logo-icon-premium">
@@ -154,7 +150,6 @@ function Login() {
             <p className="tagline">La rivoluzione nella tua contabilità familiare</p>
           </div>
 
-          {/* Tabs Login/Registrazione */}
           <div className="auth-tabs">
             <button
               className={`tab ${activePanel === 'login' ? 'active' : ''}`}
@@ -172,7 +167,6 @@ function Login() {
             </button>
           </div>
 
-          {/* Contenuto Dinamico */}
           <div className="auth-content">
             {activePanel === 'login' ? (
               <>
@@ -263,11 +257,7 @@ function Login() {
                     <div className="input-decoration"></div>
                   </div>
 
-                  <button
-                    type="submit"
-                    className="auth-submit-btn-premium"
-                    disabled={loading || authLoading}
-                  >
+                  <button type="submit" className="auth-submit-btn-premium" disabled={loading || authLoading}>
                     <span className="btn-text">
                       {loading ? (
                         <>
@@ -402,7 +392,6 @@ function Login() {
           </div>
         </div>
 
-        {/* Side Panel */}
         <div className="features-panel">
           <div className="features-content">
             <h3>Scopri Aurora 4.0</h3>
@@ -518,11 +507,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
 
             <div className="user-card">
               <div className="user-avatar">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="avatar-img" />
-                ) : (
-                  <FiUser />
-                )}
+                {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser />}
               </div>
               <div className="user-info">
                 <div className="user-name">{user?.displayName || 'Utente'}</div>
@@ -785,10 +770,7 @@ function DashboardContent() {
             <div className="accounts-grid">
               {accounts.map((account) => (
                 <div key={account.id} className="account-card">
-                  <div
-                    className="account-color"
-                    style={{ backgroundColor: account.color || '#4f46e5' }}
-                  ></div>
+                  <div className="account-color" style={{ backgroundColor: account.color || '#4f46e5' }}></div>
                   <div className="account-info">
                     <div className="account-name">{account.name}</div>
                     <div className="account-balance">€ {(Number(account.balance) || 0).toFixed(2)}</div>
@@ -821,9 +803,7 @@ function DashboardContent() {
 
                 return (
                   <div key={transaction.id} className="activity-item">
-                    <div className={`activity-icon ${type}`}>
-                      {getTransactionIcon(transaction)}
-                    </div>
+                    <div className={`activity-icon ${type}`}>{getTransactionIcon(transaction)}</div>
 
                     <div className="activity-details">
                       <div className="activity-name">{getDisplayName(transaction)}</div>
@@ -850,28 +830,6 @@ function DashboardContent() {
 }
 
 // ==================== COMPONENTI PAGINE "placeholder" ====================
-function ImportContent() {
-  return (
-    <div className="content-page">
-      <div className="aurora-background">
-        <div className="aurora-layer-1"></div>
-        <div className="aurora-layer-2"></div>
-        <div className="aurora-layer-3"></div>
-      </div>
-
-      <div className="dashboard-content">
-        <div className="page-header">
-          <h1>Importa Dati 📥</h1>
-          <p>Carica estratti conto dai tuoi conti bancari</p>
-        </div>
-        <div className="content-placeholder">
-          <h3>Contenuto Import - In sviluppo</h3>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function BirthdaysContent() {
   return (
     <div className="content-page">
@@ -916,11 +874,7 @@ function SettingsContent() {
             <h3>Profilo Utente</h3>
             <div className="user-profile-info">
               <div className="profile-avatar">
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="avatar-img" />
-                ) : (
-                  <FiUser size={40} />
-                )}
+                {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser size={40} />}
               </div>
               <div className="profile-details">
                 <h4>{user?.displayName || 'Utente'}</h4>
@@ -948,9 +902,9 @@ function MainContent({ activeMenu, setSidebarOpen }) {
       case 'categories':
         return <Categories />;
       case 'reports':
-        return <Reports />; // ✅ SOLO questo
+        return <Reports />;
       case 'import':
-        return <ImportContent />;
+        return <Importa />; // ✅ QUI ORA APRE LA PAGINA VERA
       case 'birthdays':
         return <BirthdaysContent />;
       case 'settings':
@@ -974,19 +928,9 @@ function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
-  console.log('🔍 AppContent - Stato utente:', user ? `Autenticato (${user.uid})` : 'Non autenticato');
-
   if (authLoading) {
     return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          backgroundColor: '#f8fafc'
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc' }}>
         <div>Caricamento...</div>
       </div>
     );
