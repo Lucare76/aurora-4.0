@@ -1,26 +1,27 @@
 // src/services/firebase.js
 import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
+import {
+  getFirestore,
+  collection,
+  addDoc,
   getDoc,
-  updateDoc, 
-  deleteDoc, 
-  doc, 
+  getDocs, // ✅ AGGIUNTO
+  updateDoc,
+  deleteDoc,
+  doc,
   onSnapshot,
   query,
   where,
   orderBy,
   serverTimestamp
 } from 'firebase/firestore';
-import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut, 
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
@@ -30,7 +31,7 @@ import { getStorage } from 'firebase/storage';
 const firebaseConfig = {
   apiKey: "AIzaSyCZAsfa9YloWpHqsh60oVJ67IpOR1AkFPU",
   authDomain: "aurora-4-0.firebaseapp.com",
-  projectId: "aurora-4-0",  // ← Questo era quello mancante!
+  projectId: "aurora-4-0",
   storageBucket: "aurora-4-0.firebasestorage.app",
   messagingSenderId: "382079072942",
   appId: "1:382079072942:web:1bf3dc235f366dc0c24b3f"
@@ -60,6 +61,7 @@ export {
   collection,
   addDoc,
   getDoc,
+  getDocs, // ✅ AGGIUNTO
   updateDoc,
   deleteDoc,
   doc,

@@ -6,10 +6,13 @@ import Reports from './pages/Reports';
 import Transactions from './pages/Transactions';
 import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
-import Importa from './pages/Importa'; // ✅ USA LA PAGINA REALE
+import Importa from './pages/Importa';
+import Budgets from './pages/Budgets';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
+
+import { getBudgetsByMonth } from './services/budgetsService';
 
 import {
   FiHome,
@@ -23,7 +26,6 @@ import {
   FiBell,
   FiMenu,
   FiX,
-  FiTrendingUp,
   FiPieChart,
   FiLogOut
 } from 'react-icons/fi';
@@ -34,11 +36,7 @@ import './App.css';
 // ==================== COMPONENTE LOGIN PREMIUM ====================
 function Login() {
   const { loginWithGoogle, login, signup, loading: authLoading } = useAuth();
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    displayName: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '', displayName: '' });
   const [loading, setLoading] = useState(false);
   const [activePanel, setActivePanel] = useState('login');
   const [error, setError] = useState('');
@@ -49,12 +47,10 @@ function Login() {
       setLoading(true);
       setError('');
       const res = await loginWithGoogle();
-      if (res && res.success === false) {
-        setError(res.error || 'Errore login Google');
-      }
-    } catch (error) {
-      console.error('Errore Google login:', error);
-      setError('Errore durante il login con Google: ' + (error?.message || ''));
+      if (res && res.success === false) setError(res.error || 'Errore login Google');
+    } catch (e) {
+      console.error('Errore Google login:', e);
+      setError('Errore durante il login con Google: ' + (e?.message || ''));
     } finally {
       setLoading(false);
     }
@@ -70,29 +66,22 @@ function Login() {
     try {
       if (activePanel === 'login') {
         const res = await login(formData.email, formData.password);
-        if (res && res.success === false) {
-          setError(res.error || 'Errore login');
-        }
+        if (res && res.success === false) setError(res.error || 'Errore login');
       } else {
         const res = await signup(formData.email, formData.password, { displayName: formData.displayName });
-        if (res && res.success === false) {
-          setError(res.error || 'Errore registrazione');
-        }
+        if (res && res.success === false) setError(res.error || 'Errore registrazione');
       }
-    } catch (error) {
-      console.error('Errore autenticazione:', error);
-      setError(`Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${error?.message || ''}`);
+    } catch (err) {
+      console.error('Errore autenticazione:', err);
+      setError(
+        `Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${err?.message || ''}`
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value
-    }));
-  };
+  const handleChange = (e) => setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
 
   if (authLoading) {
     return (
@@ -112,7 +101,6 @@ function Login() {
 
   return (
     <div className="login-page-premium">
-      {/* Background Animato */}
       <div className="aurora-background">
         <div className="aurora-layer-1"></div>
         <div className="aurora-layer-2"></div>
@@ -128,7 +116,7 @@ function Login() {
                 '--size': `${20 + i * 3}px`,
                 left: `${Math.random() * 100}%`
               }}
-            ></div>
+            />
           ))}
         </div>
       </div>
@@ -204,7 +192,7 @@ function Login() {
                     </div>
                     <span>{loading ? 'Accesso in corso...' : 'Continua con Google'}</span>
                   </div>
-                  <div className="btn-glow"></div>
+                  <div className="btn-glow" />
                 </button>
 
                 <div className="divider-premium">
@@ -216,9 +204,9 @@ function Login() {
                     style={{
                       backgroundColor: '#fee2e2',
                       color: '#dc2626',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      marginBottom: '10px',
+                      padding: 10,
+                      borderRadius: 6,
+                      marginBottom: 10,
                       textAlign: 'center'
                     }}
                   >
@@ -239,7 +227,7 @@ function Login() {
                       disabled={loading}
                     />
                     <label className="form-label">Email</label>
-                    <div className="input-decoration"></div>
+                    <div className="input-decoration" />
                   </div>
 
                   <div className="form-group-premium">
@@ -254,21 +242,21 @@ function Login() {
                       disabled={loading}
                     />
                     <label className="form-label">Password</label>
-                    <div className="input-decoration"></div>
+                    <div className="input-decoration" />
                   </div>
 
                   <button type="submit" className="auth-submit-btn-premium" disabled={loading || authLoading}>
                     <span className="btn-text">
                       {loading ? (
                         <>
-                          <div className="loading-spinner"></div>
+                          <div className="loading-spinner" />
                           Accesso in corso...
                         </>
                       ) : (
                         'Accedi al Dashboard'
                       )}
                     </span>
-                    <div className="btn-shine"></div>
+                    <div className="btn-shine" />
                   </button>
                 </form>
               </>
@@ -284,9 +272,9 @@ function Login() {
                     style={{
                       backgroundColor: '#fee2e2',
                       color: '#dc2626',
-                      padding: '10px',
-                      borderRadius: '6px',
-                      marginBottom: '10px',
+                      padding: 10,
+                      borderRadius: 6,
+                      marginBottom: 10,
                       textAlign: 'center'
                     }}
                   >
@@ -307,7 +295,7 @@ function Login() {
                       disabled={loading}
                     />
                     <label className="form-label">Nome e Cognome</label>
-                    <div className="input-decoration"></div>
+                    <div className="input-decoration" />
                   </div>
 
                   <div className="form-group-premium">
@@ -322,7 +310,7 @@ function Login() {
                       disabled={loading}
                     />
                     <label className="form-label">Email</label>
-                    <div className="input-decoration"></div>
+                    <div className="input-decoration" />
                   </div>
 
                   <div className="form-group-premium">
@@ -334,11 +322,11 @@ function Login() {
                       onChange={handleChange}
                       required
                       className="form-input-premium"
-                      minLength={6}
                       disabled={loading}
+                      minLength={6}
                     />
                     <label className="form-label">Password (min. 6 caratteri)</label>
-                    <div className="input-decoration"></div>
+                    <div className="input-decoration" />
                   </div>
 
                   <button
@@ -349,14 +337,14 @@ function Login() {
                     <span className="btn-text">
                       {loading ? (
                         <>
-                          <div className="loading-spinner"></div>
+                          <div className="loading-spinner" />
                           Creazione account...
                         </>
                       ) : (
                         'Crea il Mio Account'
                       )}
                     </span>
-                    <div className="btn-shine"></div>
+                    <div className="btn-shine" />
                   </button>
                 </form>
 
@@ -426,7 +414,7 @@ function Login() {
   );
 }
 
-// ==================== COMPONENTE SIDEBAR ====================
+// ==================== SIDEBAR ====================
 function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
   const { user, logout } = useAuth();
 
@@ -436,6 +424,10 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'transactions', icon: <FiDollarSign />, label: 'Transazioni', color: '#10b981' },
     { id: 'categories', icon: <FiBarChart2 />, label: 'Categorie', color: '#8b5cf6' },
     { id: 'reports', icon: <FiBarChart2 />, label: 'Report', color: '#f59e0b' },
+
+    // ✅ Budget
+    { id: 'budgets', icon: <FiPieChart />, label: 'Budget', color: '#22c55e' },
+
     { id: 'import', icon: <FiUpload />, label: 'Importa', color: '#ef4444' },
     { id: 'birthdays', icon: <FiGift />, label: 'Compleanni', color: '#ec4899' },
     { id: 'settings', icon: <FiSettings />, label: 'Impostazioni', color: '#6b7280' }
@@ -444,8 +436,8 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
   const handleLogout = async () => {
     try {
       await logout();
-    } catch (error) {
-      console.error('Errore durante il logout:', error);
+    } catch (e) {
+      console.error('Errore logout:', e);
     }
   };
 
@@ -464,8 +456,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
           <div className="sidebar-header">
             <div className="logo">
               <div className="logo-icon">
-                <div className="aurora-glow"></div>
-                🌅
+                <div className="aurora-glow"></div>🌅
               </div>
               <div className="logo-text">
                 <h2>Aurora</h2>
@@ -491,7 +482,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
               >
                 <div className="nav-icon-wrapper">{item.icon}</div>
                 <span className="nav-label">{item.label}</span>
-                <div className="nav-indicator"></div>
+                <div className="nav-indicator" />
               </button>
             ))}
           </nav>
@@ -529,8 +520,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
 function Header({ setSidebarOpen }) {
   const { user } = useAuth();
   const { accounts } = useFinancial();
-
-  const totalBalance = (accounts || []).reduce((sum, account) => sum + (Number(account.balance) || 0), 0);
+  const totalBalance = (accounts || []).reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
 
   return (
     <header className="header">
@@ -577,10 +567,47 @@ function DashboardContent() {
   const { user } = useAuth();
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
 
+  // ✅ per transazioni usiamo 0-11 (Date.getMonth)
+  const currentMonthIndex = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  // ✅ per budgets usiamo 1-12 (coerente con budgetsService)
+  const currentMonthNumber = currentMonthIndex + 1;
+
+  const [budgets, setBudgets] = useState([]);
+  const [budgetsLoading, setBudgetsLoading] = useState(false);
+  const [budgetsError, setBudgetsError] = useState('');
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // ✅ carica budgets mese corrente
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadBudgets() {
+      if (!user?.uid) return;
+
+      setBudgetsLoading(true);
+      setBudgetsError('');
+      try {
+        const data = await getBudgetsByMonth(user.uid, currentYear, currentMonthNumber);
+        if (mounted) setBudgets(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Errore budgets:', e);
+        if (mounted) setBudgetsError(e?.message || 'Errore caricamento budgets');
+      } finally {
+        if (mounted) setBudgetsLoading(false);
+      }
+    }
+
+    loadBudgets();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.uid, currentYear, currentMonthNumber]);
 
   const parseDate = (date) => {
     if (!date) return new Date();
@@ -666,12 +693,9 @@ function DashboardContent() {
     return `${diffDays} giorni fa`;
   };
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
   const monthlyTransactions = transactions.filter((t) => {
     const d = parseDate(t.date);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
   });
 
   const monthlyIncome = monthlyTransactions
@@ -683,12 +707,47 @@ function DashboardContent() {
     .reduce((sum, t) => sum + Math.abs(getAmount(t)), 0);
 
   const monthlySavings = monthlyIncome - monthlyExpenses;
-
   const totalBalance = accounts.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0);
 
   const recentTransactions = [...transactions]
     .sort((a, b) => parseDate(b.date) - parseDate(a.date))
     .slice(0, 4);
+
+  // ========= ALERT BUDGET =========
+  const monthlyExpenseByCategoryKey = monthlyTransactions
+    .filter((t) => getType(t) === 'expense')
+    .reduce((acc, t) => {
+      const key = t?.categoryId || t?.categoryName || t?.category || 'Senza categoria';
+      acc[key] = (acc[key] || 0) + Math.abs(getAmount(t));
+      return acc;
+    }, {});
+
+  // ✅ helper: mostra nome categoria se abbiamo l'id
+  const labelForCategoryKey = (key) => {
+    const found = categories.find((c) => c.id === key);
+    return found?.name || key;
+  };
+
+  const budgetByCategoryKey = (budgets || []).reduce((acc, b) => {
+    const key = b?.categoryId || b?.categoryName || 'Senza categoria';
+    const val = Number(b?.amount ?? b?.budget ?? 0) || 0;
+    acc[key] = val;
+    return acc;
+  }, {});
+
+  const budgetAlerts = Object.keys(budgetByCategoryKey)
+    .map((key) => {
+      const budget = budgetByCategoryKey[key] || 0;
+      const spent = monthlyExpenseByCategoryKey[key] || 0;
+      const pct = budget > 0 ? spent / budget : 0;
+
+      let level = 'ok';
+      if (budget > 0 && pct >= 1) level = 'over';
+      else if (budget > 0 && pct >= 0.75) level = 'warn';
+
+      return { key, label: labelForCategoryKey(key), budget, spent, pct, level };
+    })
+    .sort((a, b) => b.pct - a.pct);
 
   return (
     <div className="content-page">
@@ -739,7 +798,7 @@ function DashboardContent() {
 
           <div className="finance-card cash-flow">
             <div className="card-graphic">
-              <div className="flow-animation"></div>
+              <div className="flow-animation" />
             </div>
             <div className="card-content">
               <h3>Cash Flow Mensile</h3>
@@ -753,7 +812,7 @@ function DashboardContent() {
           <div className="finance-card budget">
             <div className="card-graphic">
               <div className="progress-ring">
-                <div className="progress-fill" style={{ '--progress': '75%' }}></div>
+                <div className="progress-fill" style={{ '--progress': '75%' }} />
               </div>
             </div>
             <div className="card-content">
@@ -764,31 +823,64 @@ function DashboardContent() {
           </div>
         </div>
 
+        {/* ✅ ALERT BUDGET */}
         <div className="section">
-          <h2 className="section-title">I Tuoi Conti 💰</h2>
-          {accounts.length > 0 ? (
-            <div className="accounts-grid">
-              {accounts.map((account) => (
-                <div key={account.id} className="account-card">
-                  <div className="account-color" style={{ backgroundColor: account.color || '#4f46e5' }}></div>
-                  <div className="account-info">
-                    <div className="account-name">{account.name}</div>
-                    <div className="account-balance">€ {(Number(account.balance) || 0).toFixed(2)}</div>
-                  </div>
-                  <div className="account-actions">
-                    <button className="btn-icon" type="button">
-                      <FiPieChart />
-                    </button>
-                    <button className="btn-icon" type="button">
-                      <FiTrendingUp />
-                    </button>
-                  </div>
-                </div>
-              ))}
+          <h2 className="section-title">Alert Budget 📌</h2>
+
+          {budgetsLoading ? (
+            <div className="empty-state">
+              <p>Caricamento budget...</p>
+            </div>
+          ) : budgetsError ? (
+            <div className="empty-state">
+              <p style={{ color: '#dc2626' }}>Errore: {budgetsError}</p>
+            </div>
+          ) : !budgets?.length ? (
+            <div className="empty-state">
+              <p>Nessun budget impostato per questo mese.</p>
+              <p style={{ opacity: 0.8, marginTop: 6 }}>Vai su "Budget" per aggiungerne uno.</p>
             </div>
           ) : (
-            <div className="empty-state">
-              <p>Nessun conto disponibile. Crea il tuo primo conto!</p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {budgetAlerts.slice(0, 6).map((a) => {
+                const badge = a.level === 'over' ? '🔴 Superato' : a.level === 'warn' ? '🟠 In arrivo' : '🟢 OK';
+                const border =
+                  a.level === 'over'
+                    ? '2px solid #ef4444'
+                    : a.level === 'warn'
+                    ? '2px solid #f59e0b'
+                    : '2px solid #22c55e';
+
+                return (
+                  <div
+                    key={a.key}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border,
+                      borderRadius: 12,
+                      padding: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ fontWeight: 700 }}>
+                        {a.label}
+                        <span style={{ marginLeft: 10, fontWeight: 600, opacity: 0.9 }}>{badge}</span>
+                      </div>
+                      <div style={{ opacity: 0.85, marginTop: 4 }}>
+                        Speso: € {a.spent.toFixed(2)} / Budget: € {a.budget.toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>
+                      {a.budget > 0 ? `${Math.round(a.pct * 100)}%` : '—'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -829,7 +921,7 @@ function DashboardContent() {
   );
 }
 
-// ==================== COMPONENTI PAGINE "placeholder" ====================
+// ==================== PLACEHOLDER ====================
 function BirthdaysContent() {
   return (
     <div className="content-page">
@@ -838,7 +930,6 @@ function BirthdaysContent() {
         <div className="aurora-layer-2"></div>
         <div className="aurora-layer-3"></div>
       </div>
-
       <div className="dashboard-content">
         <div className="page-header">
           <h1>Compleanni e Promemoria 🎁</h1>
@@ -874,7 +965,11 @@ function SettingsContent() {
             <h3>Profilo Utente</h3>
             <div className="user-profile-info">
               <div className="profile-avatar">
-                {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser size={40} />}
+                {user?.photoURL ? (
+                  <img src={user.photoURL} alt="Avatar" className="avatar-img" />
+                ) : (
+                  <FiUser size={40} />
+                )}
               </div>
               <div className="profile-details">
                 <h4>{user?.displayName || 'Utente'}</h4>
@@ -903,8 +998,10 @@ function MainContent({ activeMenu, setSidebarOpen }) {
         return <Categories />;
       case 'reports':
         return <Reports />;
+      case 'budgets':
+        return <Budgets />;
       case 'import':
-        return <Importa />; // ✅ QUI ORA APRE LA PAGINA VERA
+        return <Importa />;
       case 'birthdays':
         return <BirthdaysContent />;
       case 'settings':
@@ -922,23 +1019,57 @@ function MainContent({ activeMenu, setSidebarOpen }) {
   );
 }
 
-// ==================== APP CONTENT PRINCIPALE ====================
+// ==================== APP CONTENT ====================
 function AppContent() {
-  const [activeMenu, setActiveMenu] = useState('dashboard');
+  const MENU_STORAGE_KEY = 'aurora_active_menu';
+
+  const [activeMenu, setActiveMenu] = useState(() => {
+    try {
+      return localStorage.getItem(MENU_STORAGE_KEY) || 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading: authLoading } = useAuth();
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(MENU_STORAGE_KEY, activeMenu);
+    } catch {
+      // ignore
+    }
+  }, [activeMenu]);
+
+  useEffect(() => {
+    if (!user) {
+      setActiveMenu('dashboard');
+      try {
+        localStorage.setItem(MENU_STORAGE_KEY, 'dashboard');
+      } catch {
+        // ignore
+      }
+    }
+  }, [user]);
+
   if (authLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          backgroundColor: '#f8fafc'
+        }}
+      >
         <div>Caricamento...</div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Login />;
-  }
+  if (!user) return <Login />;
 
   return (
     <div className="app">
