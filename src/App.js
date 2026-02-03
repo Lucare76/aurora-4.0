@@ -8,11 +8,13 @@ import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
 import Importa from './pages/Importa';
 import Budgets from './pages/Budgets';
+import Birthdays from './pages/Birthdays';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
 
 import { getBudgetsByMonth } from './services/budgetsService';
+import { initEmailJS } from './services/emailService';
 
 import {
   FiHome,
@@ -424,10 +426,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'transactions', icon: <FiDollarSign />, label: 'Transazioni', color: '#10b981' },
     { id: 'categories', icon: <FiBarChart2 />, label: 'Categorie', color: '#8b5cf6' },
     { id: 'reports', icon: <FiBarChart2 />, label: 'Report', color: '#f59e0b' },
-
-    // ✅ Budget
     { id: 'budgets', icon: <FiPieChart />, label: 'Budget', color: '#22c55e' },
-
     { id: 'import', icon: <FiUpload />, label: 'Importa', color: '#ef4444' },
     { id: 'birthdays', icon: <FiGift />, label: 'Compleanni', color: '#ec4899' },
     { id: 'settings', icon: <FiSettings />, label: 'Impostazioni', color: '#6b7280' }
@@ -567,11 +566,8 @@ function DashboardContent() {
   const { user } = useAuth();
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
 
-  // ✅ per transazioni usiamo 0-11 (Date.getMonth)
   const currentMonthIndex = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-
-  // ✅ per budgets usiamo 1-12 (coerente con budgetsService)
   const currentMonthNumber = currentMonthIndex + 1;
 
   const [budgets, setBudgets] = useState([]);
@@ -583,7 +579,6 @@ function DashboardContent() {
     return () => clearInterval(timer);
   }, []);
 
-  // ✅ carica budgets mese corrente
   useEffect(() => {
     let mounted = true;
 
@@ -713,7 +708,6 @@ function DashboardContent() {
     .sort((a, b) => parseDate(b.date) - parseDate(a.date))
     .slice(0, 4);
 
-  // ========= ALERT BUDGET =========
   const monthlyExpenseByCategoryKey = monthlyTransactions
     .filter((t) => getType(t) === 'expense')
     .reduce((acc, t) => {
@@ -722,7 +716,6 @@ function DashboardContent() {
       return acc;
     }, {});
 
-  // ✅ helper: mostra nome categoria se abbiamo l'id
   const labelForCategoryKey = (key) => {
     const found = categories.find((c) => c.id === key);
     return found?.name || key;
@@ -823,7 +816,6 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* ✅ ALERT BUDGET */}
         <div className="section">
           <h2 className="section-title">Alert Budget 📌</h2>
 
@@ -921,28 +913,7 @@ function DashboardContent() {
   );
 }
 
-// ==================== PLACEHOLDER ====================
-function BirthdaysContent() {
-  return (
-    <div className="content-page">
-      <div className="aurora-background">
-        <div className="aurora-layer-1"></div>
-        <div className="aurora-layer-2"></div>
-        <div className="aurora-layer-3"></div>
-      </div>
-      <div className="dashboard-content">
-        <div className="page-header">
-          <h1>Compleanni e Promemoria 🎁</h1>
-          <p>Non dimenticare mai più un compleanno importante</p>
-        </div>
-        <div className="content-placeholder">
-          <h3>Contenuto Compleanni - In sviluppo</h3>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+// ==================== SETTINGS ====================
 function SettingsContent() {
   const { user } = useAuth();
 
@@ -1003,7 +974,7 @@ function MainContent({ activeMenu, setSidebarOpen }) {
       case 'import':
         return <Importa />;
       case 'birthdays':
-        return <BirthdaysContent />;
+        return <Birthdays />;
       case 'settings':
         return <SettingsContent />;
       default:
@@ -1086,6 +1057,11 @@ function AppContent() {
 
 // ==================== APP PRINCIPALE ====================
 function App() {
+  // Inizializza EmailJS all'avvio (solo se configurato)
+  useEffect(() => {
+    initEmailJS();
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
