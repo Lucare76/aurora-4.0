@@ -6,7 +6,7 @@ import CreateFirstAccount from '../components/CreateFirstAccount';
 import './Accounts.css';
 
 const Accounts = () => {
-  const { accounts, deleteAccount, updateAccount, createAccount, transactions } = useFinancial();
+  const { accounts, deleteAccount, updateAccount, createAccount } = useFinancial();
   const { user } = useAuth();
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -25,7 +25,7 @@ const Accounts = () => {
     cash: { label: 'Contanti', icon: '💵', color: '#92400e' },
     credit: { label: 'Carta di Credito', icon: '💳', color: '#7f1d1d' },
     investment: { label: 'Investimenti', icon: '📈', color: '#3730a3' },
-   Bets: { label: 'Scommesse', icon: '🎰', color: '#b91c1c' }  
+    bets: { label: 'Scommesse', icon: '🎰', color: '#b91c1c' }  
   };
 
   // Palette colori rapida per il pannello di modifica
@@ -42,16 +42,6 @@ const Accounts = () => {
     '#e11d48'
   ];
 
-  const getAccountStats = (accountId) => {
-    const accountTransactions = transactions.filter(tx => tx.accountId === accountId);
-    const lastTransaction = accountTransactions[accountTransactions.length - 1];
-
-    return {
-      transactions: accountTransactions.length,
-      lastDate: lastTransaction ? new Date(lastTransaction.date) : null
-    };
-  };
-
   const handleDelete = async (accountId, accountName) => {
     const conferma = window.confirm(
       `Vuoi davvero eliminare il conto "${accountName}"?\n` +
@@ -61,7 +51,6 @@ const Accounts = () => {
 
     try {
       await deleteAccount(accountId);
-      // se stavi modificando questo conto, chiudi il pannello
       if (editingAccount && editingAccount.id === accountId) {
         setEditingAccount(null);
       }
@@ -152,19 +141,6 @@ const Accounts = () => {
   const getBalanceClass = (amount) => {
     const baseClass = amount < 0 ? 'balance-amount negative' : 'balance-amount';
     return isHighValue(amount) ? `${baseClass} high-value` : baseClass;
-  };
-
-  // 🗓️ Formatta la data dell’ultima attività
-  const formatDate = (date) => {
-    if (!date) return 'Nessuna attività';
-    const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Oggi';
-    if (diffDays === 1) return 'Ieri';
-    if (diffDays < 7) return `${diffDays} giorni fa`;
-
-    return date.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
   };
 
   const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
@@ -396,7 +372,6 @@ const Accounts = () => {
       {/* Griglia dei conti */}
       <div className="accounts-grid">
         {accounts.map((account) => {
-          const stats = getAccountStats(account.id);
           const typeInfo = accountTypes[account.type] || accountTypes.bank;
 
           return (
@@ -436,17 +411,6 @@ const Accounts = () => {
                 <span className="balance-label">Saldo Attuale</span>
                 <div className={getBalanceClass(account.balance)}>
                   {formatCurrency(account.balance)}
-                </div>
-              </div>
-
-              <div className="account-footer">
-                <div className="account-stat">
-                  <span className="stat-label">Transazioni</span>
-                  <span className="stat-value">{stats.transactions}</span>
-                </div>
-                <div className="account-stat">
-                  <span className="stat-label">Ultima Attività</span>
-                  <span className="stat-value">{formatDate(stats.lastDate)}</span>
                 </div>
               </div>
             </div>
