@@ -183,13 +183,6 @@
   margin-top: 0.05rem; /* Ridotto da 0.1rem */
 }
 
-.account-footer {
-  margin-top: 0.3rem; /* Ridotto da 0.4rem */
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.7rem; /* Ridotto da 0.75rem */
-  color: #9ca3af;
-}
 
 .stat-value {
   color: #e2e8f0;
@@ -565,4 +558,34 @@
     justify-content: center;
     padding: 0.4rem 0.6rem;
   }
+}
+
+.account-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.account-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap; /* IMPORTANTE: evita che si spezzi */
+}
+
+.stat-value {
+  font-size: 0.9rem;
+  color: white;
+  font-weight: 600;
 }
