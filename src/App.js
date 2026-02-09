@@ -31,7 +31,9 @@ import {
   FiX,
   FiPieChart,
   FiLogOut,
-  FiShield
+  FiShield,
+  FiMail,
+  FiCheck
 } from 'react-icons/fi';
 
 import { WiDaySunny } from 'react-icons/wi';
@@ -1067,6 +1069,100 @@ function DashboardContent() {
 // ==================== SETTINGS ====================
 function SettingsContent() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState({ text: '', type: '' });
+  
+  const [settings, setSettings] = useState({
+    reminderEmail: '',
+    reminderDaysBefore: 2,
+  });
+
+  // Carica impostazioni utente
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!user?.uid) return;
+      
+      setLoading(true);
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('./services/firebase');
+        
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setSettings({
+            reminderEmail: data.reminderEmail || user.email,
+            reminderDaysBefore: data.reminderDaysBefore || 2,
+          });
+        } else {
+          setSettings({
+            reminderEmail: user.email,
+            reminderDaysBefore: 2,
+          });
+        }
+      } catch (error) {
+        console.error('Errore caricamento impostazioni:', error);
+        setMessage({ text: 'Errore caricamento impostazioni', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    
+    setSaving(true);
+    setMessage({ text: '', type: '' });
+    
+    try {
+      const { updateReminderSettings } = await import('./services/userApprovalService');
+      
+      const result = await updateReminderSettings(
+        user.uid,
+        settings.reminderEmail,
+        settings.reminderDaysBefore
+      );
+      
+      if (result.success) {
+        setMessage({ text: '✅ Impostazioni salvate con successo!', type: 'success' });
+      } else {
+        setMessage({ text: '❌ Errore salvataggio impostazioni', type: 'error' });
+      }
+    } catch (error) {
+      console.error('Errore salvataggio:', error);
+      setMessage({ text: '❌ Errore: ' + error.message, type: 'error' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage({ text: '', type: '' }), 3000);
+    }
+  };
+
+  const handleChange = (field, value) => {
+    setSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (loading) {
+    return (
+      <div className="content-page">
+        <div className="aurora-background">
+          <div className="aurora-layer-1"></div>
+          <div className="aurora-layer-2"></div>
+          <div className="aurora-layer-3"></div>
+        </div>
+        <div className="dashboard-content">
+          <div style={{ textAlign: 'center', padding: '4rem' }}>
+            <div className="spinner"></div>
+            <p>Caricamento impostazioni...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="content-page">
@@ -1078,13 +1174,34 @@ function SettingsContent() {
 
       <div className="dashboard-content">
         <div className="page-header">
-          <h1>Impostazioni ⚙️</h1>
+          <h1>⚙️ Impostazioni</h1>
           <p>Personalizza Aurora 4.0 secondo le tue preferenze</p>
         </div>
 
+        {message.text && (
+          <div 
+            style={{
+              padding: '1rem',
+              borderRadius: '12px',
+              marginBottom: '1.5rem',
+              background: message.type === 'success' 
+                ? 'rgba(34, 197, 94, 0.1)' 
+                : 'rgba(239, 68, 68, 0.1)',
+              border: message.type === 'success'
+                ? '1px solid rgba(34, 197, 94, 0.3)'
+                : '1px solid rgba(239, 68, 68, 0.3)',
+              color: 'white',
+              textAlign: 'center'
+            }}
+          >
+            {message.text}
+          </div>
+        )}
+
         <div className="settings-grid">
+          {/* Profilo Utente */}
           <div className="setting-section">
-            <h3>Profilo Utente</h3>
+            <h3>👤 Profilo Utente</h3>
             <div className="user-profile-info">
               <div className="profile-avatar">
                 {user?.photoURL ? (
@@ -1096,12 +1213,110 @@ function SettingsContent() {
               <div className="profile-details">
                 <h4>{user?.displayName || 'Utente'}</h4>
                 <p>{user?.email}</p>
+                <span className="profile-badge">Account Attivo</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notifiche Compleanni */}
+          <div className="setting-section">
+            <h3>🎂 Notifiche Compleanni</h3>
+            <p className="section-description">
+              Ricevi promemoria via email per non dimenticare mai un compleanno importante
+            </p>
+            
+            <div className="setting-form">
+              <div className="form-group">
+                <label htmlFor="reminderEmail">
+                  <FiMail style={{ marginRight: '8px' }} />
+                  Email per Notifiche
+                </label>
+                <input
+                  id="reminderEmail"
+                  type="email"
+                  value={settings.reminderEmail}
+                  onChange={(e) => handleChange('reminderEmail', e.target.value)}
+                  placeholder="tuaemail@esempio.com"
+                  className="settings-input"
+                />
+                <small>L'email dove riceverai i promemoria dei compleanni</small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="reminderDaysBefore">
+                  <FiBell style={{ marginRight: '8px' }} />
+                  Anticipo Notifica
+                </label>
+                <select
+                  id="reminderDaysBefore"
+                  value={settings.reminderDaysBefore}
+                  onChange={(e) => handleChange('reminderDaysBefore', parseInt(e.target.value))}
+                  className="settings-select"
+                >
+                  <option value={1}>1 giorno prima</option>
+                  <option value={2}>2 giorni prima</option>
+                  <option value={3}>3 giorni prima</option>
+                  <option value={5}>5 giorni prima</option>
+                  <option value={7}>1 settimana prima</option>
+                </select>
+                <small>Quando vuoi ricevere il promemoria prima del compleanno</small>
+              </div>
+
+              <div className="reminder-preview">
+                <div className="preview-icon">📧</div>
+                <div className="preview-text">
+                  <strong>Anteprima:</strong> Riceverai un'email a <strong>{settings.reminderEmail}</strong>{' '}
+                  <strong>{settings.reminderDaysBefore} {settings.reminderDaysBefore === 1 ? 'giorno' : 'giorni'}</strong> prima 
+                  di ogni compleanno alle ore 9:00.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Info Sistema */}
+          <div className="setting-section">
+            <h3>ℹ️ Informazioni Sistema</h3>
+            <div className="system-info">
+              <div className="info-row">
+                <span className="info-label">Versione App:</span>
+                <span className="info-value">Aurora 4.0</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">Ultimo Aggiornamento:</span>
+                <span className="info-value">Febbraio 2026</span>
+              </div>
+              <div className="info-row">
+                <span className="info-label">ID Utente:</span>
+                <span className="info-value" style={{ fontSize: '0.85rem', opacity: 0.8 }}>
+                  {user?.uid?.substring(0, 20)}...
+                </span>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
+        {/* Pulsante Salva */}
+        <div className="settings-actions">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-save-settings"
+            type="button"
+          >
+            {saving ? (
+              <>
+                <div className="loading-spinner"></div>
+                Salvataggio...
+              </>
+            ) : (
+              <>
+                <FiCheck style={{ marginRight: '8px' }} />
+                Salva Impostazioni
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
