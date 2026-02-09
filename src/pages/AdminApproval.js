@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getPendingUsers, approveUser, rejectUser } from '../services/userApprovalService';
+import { sendApprovalNotification, sendRejectionNotification } from '../services/approvalEmailService';
 import { FiCheck, FiX, FiClock, FiMail, FiUser } from 'react-icons/fi';
 
 function AdminApproval() {
@@ -28,20 +29,31 @@ function AdminApproval() {
     setLoading(false);
   };
 
-  const handleApprove = async (userId, userName) => {
+  const handleApprove = async (userId, userName, userEmail) => {
     if (!window.confirm(`Confermi di voler approvare ${userName}?`)) return;
     
     const result = await approveUser(userId);
     
     if (result.success) {
-      alert(`✅ ${userName} è stato approvato!`);
+      // ✅ Invia email all'utente
+      try {
+        await sendApprovalNotification({
+          email: userEmail,
+          displayName: userName
+        });
+        console.log('📧 Email approvazione inviata a', userEmail);
+      } catch (emailError) {
+        console.error('⚠️ Errore invio email (non critico):', emailError);
+      }
+      
+      alert(`✅ ${userName} è stato approvato! Email di notifica inviata.`);
       loadPendingUsers(); // Ricarica lista
     } else {
       alert('❌ Errore durante l\'approvazione');
     }
   };
 
-  const handleReject = async (userId, userName) => {
+  const handleReject = async (userId, userName, userEmail) => {
     const reason = window.prompt(
       `Perché vuoi rifiutare ${userName}?\n(Opzionale, sarà inviato via email)`
     );
@@ -51,7 +63,18 @@ function AdminApproval() {
     const result = await rejectUser(userId, reason);
     
     if (result.success) {
-      alert(`🚫 ${userName} è stato rifiutato`);
+      // ✅ Invia email all'utente
+      try {
+        await sendRejectionNotification({
+          email: userEmail,
+          displayName: userName
+        }, reason);
+        console.log('📧 Email rifiuto inviata a', userEmail);
+      } catch (emailError) {
+        console.error('⚠️ Errore invio email (non critico):', emailError);
+      }
+      
+      alert(`🚫 ${userName} è stato rifiutato. Email di notifica inviata.`);
       loadPendingUsers(); // Ricarica lista
     } else {
       alert('❌ Errore durante il rifiuto');
@@ -134,7 +157,7 @@ function AdminApproval() {
                 <div className="user-actions">
                   <button
                     className="btn-approve"
-                    onClick={() => handleApprove(user.id, user.displayName || user.email)}
+                    onClick={() => handleApprove(user.id, user.displayName || user.email, user.email)}
                     type="button"
                   >
                     <FiCheck />
@@ -143,7 +166,7 @@ function AdminApproval() {
                   
                   <button
                     className="btn-reject"
-                    onClick={() => handleReject(user.id, user.displayName || user.email)}
+                    onClick={() => handleReject(user.id, user.displayName || user.email, user.email)}
                     type="button"
                   >
                     <FiX />

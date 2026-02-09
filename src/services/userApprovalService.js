@@ -1,6 +1,6 @@
 // src/services/userApprovalService.js
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from './firebase';  // ← MODIFICATO: assumo che firebase.js sia in src/services/
+import { db } from './firebase';
 
 /**
  * Crea un documento utente dopo la registrazione
@@ -19,10 +19,13 @@ export async function createUserDocument(userId, userData) {
       approved: false, // 🔴 DA APPROVARE
       createdAt: new Date(),
       role: 'user', // 'user' o 'admin'
-      status: 'pending' // 'pending', 'approved', 'rejected'
+      status: 'pending', // 'pending', 'approved', 'rejected'
+      // ✅ NUOVO: Email per i reminder compleanni
+      reminderEmail: userData.email,
+      reminderDaysBefore: 2 // Default: reminder 2 giorni prima
     });
     
-    console.log('✅ Documento utente creato, in attesa di approvazione');
+    console.log('✅ Documento utente creato con reminderEmail:', userData.email);
     return { success: true };
   } catch (error) {
     console.error('❌ Errore creazione documento utente:', error);
@@ -58,6 +61,8 @@ export async function checkUserApproval(userId) {
       role: userData.role || 'user',
       email: userData.email,
       displayName: userData.displayName,
+      reminderEmail: userData.reminderEmail || userData.email,
+      reminderDaysBefore: userData.reminderDaysBefore || 2,
       message: userData.approved 
         ? 'Accesso consentito' 
         : 'Account in attesa di approvazione da parte dell\'amministratore'
@@ -158,5 +163,29 @@ export async function isUserAdmin(userId) {
   } catch (error) {
     console.error('❌ Errore controllo admin:', error);
     return false;
+  }
+}
+
+/**
+ * Aggiorna le impostazioni dei reminder per un utente
+ * @param {string} userId - ID dell'utente
+ * @param {string} reminderEmail - Email per ricevere i reminder
+ * @param {number} reminderDaysBefore - Giorni prima del compleanno
+ */
+export async function updateReminderSettings(userId, reminderEmail, reminderDaysBefore = 2) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    
+    await updateDoc(userRef, {
+      reminderEmail,
+      reminderDaysBefore,
+      updatedAt: new Date()
+    });
+    
+    console.log('✅ Impostazioni reminder aggiornate per:', userId);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Errore aggiornamento reminder:', error);
+    return { success: false, error: error.message };
   }
 }

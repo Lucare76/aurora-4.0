@@ -3659,3 +3659,126 @@ body {
     flex-direction: column;
   }
 }
+
+/* =====================================================
+   🔧 FIX HEADER MOBILE - INCOLLA ALLA FINE DI App.css
+   Questo blocco sovrascrive TUTTE le regole duplicate
+   ===================================================== */
+
+/* Header content - layout flex orizzontale */
+.header-content {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1rem 1.5rem !important;
+  gap: 1rem !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Menu hamburger a sinistra */
+.menu-toggle {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  font-size: 20px !important;
+  margin-right: auto !important;
+  flex-shrink: 0 !important;
+}
+
+/* Container campanella + logout - SEMPRE in riga */
+.header-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
+  margin-left: auto !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Campanella */
+.notification-btn {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+  font-size: 20px !important;
+  flex-shrink: 0 !important;
+}
+
+/* =====================================================
+   MOBILE-ONLY: il logout nell'header
+   - NASCOSTO su desktop
+   - VISIBILE su mobile, INLINE-FLEX (non block!)
+   ===================================================== */
+
+/* Desktop: nasconde il logout header */
+.logout-btn.header-logout.mobile-only,
+.header-logout.mobile-only,
+.mobile-only {
+  display: none !important;
+}
+
+/* Mobile: mostra il logout header IN RIGA con la campanella */
+@media (max-width: 768px) {
+  .logout-btn.header-logout.mobile-only,
+  .header-logout.mobile-only,
+  .mobile-only {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .header-content {
+    padding: 0.75rem 1rem !important;
+  }
+
+  .header-actions {
+    gap: 0.5rem !important;
+  }
+
+  /* Stile logout button nell'header mobile */
+  .logout-btn.header-logout,
+  .header-logout {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 10px !important;
+    padding: 8px !important;
+    color: #fff !important;
+    cursor: pointer !important;
+    font-size: 18px !important;
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .notification-btn {
+    padding: 8px !important;
+    font-size: 18px !important;
+  }
+
+  /* Nascondi logout dalla sidebar su mobile */
+  .sidebar-footer .logout-btn {
+    display: none !important;
+  }
+}
+
+/* =====================================================
+   RISULTATO ATTESO:
+   
+   Mobile:  [☰] ............... [🔔] [🚪]
+   Desktop: [☰] ............... [🔔]
+   ===================================================== */
