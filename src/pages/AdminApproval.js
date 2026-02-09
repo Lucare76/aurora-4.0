@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { getPendingUsers, approveUser, rejectUser } from '../services/userApprovalService';
-import { sendApprovalNotification, sendRejectionNotification } from '../services/approvalEmailService';
 import { FiCheck, FiX, FiClock, FiMail, FiUser } from 'react-icons/fi';
 
 function AdminApproval() {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [approving, setApproving] = useState({});
+  const [rejecting, setRejecting] = useState({});
 
   useEffect(() => {
     loadPendingUsers();
@@ -29,55 +30,64 @@ function AdminApproval() {
     setLoading(false);
   };
 
-  const handleApprove = async (userId, userName, userEmail) => {
+  const handleApprove = async (userId, userName) => {
+    // Previeni doppio click
+    if (approving[userId]) {
+      console.log('⚠️ Approvazione già in corso...');
+      return;
+    }
+    
     if (!window.confirm(`Confermi di voler approvare ${userName}?`)) return;
     
-    const result = await approveUser(userId);
+    setApproving(prev => ({ ...prev, [userId]: true }));
     
-    if (result.success) {
-      // ✅ Invia email all'utente
-      try {
-        await sendApprovalNotification({
-          email: userEmail,
-          displayName: userName
-        });
-        console.log('📧 Email approvazione inviata a', userEmail);
-      } catch (emailError) {
-        console.error('⚠️ Errore invio email (non critico):', emailError);
-      }
+    try {
+      // ✅ L'email viene inviata automaticamente dentro approveUser()
+      const result = await approveUser(userId);
       
-      alert(`✅ ${userName} è stato approvato! Email di notifica inviata.`);
-      loadPendingUsers(); // Ricarica lista
-    } else {
+      if (result.success) {
+        alert(`✅ ${userName} è stato approvato! Email di notifica inviata.`);
+        loadPendingUsers(); // Ricarica lista
+      } else {
+        alert('❌ Errore durante l\'approvazione');
+      }
+    } catch (error) {
+      console.error('Errore approvazione:', error);
       alert('❌ Errore durante l\'approvazione');
+    } finally {
+      setApproving(prev => ({ ...prev, [userId]: false }));
     }
   };
 
-  const handleReject = async (userId, userName, userEmail) => {
+  const handleReject = async (userId, userName) => {
+    // Previeni doppio click
+    if (rejecting[userId]) {
+      console.log('⚠️ Rifiuto già in corso...');
+      return;
+    }
+    
     const reason = window.prompt(
       `Perché vuoi rifiutare ${userName}?\n(Opzionale, sarà inviato via email)`
     );
     
     if (reason === null) return; // Annullato
     
-    const result = await rejectUser(userId, reason);
+    setRejecting(prev => ({ ...prev, [userId]: true }));
     
-    if (result.success) {
-      // ✅ Invia email all'utente
-      try {
-        await sendRejectionNotification({
-          email: userEmail,
-          displayName: userName
-        }, reason);
-        console.log('📧 Email rifiuto inviata a', userEmail);
-      } catch (emailError) {
-        console.error('⚠️ Errore invio email (non critico):', emailError);
-      }
+    try {
+      const result = await rejectUser(userId, reason);
       
-      alert(`🚫 ${userName} è stato rifiutato. Email di notifica inviata.`);
-      loadPendingUsers(); // Ricarica lista
-    } else {
+      if (result.success) {
+        alert(`🚫 ${userName} è stato rifiutato.`);
+        loadPendingUsers(); // Ricarica lista
+      } else {
+        alert('❌ Errore durante il rifiuto');
+      }
+    } catch (error) {
+      console.error('Errore rifiuto:', error);
       alert('❌ Errore durante il rifiuto');
+    } finally {
+      setRejecting(prev => ({ ...prev, [userId]: false }));
     }
   };
 
@@ -157,20 +167,22 @@ function AdminApproval() {
                 <div className="user-actions">
                   <button
                     className="btn-approve"
-                    onClick={() => handleApprove(user.id, user.displayName || user.email, user.email)}
+                    onClick={() => handleApprove(user.id, user.displayName || user.email)}
+                    disabled={approving[user.id]}
                     type="button"
                   >
                     <FiCheck />
-                    Approva
+                    {approving[user.id] ? 'Approvazione...' : 'Approva'}
                   </button>
                   
                   <button
                     className="btn-reject"
-                    onClick={() => handleReject(user.id, user.displayName || user.email, user.email)}
+                    onClick={() => handleReject(user.id, user.displayName || user.email)}
+                    disabled={rejecting[user.id]}
                     type="button"
                   >
                     <FiX />
-                    Rifiuta
+                    {rejecting[user.id] ? 'Rifiuto...' : 'Rifiuta'}
                   </button>
                 </div>
               </div>
@@ -291,9 +303,14 @@ export default AdminApproval;
   color: #22c55e;
 }
 
-.btn-approve:hover {
+.btn-approve:hover:not(:disabled) {
   background: rgba(34, 197, 94, 0.3);
   transform: translateY(-2px);
+}
+
+.btn-approve:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-reject {
@@ -302,9 +319,14 @@ export default AdminApproval;
   color: #ef4444;
 }
 
-.btn-reject:hover {
+.btn-reject:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.3);
   transform: translateY(-2px);
+}
+
+.btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .admin-stats {

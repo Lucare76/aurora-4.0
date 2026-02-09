@@ -1,6 +1,7 @@
 // src/services/userApprovalService.js
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
+import { sendNewUserNotification, sendApprovalNotification } from './approvalEmailService';
 
 /**
  * Crea un documento utente dopo la registrazione
@@ -11,6 +12,13 @@ export async function createUserDocument(userId, userData) {
   try {
     const userRef = doc(db, 'users', userId);
     
+    // ✅ Controlla se il documento esiste già (evita duplicati)
+    const existingDoc = await getDoc(userRef);
+    if (existingDoc.exists()) {
+      console.log('⚠️ Documento utente già esistente, skip creazione e email');
+      return { success: true, alreadyExists: true };
+    }
+    
     await setDoc(userRef, {
       uid: userId,
       email: userData.email,
@@ -20,10 +28,28 @@ export async function createUserDocument(userId, userData) {
       createdAt: new Date(),
       role: 'user', // 'user' o 'admin'
       status: 'pending', // 'pending', 'approved', 'rejected'
-      // ✅ NUOVO: Email per i reminder compleanni
+      // ✅ Email per i reminder compleanni
       reminderEmail: userData.email,
-      reminderDaysBefore: 2 // Default: reminder 2 giorni prima
+      reminderDaysBefore: 2, // Default: reminder 2 giorni prima
+      emailNotificationSent: false // Flag per tracciare email inviata
     });
+    
+    // ✅ Invia email all'admin per nuovo utente (SOLO UNA VOLTA)
+    try {
+      await sendNewUserNotification({
+        email: userData.email,
+        displayName: userData.displayName || userData.email
+      });
+      
+      // Marca che l'email è stata inviata
+      await updateDoc(userRef, {
+        emailNotificationSent: true
+      });
+      
+      console.log('📧 Email notifica admin inviata');
+    } catch (emailError) {
+      console.error('⚠️ Errore invio email (non critico):', emailError);
+    }
     
     console.log('✅ Documento utente creato con reminderEmail:', userData.email);
     return { success: true };
@@ -86,11 +112,44 @@ export async function approveUser(userId) {
   try {
     const userRef = doc(db, 'users', userId);
     
+    // ✅ Prima prendi i dati utente per inviargli l'email
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) {
+      throw new Error('Utente non trovato');
+    }
+    
+    const userData = userSnap.data();
+    
+    // ✅ Controlla se è già stato approvato (evita email duplicate)
+    if (userData.approved === true) {
+      console.log('⚠️ Utente già approvato, skip invio email');
+      return { success: true, alreadyApproved: true };
+    }
+    
+    // Aggiorna lo stato
     await updateDoc(userRef, {
       approved: true,
       status: 'approved',
-      approvedAt: new Date()
+      approvedAt: new Date(),
+      approvalEmailSent: false // Reset flag per invio
     });
+    
+    // ✅ Invia email all'utente approvato (SOLO UNA VOLTA)
+    try {
+      await sendApprovalNotification({
+        email: userData.email,
+        displayName: userData.displayName || userData.email
+      });
+      
+      // Marca che l'email di approvazione è stata inviata
+      await updateDoc(userRef, {
+        approvalEmailSent: true
+      });
+      
+      console.log('📧 Email approvazione inviata a:', userData.email);
+    } catch (emailError) {
+      console.error('⚠️ Errore invio email approvazione (non critico):', emailError);
+    }
     
     console.log('✅ Utente approvato:', userId);
     return { success: true };

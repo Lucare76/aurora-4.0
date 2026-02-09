@@ -12,7 +12,6 @@ import {
 } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { createUserDocument, checkUserApproval } from '../services/userApprovalService';
-import { sendNewUserNotification } from '../services/approvalEmailService';
 
 const AuthContext = createContext();
 
@@ -80,23 +79,12 @@ export const AuthProvider = ({ children }) => {
       const approvalStatus = await checkUserApproval(result.user.uid);
       if (!approvalStatus.exists) {
         // Primo accesso con Google - crea documento
+        // L'email viene inviata automaticamente dentro createUserDocument()
         await createUserDocument(result.user.uid, {
           email: result.user.email,
           displayName: result.user.displayName || '',
           photoURL: result.user.photoURL || null
         });
-        
-        // ✅ NUOVO: Invia email all'admin per nuovo utente Google
-        try {
-          await sendNewUserNotification({
-            email: result.user.email,
-            displayName: result.user.displayName || result.user.email
-          });
-          console.log('📧 Email notifica admin inviata (Google)');
-        } catch (emailError) {
-          // Non bloccare il login se l'email fallisce
-          console.error('⚠️ Errore invio email (non critico):', emailError);
-        }
       }
       
       console.log('✅ Login Google riuscito:', result.user);
@@ -120,23 +108,12 @@ export const AuthProvider = ({ children }) => {
       }
       
       // ✅ Crea documento utente in Firestore
+      // L'email viene inviata automaticamente dentro createUserDocument()
       await createUserDocument(user.uid, {
         email: user.email,
         displayName: additionalData.displayName || '',
         photoURL: user.photoURL || null
       });
-      
-      // ✅ NUOVO: Invia email all'admin
-      try {
-        await sendNewUserNotification({
-          email: user.email,
-          displayName: additionalData.displayName || user.email
-        });
-        console.log('📧 Email notifica admin inviata');
-      } catch (emailError) {
-        // Non bloccare la registrazione se l'email fallisce
-        console.error('⚠️ Errore invio email (non critico):', emailError);
-      }
       
       return { success: true, user };
     } catch (error) {
