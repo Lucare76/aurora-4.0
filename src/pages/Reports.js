@@ -22,7 +22,6 @@ function Reports() {
   // -----------------------------
   const parseDate = useCallback((date) => {
     if (!date) return new Date();
-    // Firestore Timestamp
     if (typeof date === 'object' && date !== null && typeof date.toDate === 'function') {
       return date.toDate();
     }
@@ -31,34 +30,42 @@ function Reports() {
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }, []);
 
-  const getAmount = useCallback((t) => {
+  const getAmountSigned = useCallback((t) => {
     const n = Number(t?.amount);
     return Number.isFinite(n) ? n : 0;
   }, []);
 
+  const isTransferTx = useCallback((t) => !!(t?.isTransfer || t?.transferId), []);
+
   const getType = useCallback(
     (t) => {
+      if (isTransferTx(t)) return 'transfer';
       const type = t?.type;
-      if (type === 'income' || type === 'expense' || type === 'transfer') return type;
-      // fallback dal segno
-      return getAmount(t) >= 0 ? 'income' : 'expense';
+      if (type === 'income' || type === 'expense') return type;
+      return getAmountSigned(t) >= 0 ? 'income' : 'expense';
     },
-    [getAmount]
+    [getAmountSigned, isTransferTx]
   );
 
-  const getAccountNameFromTx = useCallback(
-    (t) => {
-      // se in tx abbiamo già accountName, usiamolo
-      if (t?.accountName) return t.accountName;
-      const acc = accounts.find((a) => a.id === t?.accountId);
+  const getAccountName = useCallback(
+    (accountId) => {
+      const acc = accounts.find((a) => a.id === accountId);
       return acc?.name || 'Conto';
     },
     [accounts]
   );
 
+  const getAccountNameFromTx = useCallback(
+    (t) => {
+      if (t?.accountName) return t.accountName;
+      return getAccountName(t?.accountId);
+    },
+    [getAccountName]
+  );
+
   const getCategoryNameFromTx = useCallback(
     (t) => {
-      // Priorità: campo salvato in transazione
+      if (isTransferTx(t)) return 'Giroconto';
       if (t?.categoryName) return t.categoryName;
 
       const rawId = t?.categoryId;
@@ -71,12 +78,12 @@ function Reports() {
       if (typeof rawName === 'string' && rawName.trim()) return rawName.trim();
       return 'Senza categoria';
     },
-    [categories]
+    [categories, isTransferTx]
   );
 
   const getSubCategoryNameFromTx = useCallback(
     (t) => {
-      // Priorità: campo salvato in transazione
+      if (isTransferTx(t)) return '';
       if (t?.subCategoryName) return t.subCategoryName;
 
       const rawSubId = t?.subCategoryId;
@@ -92,7 +99,7 @@ function Reports() {
       const sub = subs.find((s) => s?.id === rawSubId);
       return sub?.name || '';
     },
-    [categories]
+    [categories, isTransferTx]
   );
 
   // -----------------------------
@@ -109,19 +116,18 @@ function Reports() {
     };
   });
 
-  const [activeTab, setActiveTab] = useState('overview'); // overview | categories | subcategories | accounts | transactions
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Filtri avanzati
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
-  const [filterAccount, setFilterAccount] = useState('all'); // id
-  const [filterCategory, setFilterCategory] = useState('all'); // id
-  const [filterSubCategory, setFilterSubCategory] = useState('all'); // id
+  const [filterAccount, setFilterAccount] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterSubCategory, setFilterSubCategory] = useState('all');
 
-  const [sortBy, setSortBy] = useState('date'); // date | amount
-  const [sortDir, setSortDir] = useState('desc'); // asc | desc
+  const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
 
   // -----------------------------
-  // Normalizzazione date (FIX definitivo per il bug "0 transazioni")
+  // Normalizzazione date
   // -----------------------------
   const normalizedStartDate = useMemo(() => {
     if (!dateRange.start) return null;
@@ -133,12 +139,12 @@ function Reports() {
   const normalizedEndDate = useMemo(() => {
     if (!dateRange.end) return null;
     const d = new Date(dateRange.end);
-    d.setHours(23, 59, 59, 999); // 🔥 fondamentale
+    d.setHours(23, 59, 59, 999);
     return d;
   }, [dateRange.end]);
 
   // -----------------------------
-  // Subcategories per select (dipendono dalla categoria selezionata)
+  // Subcategories per select
   // -----------------------------
   const availableSubCategories = useMemo(() => {
     if (filterCategory === 'all') return [];
@@ -147,7 +153,6 @@ function Reports() {
     return Array.isArray(subs) ? subs : [];
   }, [categories, filterCategory]);
 
-  // Se cambio categoria e la sub non esiste più, reset
   React.useEffect(() => {
     if (filterCategory === 'all') {
       if (filterSubCategory !== 'all') setFilterSubCategory('all');
@@ -158,16 +163,89 @@ function Reports() {
   }, [availableSubCategories, filterCategory, filterSubCategory]);
 
   // -----------------------------
-  // Filtraggio transazioni (unico punto di verità)
+  // Collasso giroconti (in report)
+  // -----------------------------
+  const collapseTransfers = useCallback(
+    (list) => {
+      const out = [];
+      const seen = new Set();
+
+      for (const t of list) {
+        const type = t.__type;
+        if (type !== 'transfer') {
+          out.push(t);
+          continue;
+        }
+
+        const transferId = t.transferId || t.__transferKey;
+        if (!transferId) {
+          // fallback: se manca transferId, lo tratto come singolo
+          out.push(t);
+          continue;
+        }
+
+        if (seen.has(transferId)) continue;
+        seen.add(transferId);
+
+        // scegli rappresentante: se ho una gamba uscita (amount < 0) meglio
+        const group = list.filter((x) => x.__type === 'transfer' && (x.transferId || x.__transferKey) === transferId);
+        const rep = group.find((x) => (Number(x.__amountSigned) || 0) < 0) || group[0];
+
+        const abs = Math.max(...group.map((x) => Math.abs(Number(x.__amountSigned) || 0)));
+
+        // from/to: usando accountId + peerAccountId
+        let fromId = rep.accountId || rep.fromAccountId || null;
+        let toId = rep.transferPeerAccountId || rep.toAccountId || null;
+
+        const signed = Number(rep.__amountSigned) || 0;
+        if ((!fromId || !toId) && rep.transferPeerAccountId && rep.accountId) {
+          if (signed < 0) {
+            fromId = rep.accountId;
+            toId = rep.transferPeerAccountId;
+          } else if (signed > 0) {
+            toId = rep.accountId;
+            fromId = rep.transferPeerAccountId;
+          }
+        }
+
+        const fromName = getAccountName(fromId);
+        const toName = getAccountName(toId);
+
+        out.push({
+          ...rep,
+          __isCollapsedTransfer: true,
+          __amount: abs,
+          __amountSigned: signed,
+          __fromAccountId: fromId,
+          __toAccountId: toId,
+          __fromAccountName: fromName,
+          __toAccountName: toName
+        });
+      }
+
+      return out;
+    },
+    [getAccountName]
+  );
+
+  // -----------------------------
+  // Filtraggio transazioni
   // -----------------------------
   const filteredTransactions = useMemo(() => {
-    const list = transactions
-      .map((t) => ({
-        ...t,
-        __date: parseDate(t.date),
-        __type: getType(t),
-        __amount: getAmount(t)
-      }))
+    const base = transactions
+      .map((t) => {
+        const d = parseDate(t.date);
+        const type = getType(t);
+        const signed = getAmountSigned(t);
+        return {
+          ...t,
+          __date: d,
+          __type: type,
+          __amountSigned: signed,
+          __amount: Math.abs(signed),
+          __transferKey: t.transferId || (t.isTransfer ? String(t.timestamp || d.getTime()) : null)
+        };
+      })
       .filter((t) => {
         // date
         if (normalizedStartDate && t.__date < normalizedStartDate) return false;
@@ -176,31 +254,43 @@ function Reports() {
         // type
         if (filterType !== 'all' && t.__type !== filterType) return false;
 
-        // account
-        if (filterAccount !== 'all' && t.accountId !== filterAccount) return false;
+        // account (transfer: matcha accountId di una delle gambe, quindi va bene)
+        if (filterAccount !== 'all' && t.accountId !== filterAccount) {
+          // se è transfer e ho peer id salvato, prova a matchare anche quello
+          if (t.__type === 'transfer') {
+            const peer = t.transferPeerAccountId;
+            if (peer !== filterAccount) return false;
+          } else return false;
+        }
 
-        // category
-        if (filterCategory !== 'all' && t.categoryId !== filterCategory) return false;
-
-        // subcategory
-        if (filterSubCategory !== 'all' && t.subCategoryId !== filterSubCategory) return false;
+        // category/subcategory: solo non-transfer
+        if (t.__type !== 'transfer') {
+          if (filterCategory !== 'all' && t.categoryId !== filterCategory) return false;
+          if (filterSubCategory !== 'all' && t.subCategoryId !== filterSubCategory) return false;
+        } else {
+          if (filterCategory !== 'all') return false;
+          if (filterSubCategory !== 'all') return false;
+        }
 
         return true;
       });
 
+    // collassa i transfer per evitare doppio conteggio e doppie righe
+    const collapsed = collapseTransfers(base);
+
     // sort
     const dir = sortDir === 'asc' ? 1 : -1;
-    list.sort((a, b) => {
+    collapsed.sort((a, b) => {
       if (sortBy === 'amount') return (a.__amount - b.__amount) * dir;
       return (a.__date - b.__date) * dir;
     });
 
-    return list;
+    return collapsed;
   }, [
     transactions,
     parseDate,
     getType,
-    getAmount,
+    getAmountSigned,
     normalizedStartDate,
     normalizedEndDate,
     filterType,
@@ -208,27 +298,33 @@ function Reports() {
     filterCategory,
     filterSubCategory,
     sortBy,
-    sortDir
+    sortDir,
+    collapseTransfers
   ]);
 
   // -----------------------------
-  // Stats principali
+  // Stats principali (escludi transfer)
   // -----------------------------
   const stats = useMemo(() => {
-    const income = filteredTransactions
-      .filter((t) => t.__type === 'income')
-      .reduce((sum, t) => sum + Math.abs(t.__amount), 0);
+    const onlyNormal = filteredTransactions.filter((t) => t.__type !== 'transfer');
 
-    const expenses = filteredTransactions
+    const income = onlyNormal
+      .filter((t) => t.__type === 'income')
+      .reduce((sum, t) => sum + Math.abs(t.__amountSigned), 0);
+
+    const expenses = onlyNormal
       .filter((t) => t.__type === 'expense')
-      .reduce((sum, t) => sum + Math.abs(t.__amount), 0);
+      .reduce((sum, t) => sum + Math.abs(t.__amountSigned), 0);
 
     const net = income - expenses;
-    return { income, expenses, net, count: filteredTransactions.length };
+
+    const transferCount = filteredTransactions.filter((t) => t.__type === 'transfer').length;
+
+    return { income, expenses, net, count: filteredTransactions.length, transferCount };
   }, [filteredTransactions]);
 
   // -----------------------------
-  // Aggregazioni (categorie/sottocategorie/conti)
+  // Aggregazioni (categorie/sottocategorie/conti) (escludi transfer)
   // -----------------------------
   const expensesByCategory = useMemo(() => {
     const map = new Map();
@@ -241,7 +337,7 @@ function Reports() {
         const key = `${catId}__${catName}`;
 
         const prev = map.get(key) || { categoryId: catId, categoryName: catName, amount: 0, count: 0 };
-        prev.amount += Math.abs(t.__amount);
+        prev.amount += Math.abs(t.__amountSigned);
         prev.count += 1;
         map.set(key, prev);
       });
@@ -271,7 +367,7 @@ function Reports() {
             count: 0
           };
 
-        prev.amount += Math.abs(t.__amount);
+        prev.amount += Math.abs(t.__amountSigned);
         prev.count += 1;
         map.set(key, prev);
       });
@@ -282,51 +378,47 @@ function Reports() {
   const statsByAccount = useMemo(() => {
     const map = new Map();
 
-    filteredTransactions.forEach((t) => {
-      const name = getAccountNameFromTx(t);
-      const id = t.accountId || 'no-account';
-      const key = `${id}__${name}`;
+    filteredTransactions
+      .filter((t) => t.__type !== 'transfer')
+      .forEach((t) => {
+        const name = getAccountNameFromTx(t);
+        const id = t.accountId || 'no-account';
+        const key = `${id}__${name}`;
 
-      const prev = map.get(key) || { accountId: id, accountName: name, income: 0, expenses: 0, count: 0 };
-      if (t.__type === 'income') prev.income += Math.abs(t.__amount);
-      if (t.__type === 'expense') prev.expenses += Math.abs(t.__amount);
-      prev.count += 1;
-      map.set(key, prev);
-    });
+        const prev = map.get(key) || { accountId: id, accountName: name, income: 0, expenses: 0, count: 0 };
+        if (t.__type === 'income') prev.income += Math.abs(t.__amountSigned);
+        if (t.__type === 'expense') prev.expenses += Math.abs(t.__amountSigned);
+        prev.count += 1;
+        map.set(key, prev);
+      });
 
     return Array.from(map.values()).sort((a, b) => (b.income - b.expenses) - (a.income - a.expenses));
   }, [filteredTransactions, getAccountNameFromTx]);
 
   // -----------------------------
-  // Grafico mensile (ultimi 12 mesi) basato sulle transazioni (NON filtrato dal periodo)
-  // ma rispettando i filtri tipo/conto/categoria/sottocategoria (se vuoi)
-  // Qui lo facciamo sul filteredTransactions? No: user vuole grafico "periodo".
-  // Usiamo filteredTransactions, ma raggruppiamo per mese.
+  // Grafico mensile (periodo selezionato) (escludi transfer)
   // -----------------------------
   const monthlyChart = useMemo(() => {
-    const buckets = new Map(); // key YYYY-MM
+    const buckets = new Map();
 
-    filteredTransactions.forEach((t) => {
-      const d = t.__date;
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    filteredTransactions
+      .filter((t) => t.__type !== 'transfer')
+      .forEach((t) => {
+        const d = t.__date;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-      const prev = buckets.get(key) || { key, year: d.getFullYear(), month: d.getMonth(), income: 0, expenses: 0 };
-      if (t.__type === 'income') prev.income += Math.abs(t.__amount);
-      if (t.__type === 'expense') prev.expenses += Math.abs(t.__amount);
-      buckets.set(key, prev);
-    });
+        const prev = buckets.get(key) || { key, year: d.getFullYear(), month: d.getMonth(), income: 0, expenses: 0 };
+        if (t.__type === 'income') prev.income += Math.abs(t.__amountSigned);
+        if (t.__type === 'expense') prev.expenses += Math.abs(t.__amountSigned);
+        buckets.set(key, prev);
+      });
 
     const arr = Array.from(buckets.values()).sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
       return a.month - b.month;
     });
 
-    const max = Math.max(
-      100,
-      ...arr.map((x) => x.income),
-      ...arr.map((x) => x.expenses)
-    );
-
+    const max = Math.max(100, ...arr.map((x) => x.income), ...arr.map((x) => x.expenses));
     return { data: arr, max };
   }, [filteredTransactions]);
 
@@ -339,20 +431,25 @@ function Reports() {
     const rows = filteredTransactions.map((t) => {
       const d = t.__date.toISOString().split('T')[0];
       const desc = (t.description || 'Nessuna descrizione').replaceAll('"', '""');
-      const tipo = t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento';
-      const conto = getAccountNameFromTx(t).replaceAll('"', '""');
+
+      let tipo = 'Uscita';
+      if (t.__type === 'income') tipo = 'Entrata';
+      if (t.__type === 'transfer') tipo = 'Trasferimento';
+
       const cat = getCategoryNameFromTx(t).replaceAll('"', '""');
       const sub = (getSubCategoryNameFromTx(t) || '').replaceAll('"', '""');
 
-      return [
-        d,
-        `"${desc}"`,
-        tipo,
-        String(t.__amount),
-        `"${conto}"`,
-        `"${cat}"`,
-        `"${sub}"`
-      ].join(',');
+      let conto = getAccountNameFromTx(t);
+      if (t.__type === 'transfer') {
+        const from = t.__fromAccountName || getAccountName(t.__fromAccountId);
+        const to = t.__toAccountName || getAccountName(t.__toAccountId);
+        conto = `Da ${from} -> A ${to}`;
+      }
+      conto = String(conto).replaceAll('"', '""');
+
+      const amount = t.__type === 'transfer' ? t.__amount : t.__amountSigned;
+
+      return [d, `"${desc}"`, tipo, String(amount), `"${conto}"`, `"${cat}"`, `"${sub}"`].join(',');
     });
 
     const content = [headers.join(','), ...rows].join('\n');
@@ -371,7 +468,8 @@ function Reports() {
     dateRange.end,
     getAccountNameFromTx,
     getCategoryNameFromTx,
-    getSubCategoryNameFromTx
+    getSubCategoryNameFromTx,
+    getAccountName
   ]);
 
   const resetFilters = useCallback(() => {
@@ -403,7 +501,7 @@ function Reports() {
       <div className="chart-container">
         <div className="chart-header">
           <h4>Andamento Mensile (Periodo Selezionato)</h4>
-          <span className="chart-subtitle">Entrate vs Uscite per mese</span>
+          <span className="chart-subtitle">Entrate vs Uscite per mese (esclusi giroconti)</span>
         </div>
 
         <div className="chart-bars">
@@ -509,7 +607,7 @@ function Reports() {
                 <option value="all">Tutti</option>
                 <option value="income">Entrate</option>
                 <option value="expense">Uscite</option>
-                <option value="transfer">Trasferimenti</option>
+                <option value="transfer">Giroconti</option>
               </select>
             </div>
 
@@ -575,7 +673,9 @@ function Reports() {
             <button className="reset-filters-btn" onClick={resetFilters}>
               <FiRefreshCw /> Reset Filtri
             </button>
-            <div className="filter-results">{stats.count} transazioni trovate</div>
+            <div className="filter-results">
+              {stats.count} transazioni trovate {stats.transferCount ? `• ${stats.transferCount} giroconti` : ''}
+            </div>
           </div>
         </div>
 
@@ -772,23 +872,30 @@ function Reports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransactions.map((t) => (
-                    <tr key={t.id}>
-                      <td>{formatDateIT(t.__date)}</td>
-                      <td>{t.description || 'Nessuna descrizione'}</td>
-                      <td>{getCategoryNameFromTx(t)}</td>
-                      <td>{getSubCategoryNameFromTx(t) || '—'}</td>
-                      <td>{getAccountNameFromTx(t)}</td>
-                      <td>
-                        <span className={`type-badge ${t.__type}`}>
-                          {t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento'}
-                        </span>
-                      </td>
-                      <td className={t.__type === 'expense' ? 'negative' : 'positive'}>
-                        {formatEUR(t.__amount)}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredTransactions.map((t) => {
+                    const isTransfer = t.__type === 'transfer';
+                    const accountLabel = isTransfer
+                      ? `Da ${t.__fromAccountName || 'Conto'} → A ${t.__toAccountName || 'Conto'}`
+                      : getAccountNameFromTx(t);
+
+                    return (
+                      <tr key={t.id}>
+                        <td>{formatDateIT(t.__date)}</td>
+                        <td>{t.description || (isTransfer ? 'Giroconto' : 'Nessuna descrizione')}</td>
+                        <td>{getCategoryNameFromTx(t)}</td>
+                        <td>{getSubCategoryNameFromTx(t) || '—'}</td>
+                        <td>{accountLabel}</td>
+                        <td>
+                          <span className={`type-badge ${t.__type}`}>
+                            {t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento'}
+                          </span>
+                        </td>
+                        <td className={t.__type === 'expense' ? 'negative' : t.__type === 'income' ? 'positive' : ''}>
+                          {formatEUR(isTransfer ? t.__amount : t.__amountSigned)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

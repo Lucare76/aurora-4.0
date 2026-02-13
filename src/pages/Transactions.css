@@ -1,7 +1,7 @@
 /* src/pages/Transactions.css */
 
 /* Proprietà personalizzate per mantenere la coerenza */
-:root {
+.transactions-page {
   --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   --positive-color: #10b981;
   --negative-color: #ef4444;
@@ -1160,4 +1160,30 @@ option:hover {
   border-top-color: var(--text-primary);
   margin-bottom: -5px;
   z-index: 100;
+}
+
+/* ============================
+   ADD: Transfer (Giroconto) styles
+============================ */
+
+/* Importi giroconto */
+.transaction-amount.transfer {
+  color: #4f46e5; /* tono neutro/primary */
+}
+
+.amount.transfer {
+  color: #4f46e5;
+}
+
+/* Se usi badge o label per il tipo */
+.type-badge.transfer {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  border: 1px solid rgba(79, 70, 229, 0.22);
+}
+
+/* Se in Transactions.js aggiungi className "transfer" alle pill */
+.transaction-category.transfer {
+  background: rgba(79, 70, 229, 0.10);
+  color: #4f46e5;
 }

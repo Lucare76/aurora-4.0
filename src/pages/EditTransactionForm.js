@@ -1,129 +1,247 @@
 // src/pages/EditTransactionForm.js
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import './Transactions.css';
+
+/* Data/ora locale per input datetime-local */
+function getLocalDateTimeForInput(dateObj = new Date()) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  const h = String(dateObj.getHours()).padStart(2, '0');
+  const min = String(dateObj.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
+
+function parseLocalDateFromInput(value) {
+  if (!value) return null;
+
+  if (value.includes('T')) {
+    const [datePart, timePart] = value.split('T');
+    const [y, m, d] = datePart.split('-').map(Number);
+    const [h, min] = timePart.split(':').map(Number);
+    return new Date(y, m - 1, d, h, min, 0, 0);
+  }
+
+  const [y, m, d] = value.split('-').map(Number);
+  const now = new Date();
+  return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), 0, 0);
+}
+
+function pickDifferentAccountId(accounts, excludeId) {
+  const other = (accounts || []).find((a) => a.id !== excludeId);
+  return other?.id || '';
+}
+
 const EditTransactionForm = ({ transaction, onClose }) => {
-  const { accounts, categories, updateTransaction } = useFinancial();
+  const { accounts = [], categories = [], updateTransaction } = useFinancial();
+
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    type: 'expense',
+    type: 'expense', // income | expense | transfer
     category: '',
     subCategory: '',
     accountId: '',
-    date: ''
+    fromAccountId: '',
+    toAccountId: '',
+    date: getLocalDateTimeForInput()
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const isTransfer = useMemo(() => !!(transaction?.isTransfer || transaction?.type === 'transfer' || transaction?.transferId), [transaction]);
+
   useEffect(() => {
-    if (transaction) {
-      const txDate = transaction.date;
-      const formattedDate = txDate && typeof txDate === 'object' && 'toDate' in txDate
-        ? txDate.toDate().toISOString().split('T')[0]
-        : new Date(txDate).toISOString().split('T')[0];
-      
-      const isIncome = transaction.amount > 0;
-      
-      setFormData({
-        description: transaction.description || '',
-        amount: Math.abs(transaction.amount || 0).toString(),
-        type: isIncome ? 'income' : 'expense',
-        category: transaction.category || '',
-        subCategory: transaction.subCategory || '',
-        accountId: transaction.accountId || '',
-        date: formattedDate
-      });
+    if (!transaction) return;
+
+    // date
+    let dt = new Date();
+    if (transaction.date) {
+      if (typeof transaction.date?.toDate === 'function') dt = transaction.date.toDate();
+      else {
+        const parsed = new Date(transaction.date);
+        if (!Number.isNaN(parsed.getTime())) dt = parsed;
+      }
     }
-  }, [transaction]);
+
+    // tipo
+    const baseType = isTransfer ? 'transfer' : (transaction.type || (Number(transaction.amount) >= 0 ? 'income' : 'expense'));
+
+    // category/subcategory (usa ID se presenti)
+    const categoryId = transaction.categoryId || transaction.category || '';
+    const subId = transaction.subCategoryId || transaction.subCategory || transaction.subcategory || '';
+
+    // conti giroconto
+    let fromAccountId = transaction.fromAccountId || '';
+    let toAccountId = transaction.toAccountId || '';
+
+    // se mi arriva una gamba o un oggetto “collassato”, normalizzo
+    if (isTransfer) {
+      // se non ho from/to, provo a dedurre da campi standard
+      if (!fromAccountId || !toAccountId) {
+        const amt = Number(transaction.amount) || 0;
+
+        if (transaction.accountId && transaction.transferPeerAccountId) {
+          // se questa è la gamba uscita (amt < 0), accountId=from, peer=to
+          // se è la gamba entrata (amt > 0), accountId=to, peer=from
+          if (amt < 0) {
+            fromAccountId = transaction.accountId;
+            toAccountId = transaction.transferPeerAccountId;
+          } else if (amt > 0) {
+            toAccountId = transaction.accountId;
+            fromAccountId = transaction.transferPeerAccountId;
+          }
+        } else {
+          // fallback: usa accountId come from e scegline un altro come to
+          fromAccountId = transaction.accountId || accounts?.[0]?.id || '';
+          toAccountId = pickDifferentAccountId(accounts, fromAccountId);
+        }
+      }
+
+      if (fromAccountId && toAccountId && fromAccountId === toAccountId) {
+        toAccountId = pickDifferentAccountId(accounts, fromAccountId);
+      }
+    }
+
+    setFormData({
+      description: transaction.description || '',
+      amount: String(Math.abs(Number(transaction.amount) || 0)),
+      type: baseType,
+      category: baseType === 'transfer' ? '' : categoryId,
+      subCategory: baseType === 'transfer' ? '' : subId,
+      accountId: transaction.accountId || accounts?.[0]?.id || '',
+      fromAccountId: fromAccountId || accounts?.[0]?.id || '',
+      toAccountId: toAccountId || pickDifferentAccountId(accounts, fromAccountId || accounts?.[0]?.id || ''),
+      date: getLocalDateTimeForInput(dt)
+    });
+  }, [transaction, accounts, isTransfer]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name === 'category') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        subCategory: ''
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setFormData((prev) => ({ ...prev, category: value, subCategory: '' }));
+      return;
     }
+
+    if (name === 'fromAccountId') {
+      setFormData((prev) => {
+        const nextFrom = value;
+        const nextTo = prev.toAccountId === nextFrom ? pickDifferentAccountId(accounts, nextFrom) : prev.toAccountId;
+        return { ...prev, fromAccountId: nextFrom, toAccountId: nextTo };
+      });
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleTypeChange = (type) => {
-    setFormData(prev => ({
-      ...prev,
-      type,
-      category: '',
-      subCategory: ''
-    }));
+    setFormData((prev) => {
+      if (type === 'transfer') {
+        const from = prev.accountId || accounts?.[0]?.id || '';
+        const to = pickDifferentAccountId(accounts, from);
+        return { ...prev, type, category: '', subCategory: '', fromAccountId: from, toAccountId: to };
+      }
+      return { ...prev, type, category: '', subCategory: '' };
+    });
   };
+
+  const filteredCategories = useMemo(() => {
+    if (formData.type !== 'income' && formData.type !== 'expense') return [];
+    return categories.filter((cat) => cat.type === formData.type);
+  }, [categories, formData.type]);
+
+  const selectedCategory = useMemo(() => categories.find((cat) => cat.id === formData.category), [categories, formData.category]);
+  const subCategories = selectedCategory?.subCategories || [];
+
+  const selectedAccount = accounts.find((acc) => acc.id === formData.accountId);
+  const fromAccount = accounts.find((acc) => acc.id === formData.fromAccountId);
+  const toAccount = accounts.find((acc) => acc.id === formData.toAccountId);
+
+  const getCategoryIcon = (categoryId) => {
+    if (!categoryId) return { icon: '💰', color: '#6b7280' };
+    const category = categories.find((cat) => cat.id === categoryId);
+    return { icon: category?.icon || '💰', color: category?.color || '#6b7280' };
+  };
+
+  const categoryInfo = getCategoryIcon(formData.category);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+
+    const amountNum = parseFloat(formData.amount);
+    if (!amountNum || amountNum <= 0) {
       setError('Inserisci un importo valido');
       return;
     }
-    
-    if (!formData.accountId) {
-      setError('Seleziona un conto');
-      return;
-    }
-    
-    if (!formData.date) {
-      setError('Seleziona una data');
+
+    const transactionDate = parseLocalDateFromInput(formData.date);
+    if (!transactionDate) {
+      setError('Data non valida');
       return;
     }
 
     try {
       setLoading(true);
       setError('');
-      
-      const updateData = {
+
+      // ✅ GIROCONTO
+      if (formData.type === 'transfer' || isTransfer) {
+        if (!accounts || accounts.length < 2) {
+          setError('Per un giroconto servono almeno 2 conti');
+          return;
+        }
+        if (!formData.fromAccountId || !formData.toAccountId) {
+          setError('Seleziona conto origine e destinazione');
+          return;
+        }
+        if (formData.fromAccountId === formData.toAccountId) {
+          setError('I conti devono essere diversi');
+          return;
+        }
+
+        await updateTransaction(transaction.id, {
+          type: 'transfer',
+          description: formData.description.trim() || '',
+          amount: Math.abs(amountNum),
+          fromAccountId: formData.fromAccountId,
+          toAccountId: formData.toAccountId,
+          date: transactionDate,
+          timestamp: transactionDate.getTime()
+        });
+
+        onClose?.();
+        return;
+      }
+
+      // ✅ NORMALE
+      if (!formData.accountId) {
+        setError('Seleziona un conto');
+        return;
+      }
+
+      await updateTransaction(transaction.id, {
         description: formData.description.trim() || '',
         amount: parseFloat(formData.amount),
         type: formData.type,
         category: formData.category || null,
         subCategory: formData.subCategory || null,
         accountId: formData.accountId,
-        date: new Date(formData.date)
-      };
-      
-      await updateTransaction(transaction.id, updateData);
-      onClose();
-    } catch (error) {
-      console.error('Errore durante l\'aggiornamento:', error);
-      setError(error.message || 'Errore durante l\'aggiornamento della transazione');
+        date: transactionDate,
+        timestamp: transactionDate.getTime()
+      });
+
+      onClose?.();
+    } catch (err) {
+      console.error("Errore durante l'aggiornamento:", err);
+      setError(err?.message || "Errore durante l'aggiornamento della transazione");
     } finally {
       setLoading(false);
     }
   };
-
-  const filteredCategories = categories.filter(
-    cat => cat.type === formData.type
-  );
-
-  const selectedCategory = categories.find(cat => cat.id === formData.category);
-  const subCategories = selectedCategory?.subCategories || [];
-  const selectedAccount = accounts.find(acc => acc.id === formData.accountId);
-
-  const getCategoryIcon = (categoryId) => {
-    if (!categoryId) return { icon: '💰', color: '#6b7280' };
-    const category = categories.find(cat => cat.id === categoryId);
-    return { 
-      icon: category?.icon || '💰', 
-      color: category?.color || '#6b7280' 
-    };
-  };
-
-  const categoryInfo = getCategoryIcon(formData.category);
 
   return (
     <div className="transaction-form">
@@ -131,14 +249,11 @@ const EditTransactionForm = ({ transaction, onClose }) => {
         <h2>Modifica Transazione</h2>
         <button onClick={onClose} className="close-btn">&times;</button>
       </div>
-      
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
-      
+
+      {error && <div className="error-message">{error}</div>}
+
       <form onSubmit={handleSubmit}>
+        {/* Descrizione + Importo */}
         <div className="form-row">
           <div className="form-group">
             <label>Descrizione</label>
@@ -155,7 +270,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
               Facoltativo — puoi lasciare vuoto.
             </small>
           </div>
-          
+
           <div className="form-group">
             <label>Importo *</label>
             <div className="amount-input-wrapper">
@@ -174,7 +289,8 @@ const EditTransactionForm = ({ transaction, onClose }) => {
             </div>
           </div>
         </div>
-        
+
+        {/* Tipo + DataOra */}
         <div className="form-row">
           <div className="form-group">
             <label>Tipo *</label>
@@ -187,6 +303,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
                 <span className="type-icon">📈</span>
                 Entrata
               </button>
+
               <button
                 type="button"
                 className={`type-btn ${formData.type === 'expense' ? 'active' : ''}`}
@@ -195,13 +312,24 @@ const EditTransactionForm = ({ transaction, onClose }) => {
                 <span className="type-icon">📉</span>
                 Uscita
               </button>
+
+              <button
+                type="button"
+                className={`type-btn ${formData.type === 'transfer' ? 'active' : ''}`}
+                onClick={() => handleTypeChange('transfer')}
+                disabled={!accounts || accounts.length < 2}
+                title={!accounts || accounts.length < 2 ? 'Servono almeno 2 conti' : ''}
+              >
+                <span className="type-icon">🔁</span>
+                Giroconto
+              </button>
             </div>
           </div>
-          
+
           <div className="form-group">
-            <label>Data *</label>
+            <label>Data e Ora *</label>
             <input
-              type="date"
+              type="datetime-local"
               name="date"
               value={formData.date}
               onChange={handleChange}
@@ -210,99 +338,154 @@ const EditTransactionForm = ({ transaction, onClose }) => {
             />
           </div>
         </div>
-        
-        <div className="form-group">
-          <label>Conto *</label>
-          <div className="account-selection">
-            <select
-              name="accountId"
-              value={formData.accountId}
-              onChange={handleChange}
-              className="form-select"
-              required
-            >
-              <option value="">Seleziona un conto</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.name} ({account.type})
-                </option>
-              ))}
-            </select>
-            
-            {selectedAccount && (
-              <div className="account-balance-info">
-                <span className="balance-label">Saldo attuale:</span>
-                <span className={`balance-amount ${selectedAccount.balance >= 0 ? 'positive' : 'negative'}`}>
-                  €{selectedAccount.balance?.toFixed(2) || '0.00'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="form-row">
+
+        {/* Conti */}
+        {formData.type !== 'transfer' ? (
           <div className="form-group">
-            <label>Categoria</label>
-            <div className="category-selection">
+            <label>Conto *</label>
+            <div className="account-selection">
               <select
-                name="category"
-                value={formData.category}
+                name="accountId"
+                value={formData.accountId}
                 onChange={handleChange}
                 className="form-select"
+                required
               >
-                <option value="">Senza categoria</option>
-                {filteredCategories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.icon} {category.name}
+                <option value="">Seleziona un conto</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.type})
                   </option>
                 ))}
               </select>
-              
-              {formData.category && (
-                <div className="selected-category">
-                  <span className="category-icon-preview" style={{ color: categoryInfo.color }}>
-                    {categoryInfo.icon}
+
+              {selectedAccount && (
+                <div className="account-balance-info">
+                  <span className="balance-label">Saldo attuale:</span>
+                  <span className={`balance-amount ${selectedAccount.balance >= 0 ? 'positive' : 'negative'}`}>
+                    €{selectedAccount.balance?.toFixed(2) || '0.00'}
                   </span>
-                  <span className="category-name-preview">{selectedCategory?.name}</span>
                 </div>
               )}
             </div>
           </div>
-          
-          {formData.category && subCategories.length > 0 && (
+        ) : (
+          <div className="form-row">
             <div className="form-group">
-              <label>Sottocategoria</label>
+              <label>Da Conto *</label>
               <select
-                name="subCategory"
-                value={formData.subCategory}
+                name="fromAccountId"
+                value={formData.fromAccountId}
                 onChange={handleChange}
                 className="form-select"
+                required
               >
-                <option value="">Nessuna sottocategoria</option>
-                {subCategories.map(sub => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.icon || '📋'} {sub.name}
+                <option value="">Seleziona conto origine</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.type})
                   </option>
                 ))}
               </select>
+
+              {fromAccount && (
+                <div className="account-balance-info">
+                  <span className="balance-label">Saldo attuale:</span>
+                  <span className={`balance-amount ${fromAccount.balance >= 0 ? 'positive' : 'negative'}`}>
+                    €{fromAccount.balance?.toFixed(2) || '0.00'}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        
+
+            <div className="form-group">
+              <label>A Conto *</label>
+              <select
+                name="toAccountId"
+                value={formData.toAccountId}
+                onChange={handleChange}
+                className="form-select"
+                required
+              >
+                <option value="">Seleziona conto destinazione</option>
+                {accounts
+                  .filter((a) => a.id !== formData.fromAccountId)
+                  .map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.type})
+                    </option>
+                  ))}
+              </select>
+
+              {toAccount && (
+                <div className="account-balance-info">
+                  <span className="balance-label">Saldo attuale:</span>
+                  <span className={`balance-amount ${toAccount.balance >= 0 ? 'positive' : 'negative'}`}>
+                    €{toAccount.balance?.toFixed(2) || '0.00'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Categoria / Sottocategoria (solo income/expense) */}
+        {(formData.type === 'income' || formData.type === 'expense') && (
+          <div className="form-row">
+            <div className="form-group">
+              <label>Categoria</label>
+              <div className="category-selection">
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="form-select"
+                >
+                  <option value="">Senza categoria</option>
+                  {filteredCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.icon} {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                {formData.category && (
+                  <div className="selected-category">
+                    <span className="category-icon-preview" style={{ color: categoryInfo.color }}>
+                      {categoryInfo.icon}
+                    </span>
+                    <span className="category-name-preview">{selectedCategory?.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {formData.category && subCategories.length > 0 && (
+              <div className="form-group">
+                <label>Sottocategoria</label>
+                <select
+                  name="subCategory"
+                  value={formData.subCategory}
+                  onChange={handleChange}
+                  className="form-select"
+                >
+                  <option value="">Nessuna sottocategoria</option>
+                  {subCategories.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.icon || '📋'} {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="form-actions">
-          <button
-            type="button"
-            onClick={onClose}
-            className="cancel-btn"
-            disabled={loading}
-          >
+          <button type="button" onClick={onClose} className="cancel-btn" disabled={loading}>
             Annulla
           </button>
-          <button
-            type="submit"
-            className="submit-btn"
-            disabled={loading}
-          >
+          <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? 'Salvataggio...' : 'Salva Modifiche'}
           </button>
         </div>

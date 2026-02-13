@@ -11,10 +11,12 @@ const Accounts = () => {
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+
+  // ✅ balance come STRINGA per non mostrare "0" fisso nel campo
   const [newAccount, setNewAccount] = useState({
     name: '',
     type: 'bank',
-    balance: 0,
+    balance: '',
     color: '#4f46e5'
   });
 
@@ -25,7 +27,7 @@ const Accounts = () => {
     cash: { label: 'Contanti', icon: '💵', color: '#92400e' },
     credit: { label: 'Carta di Credito', icon: '💳', color: '#7f1d1d' },
     investment: { label: 'Investimenti', icon: '📈', color: '#3730a3' },
-    bets: { label: 'Scommesse', icon: '🎰', color: '#b91c1c' }  
+    bets: { label: 'Scommesse', icon: '🎰', color: '#b91c1c' }
   };
 
   // Palette colori rapida per il pannello di modifica
@@ -44,9 +46,8 @@ const Accounts = () => {
 
   const handleDelete = async (accountId, accountName) => {
     const conferma = window.confirm(
-      `Vuoi davvero eliminare il conto "${accountName}"?\n` +
-      `Tutte le transazioni associate verranno rimosse.`
-    );
+  `Vuoi davvero eliminare il conto "${accountName}"?\nTutte le transazioni associate verranno rimosse.`
+);
     if (!conferma) return;
 
     try {
@@ -105,17 +106,23 @@ const Accounts = () => {
       return;
     }
 
+    // ✅ Converto qui (solo al submit). Se vuoto => 0
+    const balanceValue = parseFloat(newAccount.balance);
+    const safeBalance = Number.isFinite(balanceValue) ? balanceValue : 0;
+
     try {
       await createAccount({
-        ...newAccount,
         name: newAccount.name.trim(),
+        type: newAccount.type,
+        balance: safeBalance,
         color: accountTypes[newAccount.type]?.color || '#4f46e5'
       });
 
+      // reset form (saldo vuoto)
       setNewAccount({
         name: '',
         type: 'bank',
-        balance: 0,
+        balance: '',
         color: '#4f46e5'
       });
       setShowAddForm(false);
@@ -164,9 +171,7 @@ const Accounts = () => {
       <div className="dashboard-header">
         <div className="header-left">
           <h1 className="dashboard-title">Conti</h1>
-          <p className="dashboard-subtitle">
-            Gestisci tutti i tuoi conti finanziari ({totalAccounts} totali)
-          </p>
+          <p className="dashboard-subtitle">Gestisci tutti i tuoi conti finanziari ({totalAccounts} totali)</p>
         </div>
         <div className="header-right">
           <div className="balance-summary">
@@ -181,6 +186,7 @@ const Accounts = () => {
               setEditingAccount(null);
               setShowAddForm(true);
             }}
+            type="button"
           >
             <span className="btn-plus">+</span>
             Nuovo Conto
@@ -197,10 +203,11 @@ const Accounts = () => {
           <div className="form-modal">
             <div className="form-header">
               <h3>Nuovo Conto</h3>
-              <button className="close-form" onClick={() => setShowAddForm(false)}>
+              <button className="close-form" onClick={() => setShowAddForm(false)} type="button">
                 ×
               </button>
             </div>
+
             <form onSubmit={handleCreateAccount}>
               <div className="form-row">
                 <input
@@ -241,22 +248,14 @@ const Accounts = () => {
                   className="form-input"
                   step="0.01"
                   value={newAccount.balance}
-                  onChange={(e) =>
-                    setNewAccount({
-                      ...newAccount,
-                      balance: parseFloat(e.target.value) || 0
-                    })
-                  }
+                  // ✅ tengo stringa, così puoi cancellare tutto senza che torni "0"
+                  onChange={(e) => setNewAccount({ ...newAccount, balance: e.target.value })}
                   placeholder="Saldo iniziale"
                 />
               </div>
 
               <div className="form-actions">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => setShowAddForm(false)}
-                >
+                <button type="button" className="cancel-btn" onClick={() => setShowAddForm(false)}>
                   Annulla
                 </button>
                 <button type="submit" className="submit-btn">
@@ -273,10 +272,11 @@ const Accounts = () => {
         <div className="edit-panel">
           <div className="panel-header">
             <h3>Modifica Conto</h3>
-            <button className="close-panel" onClick={() => setEditingAccount(null)}>
+            <button className="close-panel" onClick={() => setEditingAccount(null)} type="button">
               ×
             </button>
           </div>
+
           <form onSubmit={handleEditSubmit}>
             <div className="panel-form">
               <div className="form-field">
@@ -284,9 +284,7 @@ const Accounts = () => {
                 <input
                   type="text"
                   value={editingAccount.name}
-                  onChange={(e) =>
-                    setEditingAccount({ ...editingAccount, name: e.target.value })
-                  }
+                  onChange={(e) => setEditingAccount({ ...editingAccount, name: e.target.value })}
                   required
                 />
               </div>
@@ -300,10 +298,7 @@ const Accounts = () => {
                     setEditingAccount((prev) => ({
                       ...prev,
                       type: newType,
-                      color:
-                        prev.color ||
-                        accountTypes[newType]?.color ||
-                        '#4f46e5'
+                      color: prev.color || accountTypes[newType]?.color || '#4f46e5'
                     }));
                   }}
                 >
@@ -321,12 +316,7 @@ const Accounts = () => {
                   type="number"
                   step="0.01"
                   value={editingAccount.balance}
-                  onChange={(e) =>
-                    setEditingAccount({
-                      ...editingAccount,
-                      balance: e.target.value
-                    })
-                  }
+                  onChange={(e) => setEditingAccount({ ...editingAccount, balance: e.target.value })}
                 />
               </div>
 
@@ -337,16 +327,9 @@ const Accounts = () => {
                     <button
                       key={color}
                       type="button"
-                      className={`color-option ${
-                        editingAccount.color === color ? 'selected' : ''
-                      }`}
+                      className={`color-option ${editingAccount.color === color ? 'selected' : ''}`}
                       style={{ backgroundColor: color }}
-                      onClick={() =>
-                        setEditingAccount((prev) => ({
-                          ...prev,
-                          color
-                        }))
-                      }
+                      onClick={() => setEditingAccount((prev) => ({ ...prev, color }))}
                     />
                   ))}
                 </div>
@@ -375,11 +358,7 @@ const Accounts = () => {
           const typeInfo = accountTypes[account.type] || accountTypes.bank;
 
           return (
-            <div
-              key={account.id}
-              className="account-card"
-              onClick={() => startEdit(account)}
-            >
+            <div key={account.id} className="account-card" onClick={() => startEdit(account)}>
               <div className="account-header">
                 <div
                   className="account-icon"
@@ -390,10 +369,12 @@ const Accounts = () => {
                 >
                   {typeInfo.icon}
                 </div>
+
                 <div className="account-info">
                   <h3 className="account-name">{account.name}</h3>
                   <span className="account-type">{typeInfo.label}</span>
                 </div>
+
                 <div className="account-actions">
                   <button
                     className="action-btn"
@@ -401,6 +382,7 @@ const Accounts = () => {
                       e.stopPropagation();
                       startEdit(account);
                     }}
+                    type="button"
                   >
                     ⋮
                   </button>
@@ -409,9 +391,7 @@ const Accounts = () => {
 
               <div className="account-balance">
                 <span className="balance-label">Saldo Attuale</span>
-                <div className={getBalanceClass(account.balance)}>
-                  {formatCurrency(account.balance)}
-                </div>
+                <div className={getBalanceClass(account.balance)}>{formatCurrency(account.balance)}</div>
               </div>
             </div>
           );
@@ -431,6 +411,7 @@ const Accounts = () => {
                 setEditingAccount(null);
                 setShowAddForm(true);
               }}
+              type="button"
             >
               Crea Conto
             </button>

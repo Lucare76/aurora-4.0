@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import './AddTransactionForm.css';
 
@@ -27,58 +27,110 @@ function parseLocalDateFromInput(value) {
   return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), 0, 0);
 }
 
+function pickDifferentAccountId(accounts, excludeId) {
+  const other = (accounts || []).find((a) => a.id !== excludeId);
+  return other?.id || '';
+}
+
 const AddTransactionForm = ({ onClose }) => {
-  const { accounts, categories, createTransaction } = useFinancial();
+  const { accounts = [], categories = [], createTransaction } = useFinancial();
 
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    type: 'expense',
+    type: 'expense', // income | expense | transfer
     category: '',
     subCategory: '',
     accountId: '',
+    fromAccountId: '',
+    toAccountId: '',
     date: getLocalDateTimeForInput()
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  /* Conto di default */
+  // default conti
   useEffect(() => {
-    if (accounts?.length > 0 && !formData.accountId) {
-      setFormData(prev => ({
-        ...prev,
-        accountId: accounts[0].id
-      }));
-    }
-  }, [accounts, formData.accountId]);
+    if (!accounts?.length) return;
+
+    setFormData((prev) => {
+      const first = accounts[0]?.id || '';
+      const second = pickDifferentAccountId(accounts, first);
+
+      // se già valorizzati, non toccare
+      const next = { ...prev };
+      if (!next.accountId) next.accountId = first;
+      if (!next.fromAccountId) next.fromAccountId = first;
+      if (!next.toAccountId) next.toAccountId = second;
+
+      // evita from=to
+      if (next.fromAccountId && next.toAccountId && next.fromAccountId === next.toAccountId) {
+        next.toAccountId = pickDifferentAccountId(accounts, next.fromAccountId);
+      }
+      return next;
+    });
+  }, [accounts]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === 'category') {
-      setFormData(prev => ({
-        ...prev,
-        category: value,
-        subCategory: ''
-      }));
+      setFormData((prev) => ({ ...prev, category: value, subCategory: '' }));
       return;
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    if (name === 'fromAccountId') {
+      setFormData((prev) => {
+        const nextFrom = value;
+        const nextTo =
+          prev.toAccountId === nextFrom ? pickDifferentAccountId(accounts, nextFrom) : prev.toAccountId;
+        return { ...prev, fromAccountId: nextFrom, toAccountId: nextTo };
+      });
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleTypeChange = (type) => {
-    setFormData(prev => ({
-      ...prev,
-      type,
-      category: '',
-      subCategory: ''
-    }));
+    setFormData((prev) => {
+      if (type === 'transfer') {
+        const from = prev.accountId || accounts?.[0]?.id || '';
+        const to = pickDifferentAccountId(accounts, from);
+        return {
+          ...prev,
+          type,
+          category: '',
+          subCategory: '',
+          fromAccountId: from,
+          toAccountId: to
+        };
+      }
+
+      return {
+        ...prev,
+        type,
+        category: '',
+        subCategory: ''
+      };
+    });
   };
+
+  const filteredCategories = useMemo(() => {
+    if (formData.type !== 'income' && formData.type !== 'expense') return [];
+    return (categories || []).filter((c) => c.type === formData.type);
+  }, [categories, formData.type]);
+
+  const selectedCategory = useMemo(() => {
+    return categories?.find((c) => c.id === formData.category);
+  }, [categories, formData.category]);
+
+  const subCategories = selectedCategory?.subCategories || [];
+
+  const selectedAccount = accounts?.find((a) => a.id === formData.accountId);
+  const fromAccount = accounts?.find((a) => a.id === formData.fromAccountId);
+  const toAccount = accounts?.find((a) => a.id === formData.toAccountId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,11 +138,6 @@ const AddTransactionForm = ({ onClose }) => {
     const amountNum = parseFloat(formData.amount);
     if (!amountNum || amountNum <= 0) {
       setError('Inserisci un importo valido');
-      return;
-    }
-
-    if (!formData.accountId) {
-      setError('Seleziona un conto');
       return;
     }
 
@@ -104,8 +151,54 @@ const AddTransactionForm = ({ onClose }) => {
       setLoading(true);
       setError('');
 
+      // ✅ GIROCONTO
+      if (formData.type === 'transfer') {
+        if (!accounts || accounts.length < 2) {
+          setError('Per un giroconto servono almeno 2 conti');
+          return;
+        }
+        if (!formData.fromAccountId || !formData.toAccountId) {
+          setError('Seleziona conto origine e destinazione');
+          return;
+        }
+        if (formData.fromAccountId === formData.toAccountId) {
+          setError('I conti devono essere diversi');
+          return;
+        }
+
+        await createTransaction({
+          description: formData.description.trim() || '',
+          type: 'transfer',
+          amount: Math.abs(amountNum),
+          fromAccountId: formData.fromAccountId,
+          toAccountId: formData.toAccountId,
+          date: transactionDate,
+          timestamp: transactionDate.getTime()
+        });
+
+        setFormData((prev) => ({
+          ...prev,
+          description: '',
+          amount: '',
+          type: 'expense',
+          category: '',
+          subCategory: '',
+          accountId: accounts?.[0]?.id || '',
+          date: getLocalDateTimeForInput()
+        }));
+
+        onClose?.();
+        return;
+      }
+
+      // ✅ NORMALE (entrata/uscita)
+      if (!formData.accountId) {
+        setError('Seleziona un conto');
+        return;
+      }
+
       await createTransaction({
-        description: formData.description.trim() || '', // ✅ Adesso è opzionale
+        description: formData.description.trim() || '',
         amount: formData.type === 'income' ? amountNum : -amountNum,
         type: formData.type,
         category: formData.category || null,
@@ -122,6 +215,8 @@ const AddTransactionForm = ({ onClose }) => {
         category: '',
         subCategory: '',
         accountId: accounts?.[0]?.id || '',
+        fromAccountId: accounts?.[0]?.id || '',
+        toAccountId: pickDifferentAccountId(accounts, accounts?.[0]?.id || ''),
         date: getLocalDateTimeForInput()
       });
 
@@ -132,20 +227,6 @@ const AddTransactionForm = ({ onClose }) => {
       setLoading(false);
     }
   };
-
-  const filteredCategories = (categories || []).filter(
-    c => c.type === formData.type
-  );
-
-  const selectedCategory = categories?.find(
-    c => c.id === formData.category
-  );
-
-  const subCategories = selectedCategory?.subCategories || [];
-
-  const selectedAccount = accounts?.find(
-    a => a.id === formData.accountId
-  );
 
   return (
     <div className="transaction-form-container">
@@ -171,7 +252,6 @@ const AddTransactionForm = ({ onClose }) => {
                 onChange={handleChange}
                 placeholder="(Opzionale)"
                 className="description-input"
-                // ⬇️ Rimosso "required"
               />
               <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>
                 Facoltativo — puoi lasciare vuoto.
@@ -216,6 +296,16 @@ const AddTransactionForm = ({ onClose }) => {
                 >
                   📉 Uscita
                 </button>
+
+                <button
+                  type="button"
+                  className={`type-button ${formData.type === 'transfer' ? 'active' : ''}`}
+                  onClick={() => handleTypeChange('transfer')}
+                  disabled={!accounts || accounts.length < 2}
+                  title={!accounts || accounts.length < 2 ? 'Servono almeno 2 conti' : ''}
+                >
+                  🔁 Giroconto
+                </button>
               </div>
             </div>
 
@@ -232,72 +322,134 @@ const AddTransactionForm = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Conto */}
-          <div className="form-group">
-            <label className="section-label">Conto *</label>
-            <select
-              name="accountId"
-              value={formData.accountId}
-              onChange={handleChange}
-              className="form-select"
-              required
-            >
-              <option value="">Seleziona un conto</option>
-              {accounts?.map(acc => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({acc.type})
-                </option>
-              ))}
-            </select>
-
-            {selectedAccount && (
-              <div className="account-balance-info">
-                <span>Saldo attuale:</span>
-                <strong className={selectedAccount.balance >= 0 ? 'positive' : 'negative'}>
-                  €{selectedAccount.balance.toFixed(2)}
-                </strong>
-              </div>
-            )}
-          </div>
-
-          {/* Categoria */}
-          <div className="form-row">
+          {/* Conti */}
+          {formData.type !== 'transfer' ? (
             <div className="form-group">
-              <label className="section-label">Categoria</label>
+              <label className="section-label">Conto *</label>
               <select
-                name="category"
-                value={formData.category}
+                name="accountId"
+                value={formData.accountId}
                 onChange={handleChange}
                 className="form-select"
+                required
               >
-                <option value="">Senza categoria</option>
-                {filteredCategories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
+                <option value="">Seleziona un conto</option>
+                {accounts?.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name} ({acc.type})
                   </option>
                 ))}
               </select>
-            </div>
 
-            {formData.category && subCategories.length > 0 && (
+              {selectedAccount && (
+                <div className="account-balance-info">
+                  <span>Saldo attuale:</span>
+                  <strong className={selectedAccount.balance >= 0 ? 'positive' : 'negative'}>
+                    €{selectedAccount.balance.toFixed(2)}
+                  </strong>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="form-row">
               <div className="form-group">
-                <label className="section-label">Sottocategoria</label>
+                <label className="section-label">Da Conto *</label>
                 <select
-                  name="subCategory"
-                  value={formData.subCategory}
+                  name="fromAccountId"
+                  value={formData.fromAccountId}
+                  onChange={handleChange}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Seleziona conto origine</option>
+                  {accounts?.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({acc.type})
+                    </option>
+                  ))}
+                </select>
+
+                {fromAccount && (
+                  <div className="account-balance-info">
+                    <span>Saldo attuale:</span>
+                    <strong className={fromAccount.balance >= 0 ? 'positive' : 'negative'}>
+                      €{fromAccount.balance.toFixed(2)}
+                    </strong>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="section-label">A Conto *</label>
+                <select
+                  name="toAccountId"
+                  value={formData.toAccountId}
+                  onChange={handleChange}
+                  className="form-select"
+                  required
+                >
+                  <option value="">Seleziona conto destinazione</option>
+                  {accounts
+                    ?.filter((acc) => acc.id !== formData.fromAccountId)
+                    .map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.type})
+                      </option>
+                    ))}
+                </select>
+
+                {toAccount && (
+                  <div className="account-balance-info">
+                    <span>Saldo attuale:</span>
+                    <strong className={toAccount.balance >= 0 ? 'positive' : 'negative'}>
+                      €{toAccount.balance.toFixed(2)}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Categoria (solo income/expense) */}
+          {(formData.type === 'income' || formData.type === 'expense') && (
+            <div className="form-row">
+              <div className="form-group">
+                <label className="section-label">Categoria</label>
+                <select
+                  name="category"
+                  value={formData.category}
                   onChange={handleChange}
                   className="form-select"
                 >
-                  <option value="">Nessuna sottocategoria</option>
-                  {subCategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.icon || '📋'} {sub.name}
+                  <option value="">Senza categoria</option>
+                  {filteredCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
                     </option>
                   ))}
                 </select>
               </div>
-            )}
-          </div>
+
+              {formData.category && subCategories.length > 0 && (
+                <div className="form-group">
+                  <label className="section-label">Sottocategoria</label>
+                  <select
+                    name="subCategory"
+                    value={formData.subCategory}
+                    onChange={handleChange}
+                    className="form-select"
+                  >
+                    <option value="">Nessuna sottocategoria</option>
+                    {subCategories.map((sub) => (
+                      <option key={sub.id} value={sub.id}>
+                        {sub.icon || '📋'} {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Azioni */}
           <div className="form-actions">

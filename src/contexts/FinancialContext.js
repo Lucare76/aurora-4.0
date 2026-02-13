@@ -13,7 +13,8 @@ import {
   query,
   where,
   serverTimestamp,
-  getDoc
+  getDoc,
+  getDocs // ✅ aggiunto
 } from '../services/firebase';
 
 export const FinancialContext = createContext(null);
@@ -51,6 +52,21 @@ const buildSubCategoryObjects = (names, baseColor) => {
     color,
     createdAt: new Date()
   }));
+};
+
+const generateId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+};
+
+const parseAmountSafe = (v) => (typeof v === 'string' ? parseFloat(v) || 0 : v || 0);
+
+const toJsDate = (d) => {
+  if (!d) return new Date();
+  if (d instanceof Date) return d;
+  if (typeof d?.toDate === 'function') return d.toDate();
+  const parsed = new Date(d);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 export const FinancialProvider = ({ children }) => {
@@ -151,6 +167,48 @@ export const FinancialProvider = ({ children }) => {
       updatedAt: serverTimestamp()
     });
   }, []);
+
+  const applyBalanceAdjustForChange = useCallback(
+    async (oldAccountId, oldAmount, newAccountId, newAmount) => {
+      const oldAcc = oldAccountId || null;
+      const newAcc = newAccountId || null;
+
+      const oldAmt = parseAmountSafe(oldAmount);
+      const newAmt = parseAmountSafe(newAmount);
+
+      if (oldAcc && newAcc && oldAcc === newAcc) {
+        const delta = newAmt - oldAmt;
+        if (delta !== 0) await adjustAccountBalance(oldAcc, delta);
+        return;
+      }
+
+      if (oldAcc) await adjustAccountBalance(oldAcc, -oldAmt);
+      if (newAcc) await adjustAccountBalance(newAcc, newAmt);
+    },
+    [adjustAccountBalance]
+  );
+
+  // ----------------------------
+  // Trova transazione gemella del giroconto
+  // ----------------------------
+  const findTransferPeer = useCallback(
+    async (transferId, excludeTransactionId) => {
+      if (!user || !transferId) return null;
+
+      const q = query(
+        collection(db, 'transactions'),
+        where('userId', '==', user.uid),
+        where('transferId', '==', transferId)
+      );
+
+      const snap = await getDocs(q);
+      const peerDoc = snap.docs.find((d) => d.id !== excludeTransactionId);
+      if (!peerDoc) return null;
+
+      return { id: peerDoc.id, ...peerDoc.data() };
+    },
+    [user]
+  );
 
   // ----------------------------
   // Default categories (una volta)
@@ -357,7 +415,7 @@ export const FinancialProvider = ({ children }) => {
   };
 
   // ----------------------------
-  // Transactions CRUD (FIX salvataggio)
+  // Transactions CRUD
   // ----------------------------
   const createTransaction = async (transactionData) => {
     if (!user) throw new Error('❌ Utente non autenticato');
@@ -409,6 +467,81 @@ export const FinancialProvider = ({ children }) => {
     return { id: docRef.id, ...newTransaction };
   };
 
+  /**
+   * ✅ Giroconto: crea 2 transazioni collegate (expense + income).
+   * Ritorna { transferId, fromTransactionId, toTransactionId }
+   */
+  const createTransfer = async ({ amount, fromAccountId, toAccountId, description, date }) => {
+    if (!user) throw new Error('❌ Utente non autenticato');
+
+    const abs = Math.abs(parseFloat(amount) || 0);
+    if (!abs) throw new Error('Inserisci un importo valido');
+    if (!fromAccountId || !toAccountId) throw new Error('Seleziona conto origine e destinazione');
+    if (fromAccountId === toAccountId) throw new Error('I conti devono essere diversi');
+
+    const safeDate = toJsDate(date);
+    const transferId = generateId();
+
+    const fromAcc = accounts.find((a) => a.id === fromAccountId);
+    const toAcc = accounts.find((a) => a.id === toAccountId);
+    const autoDesc = `Giroconto${fromAcc && toAcc ? `: ${fromAcc.name} → ${toAcc.name}` : ''}`;
+    const finalDesc = (description || '').trim() || autoDesc;
+
+    let createdFrom = null;
+
+    try {
+      // 1) uscita
+      createdFrom = await createTransaction({
+        description: finalDesc,
+        amount: abs,
+        type: 'expense',
+        category: null,
+        subCategory: null,
+        accountId: fromAccountId,
+        date: safeDate,
+        timestamp: safeDate.getTime(),
+        isTransfer: true,
+        transferId,
+        transferPeerAccountId: toAccountId,
+        // opzionale: label chiara (non è una categoria vera)
+        categoryName: 'Giroconto'
+      });
+
+      // 2) entrata
+      const createdTo = await createTransaction({
+        description: finalDesc,
+        amount: abs,
+        type: 'income',
+        category: null,
+        subCategory: null,
+        accountId: toAccountId,
+        date: safeDate,
+        timestamp: safeDate.getTime(),
+        isTransfer: true,
+        transferId,
+        transferPeerAccountId: fromAccountId,
+        categoryName: 'Giroconto'
+      });
+
+      return { transferId, fromTransactionId: createdFrom.id, toTransactionId: createdTo.id };
+    } catch (err) {
+      // rollback best-effort se si rompe a metà
+      try {
+        if (createdFrom?.id) {
+          const ref = doc(db, 'transactions', createdFrom.id);
+          await deleteDoc(ref);
+
+          // createTransaction ha già modificato il saldo: lo annullo
+          const applied = getSignedAmount('expense', abs); // negativo
+          await adjustAccountBalance(fromAccountId, -applied); // quindi +abs
+        }
+      } catch {
+        // ignore
+      }
+      throw err;
+    }
+  };
+
   const updateTransaction = async (transactionId, updates) => {
     if (!user) throw new Error('❌ Utente non autenticato');
 
@@ -417,6 +550,137 @@ export const FinancialProvider = ({ children }) => {
     if (!snap.exists()) throw new Error('❌ Transazione non trovata');
 
     const old = snap.data();
+
+    // ✅ GIROCONTO: aggiorna anche la gemella
+    if (old.isTransfer && old.transferId) {
+      const peer = await findTransferPeer(old.transferId, transactionId);
+      if (!peer?.id) throw new Error('❌ Giroconto incompleto: transazione collegata non trovata');
+
+      // individua gamba expense (from) e income (to)
+      const thisType = old.type || '';
+
+const thisIsExpense = thisType === 'expense';
+const thisIsIncome = thisType === 'income';
+
+
+      // fallback (se dati sporchi): decide in base al segno dell'importo
+      const fallbackThisIsExpense = !thisIsIncome && parseAmountSafe(old.amount) < 0;
+
+      const expenseLeg = (thisIsExpense || fallbackThisIsExpense) ? { id: transactionId, ...old } : { id: peer.id, ...peer };
+      const incomeLeg = (expenseLeg.id === transactionId) ? { id: peer.id, ...peer } : { id: transactionId, ...old };
+
+      const oldFromAccountId = expenseLeg.accountId || null;
+      const oldToAccountId = incomeLeg.accountId || null;
+
+      // nuovo importo (sempre assoluto)
+      const nextAbs =
+        updates.amount !== undefined
+          ? Math.abs(parseFloat(updates.amount) || 0)
+          : Math.abs(parseAmountSafe(expenseLeg.amount));
+
+      if (!nextAbs) throw new Error('Inserisci un importo valido');
+
+      // nuova data
+      const nextDate = updates.date !== undefined ? toJsDate(updates.date) : toJsDate(old.date);
+
+      // descrizione (stessa su entrambe)
+      const nextDescription =
+        updates.description !== undefined
+          ? String(updates.description || '').trim()
+          : String(old.description || '').trim();
+
+      // se aggiornano accountId, vale per LA GAMBA che stai modificando
+      let nextFromAccountId = oldFromAccountId;
+      let nextToAccountId = oldToAccountId;
+
+      if (updates.accountId !== undefined) {
+        const targetAcc = updates.accountId || null;
+        if (!targetAcc) throw new Error('Seleziona un conto valido');
+
+        if (expenseLeg.id === transactionId) nextFromAccountId = targetAcc;
+        else nextToAccountId = targetAcc;
+      }
+
+      if (!nextFromAccountId || !nextToAccountId) {
+        throw new Error('Giroconto: conti non validi');
+      }
+      if (nextFromAccountId === nextToAccountId) {
+        throw new Error('Conto origine e conto destinazione devono essere diversi');
+      }
+
+      // risolvi nomi conti
+      const fromResolved = resolveAccount(nextFromAccountId);
+      const toResolved = resolveAccount(nextToAccountId);
+
+      // costruisci patch per entrambe
+      const expenseAmountNew = getSignedAmount('expense', nextAbs); // negativo
+      const incomeAmountNew = getSignedAmount('income', nextAbs); // positivo
+
+      const expensePatch = {
+        description: nextDescription,
+        type: 'expense',
+        amount: expenseAmountNew,
+        date: nextDate,
+        timestamp: nextDate.getTime(),
+
+        accountId: fromResolved.accountId || null,
+        accountName: fromResolved.accountName || '',
+
+        // forza neutralità categorie
+        categoryId: null,
+        categoryName: 'Giroconto',
+        subCategoryId: null,
+        subCategoryName: '',
+
+        isTransfer: true,
+        transferId: old.transferId,
+        transferPeerAccountId: toResolved.accountId,
+
+        updatedAt: serverTimestamp()
+      };
+
+      const incomePatch = {
+        description: nextDescription,
+        type: 'income',
+        amount: incomeAmountNew,
+        date: nextDate,
+        timestamp: nextDate.getTime(),
+
+        accountId: toResolved.accountId || null,
+        accountName: toResolved.accountName || '',
+
+        categoryId: null,
+        categoryName: 'Giroconto',
+        subCategoryId: null,
+        subCategoryName: '',
+
+        isTransfer: true,
+        transferId: old.transferId,
+        transferPeerAccountId: fromResolved.accountId,
+
+        updatedAt: serverTimestamp()
+      };
+
+      // valori old (signed)
+      const expenseAmountOld = parseAmountSafe(expenseLeg.amount);
+      const incomeAmountOld = parseAmountSafe(incomeLeg.amount);
+
+      // aggiorna documenti
+      const expenseRef = doc(db, 'transactions', expenseLeg.id);
+      const incomeRef = doc(db, 'transactions', incomeLeg.id);
+
+      await Promise.all([updateDoc(expenseRef, expensePatch), updateDoc(incomeRef, incomePatch)]);
+
+      // aggiorna saldi (storna old e applica nuovo)
+      await applyBalanceAdjustForChange(oldFromAccountId, expenseAmountOld, nextFromAccountId, expenseAmountNew);
+      await applyBalanceAdjustForChange(oldToAccountId, incomeAmountOld, nextToAccountId, incomeAmountNew);
+
+      return;
+    }
+
+    // ----------------------------
+    // ✅ NORMALE (come prima)
+    // ----------------------------
 
     // vecchi valori
     const oldAccountId = old.accountId || null;
@@ -500,10 +764,31 @@ export const FinancialProvider = ({ children }) => {
 
     const t = snap.data();
     const accountId = t.accountId || null;
-    const amount = typeof t.amount === 'string' ? parseFloat(t.amount) || 0 : t.amount || 0;
+    const amount = parseAmountSafe(t.amount);
 
+    // ✅ GIROCONTO: elimina anche la gemella
+    if (t.isTransfer && t.transferId) {
+      const peer = await findTransferPeer(t.transferId, transactionId);
+
+      // elimina questa
+      await deleteDoc(transactionRef);
+      if (accountId) await adjustAccountBalance(accountId, -amount);
+
+      // elimina peer
+      if (peer?.id) {
+        const peerRef = doc(db, 'transactions', peer.id);
+        const peerAccountId = peer.accountId || null;
+        const peerAmount = parseAmountSafe(peer.amount);
+
+        await deleteDoc(peerRef);
+        if (peerAccountId) await adjustAccountBalance(peerAccountId, -peerAmount);
+      }
+
+      return;
+    }
+
+    // ✅ NORMALE
     await deleteDoc(transactionRef);
-
     if (accountId) await adjustAccountBalance(accountId, -amount);
   };
 
@@ -595,6 +880,7 @@ export const FinancialProvider = ({ children }) => {
     deleteAccount,
 
     createTransaction,
+    createTransfer, // ✅ esposto
     updateTransaction,
     deleteTransaction,
 

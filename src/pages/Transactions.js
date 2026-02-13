@@ -7,13 +7,13 @@ import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
 const Transactions = () => {
-  const { transactions, accounts, categories, loading, deleteTransaction } = useFinancial();
+  const { transactions = [], accounts = [], categories = [], loading, deleteTransaction } = useFinancial();
   const { user } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(null);
 
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,15 +25,10 @@ const Transactions = () => {
   // === DATE HELPERS ===
   const parseDate = (date) => {
     if (!date) return new Date();
-
-    // Firestore Timestamp
-    if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
-      return date.toDate();
-    }
-
+    if (date && typeof date === 'object' && typeof date.toDate === 'function') return date.toDate();
     if (date instanceof Date) return date;
-
-    return new Date(date);
+    const d = new Date(date);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
   };
 
   const formatTime = (date) => {
@@ -56,7 +51,7 @@ const Transactions = () => {
     return d.toLocaleDateString('it-IT', {
       day: '2-digit',
       month: '2-digit',
-      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
     });
   };
 
@@ -64,16 +59,11 @@ const Transactions = () => {
   const getCategoryId = useCallback((tx) => tx?.categoryId || tx?.category || null, []);
   const getSubCategoryId = useCallback((tx) => tx?.subCategoryId || tx?.subCategory || null, []);
 
-  // === MAPPE (ID -> LABEL) ===
-  const accountMap = useMemo(
-    () => Object.fromEntries(accounts.map((acc) => [acc.id, acc.name])),
-    [accounts]
-  );
+  const isTransferTx = useCallback((tx) => !!(tx?.isTransfer || tx?.transferId), []);
 
-  const categoryMap = useMemo(
-    () => Object.fromEntries(categories.map((cat) => [cat.id, cat.name])),
-    [categories]
-  );
+  // === MAPPE (ID -> LABEL) ===
+  const accountMap = useMemo(() => Object.fromEntries(accounts.map((acc) => [acc.id, acc.name])), [accounts]);
+  const categoryMap = useMemo(() => Object.fromEntries(categories.map((cat) => [cat.id, cat.name])), [categories]);
 
   // Mappa sottocategorie: "categoryId:subId" -> "Nome Sottocategoria"
   const subCategoryMap = useMemo(() => {
@@ -81,19 +71,16 @@ const Transactions = () => {
     for (const cat of categories) {
       const subs = Array.isArray(cat.subCategories) ? cat.subCategories : [];
       for (const sub of subs) {
-        if (sub && sub.id && sub.name) {
-          entries.push([`${cat.id}:${sub.id}`, sub.name]);
-        }
+        if (sub && sub.id && sub.name) entries.push([`${cat.id}:${sub.id}`, sub.name]);
       }
     }
     return Object.fromEntries(entries);
   }, [categories]);
 
-  // === ICONA/COLORE CATEGORIA (usa ID normalizzato) ===
+  // === ICONA/COLORE CATEGORIA ===
   const getCategoryIcon = useCallback(
     (txOrCategoryId) => {
-      const categoryId =
-        typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+      const categoryId = typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
       if (!categoryId) return '💰';
       const category = categories.find((cat) => cat.id === categoryId);
       return category?.icon || '💰';
@@ -103,8 +90,7 @@ const Transactions = () => {
 
   const getCategoryColor = useCallback(
     (txOrCategoryId) => {
-      const categoryId =
-        typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+      const categoryId = typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
       if (!categoryId) return '#6b7280';
       const category = categories.find((cat) => cat.id === categoryId);
       return category?.color || '#6b7280';
@@ -112,65 +98,138 @@ const Transactions = () => {
     [categories, getCategoryId]
   );
 
-  // === SOTTOCATEGORIA: RISOLUZIONE ID -> NOME (stabile) ===
+  // === SOTTOCATEGORIA: RISOLUZIONE ID -> NOME ===
   const getSubCategoryLabel = useCallback(
     (tx) => {
-      // 1) Se ho un nome già pronto
       if (tx?.subCategoryName && typeof tx.subCategoryName === 'string') return tx.subCategoryName;
 
       const catId = getCategoryId(tx);
       const subId = getSubCategoryId(tx);
-
       if (!catId || !subId) return '';
 
-      // 2) Provo a risolvere via mappa "catId:subId"
       const resolved = subCategoryMap[`${catId}:${subId}`];
       if (resolved) return resolved;
 
-      // 3) Se subCategory era già un nome (vecchio formato)
       if (typeof tx?.subCategory === 'string') return tx.subCategory;
-
       return '';
     },
     [getCategoryId, getSubCategoryId, subCategoryMap]
   );
 
-  // === FILTRI + ORDINAMENTO ===
+  // === COLLASSO GIROCONTO: 2 righe -> 1 riga ===
+  const displayTransactions = useMemo(() => {
+    const list = [];
+    const transferGroups = new Map();
+
+    for (const tx of transactions) {
+      if (isTransferTx(tx) && tx.transferId) {
+        const g = transferGroups.get(tx.transferId) || [];
+        g.push(tx);
+        transferGroups.set(tx.transferId, g);
+      } else {
+        list.push({ ...tx, __displayType: tx.amount >= 0 ? 'income' : 'expense', __isDisplayTransfer: false });
+      }
+    }
+
+    for (const [transferId, legs] of transferGroups.entries()) {
+      // preferisci la gamba uscita (amount < 0), altrimenti la prima
+      const expenseLeg = legs.find((x) => Number(x.amount) < 0) || legs[0];
+      const d = parseDate(expenseLeg.date);
+
+      const amountAbs = Math.max(...legs.map((x) => Math.abs(Number(x.amount) || 0)));
+
+      // ricava from/to anche se ho una sola gamba
+      let fromAccountId = expenseLeg.accountId || expenseLeg.fromAccountId || null;
+      let toAccountId = expenseLeg.transferPeerAccountId || expenseLeg.toAccountId || null;
+
+      if (!fromAccountId || !toAccountId) {
+        const incomeLeg = legs.find((x) => Number(x.amount) > 0);
+        if (incomeLeg) {
+          toAccountId = incomeLeg.accountId || toAccountId;
+          fromAccountId = incomeLeg.transferPeerAccountId || fromAccountId;
+        }
+      }
+
+      const fromName = accountMap[fromAccountId] || expenseLeg.accountName || expenseLeg.transferPeerAccountName || 'Conto';
+      const toName = accountMap[toAccountId] || expenseLeg.transferPeerAccountName || 'Conto';
+
+      list.push({
+        id: `transfer_${transferId}`, // id UI
+        __isDisplayTransfer: true,
+        __displayType: 'transfer',
+
+        // per update/delete usiamo un id reale (leg id)
+        legId: expenseLeg.id,
+        transferId,
+
+        date: d,
+        timestamp: expenseLeg.timestamp || d.getTime(),
+        description: expenseLeg.description || '',
+        amount: amountAbs,
+
+        fromAccountId,
+        toAccountId,
+        fromAccountName: fromName,
+        toAccountName: toName,
+
+        // per compatibilità UI
+        categoryId: null,
+        categoryName: 'Giroconto'
+      });
+    }
+
+    // ordina per data
+    list.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    return list;
+  }, [transactions, isTransferTx, accountMap]);
+
+  // === FILTRI + ORDINAMENTO (sui displayTransactions) ===
   const filteredTransactions = useMemo(() => {
-    let filtered = transactions.filter((tx) => {
+    const q = (searchTerm || '').toLowerCase().trim();
+
+    let filtered = displayTransactions.filter((tx) => {
+      const txType = tx.__displayType;
+
       const matchesType =
         filterType === 'all' ||
-        (filterType === 'income' && tx.amount > 0) ||
-        (filterType === 'expense' && tx.amount < 0);
+        (filterType === 'income' && txType === 'income') ||
+        (filterType === 'expense' && txType === 'expense') ||
+        (filterType === 'transfer' && txType === 'transfer');
 
-      const matchesAccount = selectedAccount === 'all' || tx.accountId === selectedAccount;
+      // account filter: per giroconto vale se matcha from o to
+      const matchesAccount =
+        selectedAccount === 'all' ||
+        (!tx.__isDisplayTransfer && tx.accountId === selectedAccount) ||
+        (tx.__isDisplayTransfer && (tx.fromAccountId === selectedAccount || tx.toAccountId === selectedAccount));
 
+      // category filter: applica solo a non-giroconti
       const catId = getCategoryId(tx);
-      const matchesCategory = selectedCategory === 'all' || catId === selectedCategory;
+      const matchesCategory = selectedCategory === 'all' || (!tx.__isDisplayTransfer && catId === selectedCategory);
 
-      const subLabel = getSubCategoryLabel(tx);
+      // ricerca
+      const subLabel = !tx.__isDisplayTransfer ? getSubCategoryLabel(tx) : '';
+      const accountLabel = tx.__isDisplayTransfer
+        ? `${tx.fromAccountName || ''} ${tx.toAccountName || ''}`
+        : (accountMap[tx.accountId] || '');
 
-      const q = (searchTerm || '').toLowerCase();
+      const catLabel = !tx.__isDisplayTransfer ? (categoryMap[catId] || tx.categoryName || '') : 'giroconto';
 
       const matchesSearch =
         !q ||
-        (tx.description && tx.description.toLowerCase().includes(q)) ||
-        (accountMap[tx.accountId] && accountMap[tx.accountId].toLowerCase().includes(q)) ||
-        (catId && categoryMap[catId] && categoryMap[catId].toLowerCase().includes(q)) ||
-        (subLabel && subLabel.toLowerCase().includes(q));
+        (tx.description || '').toLowerCase().includes(q) ||
+        accountLabel.toLowerCase().includes(q) ||
+        catLabel.toLowerCase().includes(q) ||
+        (subLabel || '').toLowerCase().includes(q) ||
+        (tx.__isDisplayTransfer && 'giroconto'.includes(q));
 
       return matchesType && matchesAccount && matchesCategory && matchesSearch;
     });
 
-    filtered.sort((a, b) => {
-      const dateA = parseDate(a.date);
-      const dateB = parseDate(b.date);
-      return dateB - dateA;
-    });
-
+    // sort (già ordinato, ma teniamolo stabile)
+    filtered.sort((a, b) => parseDate(b.date) - parseDate(a.date));
     return filtered;
   }, [
-    transactions,
+    displayTransactions,
     filterType,
     selectedAccount,
     selectedCategory,
@@ -178,35 +237,27 @@ const Transactions = () => {
     accountMap,
     categoryMap,
     getCategoryId,
-    getSubCategoryLabel,
+    getSubCategoryLabel
   ]);
 
-  // === STATISTICHE ===
+  // === STATISTICHE (escludi giroconti) ===
   const stats = useMemo(() => {
+    const onlyNormal = displayTransactions.filter((t) => !t.__isDisplayTransfer);
+
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    const monthlyTransactions = transactions.filter((tx) => {
+    const monthlyTransactions = onlyNormal.filter((tx) => {
       const txDate = parseDate(tx.date);
       return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
     });
 
-    const totalIncome = transactions
-      .filter((tx) => tx.amount && tx.amount > 0)
-      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const totalIncome = onlyNormal.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const totalExpenses = onlyNormal.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 
-    const totalExpenses = transactions
-      .filter((tx) => tx.amount && tx.amount < 0)
-      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-
-    const monthlyIncome = monthlyTransactions
-      .filter((tx) => tx.amount && tx.amount > 0)
-      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
-
-    const monthlyExpenses = monthlyTransactions
-      .filter((tx) => tx.amount && tx.amount < 0)
-      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+    const monthlyIncome = monthlyTransactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const monthlyExpenses = monthlyTransactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 
     return {
       totalIncome,
@@ -214,21 +265,21 @@ const Transactions = () => {
       totalBalance: totalIncome - totalExpenses,
       monthlyIncome,
       monthlyExpenses,
-      monthlyBalance: monthlyIncome - monthlyExpenses,
+      monthlyBalance: monthlyIncome - monthlyExpenses
     };
-  }, [transactions]);
+  }, [displayTransactions]);
 
   // === DELETE ===
-  const startDeleteTransaction = (transactionId) => {
-    setTransactionToDelete(transactionId);
+  const startDeleteTransaction = (transactionIdOrLegId, isTransfer) => {
+    setTransactionToDelete({ id: transactionIdOrLegId, isTransfer: !!isTransfer });
   };
 
   const handleDeleteTransaction = async () => {
-    if (!transactionToDelete) return;
+    if (!transactionToDelete?.id) return;
 
     try {
       setDeleting(true);
-      await deleteTransaction(transactionToDelete);
+      await deleteTransaction(transactionToDelete.id); // FinancialContext elimina anche la peer se è giroconto
       setTransactionToDelete(null);
     } catch (error) {
       console.error("❌ Errore nell'eliminazione:", error);
@@ -269,7 +320,7 @@ const Transactions = () => {
         <div className="header-content">
           <h1>Transazioni</h1>
           <p className="header-subtitle">
-            {filteredTransactions.length} di {transactions.length} transazioni
+            {filteredTransactions.length} di {displayTransactions.length} transazioni
           </p>
         </div>
 
@@ -337,13 +388,10 @@ const Transactions = () => {
             <option value="all">Tutti i tipi</option>
             <option value="income">Solo entrate</option>
             <option value="expense">Solo uscite</option>
+            <option value="transfer">Solo giroconti</option>
           </select>
 
-          <select
-            value={selectedAccount}
-            onChange={(e) => setSelectedAccount(e.target.value)}
-            className="filter-select"
-          >
+          <select value={selectedAccount} onChange={(e) => setSelectedAccount(e.target.value)} className="filter-select">
             <option value="all">Tutti i conti</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
@@ -352,11 +400,7 @@ const Transactions = () => {
             ))}
           </select>
 
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="filter-select"
-          >
+          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="filter-select">
             <option value="all">Tutte le categorie</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
@@ -386,7 +430,7 @@ const Transactions = () => {
       )}
 
       {/* Modal Conferma Eliminazione */}
-      {transactionToDelete && (
+      {transactionToDelete?.id && (
         <div className="modal-backdrop">
           <div className="confirm-modal">
             <h3>Conferma Eliminazione</h3>
@@ -407,6 +451,70 @@ const Transactions = () => {
       {viewMode === 'list' ? (
         <div className="transactions-list">
           {filteredTransactions.map((tx) => {
+            const isTransfer = !!tx.__isDisplayTransfer;
+
+            if (isTransfer) {
+              const txForEdit = {
+                id: tx.legId, // id reale
+                isTransfer: true,
+                transferId: tx.transferId,
+                type: 'transfer',
+                description: tx.description || '',
+                amount: tx.amount,
+                fromAccountId: tx.fromAccountId,
+                toAccountId: tx.toAccountId,
+                date: tx.date
+              };
+
+              return (
+                <div key={tx.id} className="transaction-row">
+                  <div className="transaction-icon-wrapper">
+                    <div className="transaction-icon" style={{ backgroundColor: '#6b728020', color: '#6b7280' }}>
+                      🔁
+                    </div>
+                  </div>
+
+                  <div className="transaction-info">
+                    <div className="transaction-primary">
+                      <h4 className="transaction-title">{tx.description || 'Giroconto'}</h4>
+                      <div className="transaction-amount transfer">
+                        €{Number(tx.amount || 0).toFixed(2)}
+                      </div>
+                    </div>
+
+                    <div className="transaction-secondary">
+                      <span className="transaction-account">
+                        Da <strong>{tx.fromAccountName || 'Conto'}</strong> → A <strong>{tx.toAccountName || 'Conto'}</strong>
+                      </span>
+
+                      <span className="transaction-category">Giroconto</span>
+
+                      <span className="transaction-date">
+                        {formatDate(tx.date)} • {formatTime(tx.date)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="transaction-actions">
+                    <button
+                      onClick={() => setShowEditForm(txForEdit)}
+                      className="edit-btn"
+                      title="Modifica giroconto"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      onClick={() => startDeleteTransaction(tx.legId, true)}
+                      className="delete-btn"
+                      title="Elimina giroconto"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
             const catId = getCategoryId(tx);
             const subLabel = getSubCategoryLabel(tx);
 
@@ -417,7 +525,7 @@ const Transactions = () => {
                     className="transaction-icon"
                     style={{
                       backgroundColor: getCategoryColor(catId) + '20',
-                      color: getCategoryColor(catId),
+                      color: getCategoryColor(catId)
                     }}
                   >
                     {getCategoryIcon(catId)}
@@ -434,11 +542,8 @@ const Transactions = () => {
 
                   <div className="transaction-secondary">
                     <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
-
-                    <span className="transaction-category">{categoryMap[catId] || 'Senza categoria'}</span>
-
+                    <span className="transaction-category">{categoryMap[catId] || tx.categoryName || 'Senza categoria'}</span>
                     {subLabel ? <span className="transaction-category">{subLabel}</span> : null}
-
                     <span className="transaction-date">
                       {formatDate(tx.date)} • {formatTime(tx.date)}
                     </span>
@@ -446,18 +551,10 @@ const Transactions = () => {
                 </div>
 
                 <div className="transaction-actions">
-                  <button
-                    onClick={() => setShowEditForm(tx)}
-                    className="edit-btn"
-                    title="Modifica transazione"
-                  >
+                  <button onClick={() => setShowEditForm(tx)} className="edit-btn" title="Modifica transazione">
                     ✏️
                   </button>
-                  <button
-                    onClick={() => startDeleteTransaction(tx.id)}
-                    className="delete-btn"
-                    title="Elimina transazione"
-                  >
+                  <button onClick={() => startDeleteTransaction(tx.id, false)} className="delete-btn" title="Elimina transazione">
                     🗑️
                   </button>
                 </div>
@@ -480,6 +577,64 @@ const Transactions = () => {
             </thead>
             <tbody>
               {filteredTransactions.map((tx) => {
+                const isTransfer = !!tx.__isDisplayTransfer;
+
+                if (isTransfer) {
+                  const txForEdit = {
+                    id: tx.legId,
+                    isTransfer: true,
+                    transferId: tx.transferId,
+                    type: 'transfer',
+                    description: tx.description || '',
+                    amount: tx.amount,
+                    fromAccountId: tx.fromAccountId,
+                    toAccountId: tx.toAccountId,
+                    date: tx.date
+                  };
+
+                  return (
+                    <tr key={tx.id}>
+                      <td className="date-cell">
+                        <div className="date-info">
+                          <div className="date-primary">{formatDate(tx.date)}</div>
+                          <div className="date-secondary">{formatTime(tx.date)}</div>
+                        </div>
+                      </td>
+
+                      <td className="description-cell">
+                        <div className="description-wrapper">
+                          <div className="category-indicator" style={{ backgroundColor: '#6b7280' }}></div>
+                          {tx.description || 'Giroconto'}
+                        </div>
+                      </td>
+
+                      <td className="category-cell">
+                        <div className="category-info">
+                          <span className="category-icon" style={{ color: '#6b7280' }}>🔁</span>
+                          <span className="category-name">Giroconto</span>
+                        </div>
+                      </td>
+
+                      <td className="account-cell">
+                        Da {tx.fromAccountName || 'Conto'} → A {tx.toAccountName || 'Conto'}
+                      </td>
+
+                      <td className="amount-cell">
+                        <span className="amount transfer">€{Number(tx.amount || 0).toFixed(2)}</span>
+                      </td>
+
+                      <td className="actions-cell">
+                        <button onClick={() => setShowEditForm(txForEdit)} className="edit-btn-table" title="Modifica giroconto">
+                          ✏️
+                        </button>
+                        <button onClick={() => startDeleteTransaction(tx.legId, true)} className="delete-btn-table" title="Elimina giroconto">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
                 const catId = getCategoryId(tx);
                 const subLabel = getSubCategoryLabel(tx);
 
@@ -494,10 +649,7 @@ const Transactions = () => {
 
                     <td className="description-cell">
                       <div className="description-wrapper">
-                        <div
-                          className="category-indicator"
-                          style={{ backgroundColor: getCategoryColor(catId) }}
-                        ></div>
+                        <div className="category-indicator" style={{ backgroundColor: getCategoryColor(catId) }}></div>
                         {tx.description || 'Transazione senza descrizione'}
                       </div>
                     </td>
@@ -507,7 +659,7 @@ const Transactions = () => {
                         <span className="category-icon" style={{ color: getCategoryColor(catId) }}>
                           {getCategoryIcon(catId)}
                         </span>
-                        <span className="category-name">{categoryMap[catId] || 'Senza categoria'}</span>
+                        <span className="category-name">{categoryMap[catId] || tx.categoryName || 'Senza categoria'}</span>
                         {subLabel ? <span className="category-name">{subLabel}</span> : null}
                       </div>
                     </td>
@@ -521,18 +673,10 @@ const Transactions = () => {
                     </td>
 
                     <td className="actions-cell">
-                      <button
-                        onClick={() => setShowEditForm(tx)}
-                        className="edit-btn-table"
-                        title="Modifica transazione"
-                      >
+                      <button onClick={() => setShowEditForm(tx)} className="edit-btn-table" title="Modifica transazione">
                         ✏️
                       </button>
-                      <button
-                        onClick={() => startDeleteTransaction(tx.id)}
-                        className="delete-btn-table"
-                        title="Elimina transazione"
-                      >
+                      <button onClick={() => startDeleteTransaction(tx.id, false)} className="delete-btn-table" title="Elimina transazione">
                         🗑️
                       </button>
                     </td>
@@ -555,14 +699,11 @@ const Transactions = () => {
               : 'Inizia aggiungendo la tua prima transazione!'}
           </p>
 
-          {!searchTerm &&
-            filterType === 'all' &&
-            selectedAccount === 'all' &&
-            selectedCategory === 'all' && (
-              <button onClick={() => setShowForm(true)} className="secondary-btn">
-                Aggiungi Prima Transazione
-              </button>
-            )}
+          {!searchTerm && filterType === 'all' && selectedAccount === 'all' && selectedCategory === 'all' && (
+            <button onClick={() => setShowForm(true)} className="secondary-btn">
+              Aggiungi Prima Transazione
+            </button>
+          )}
         </div>
       )}
     </div>
