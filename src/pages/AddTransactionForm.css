@@ -533,3 +533,19 @@ select[name="category"] {
   color: #1e293b !important;
   font-weight: 700 !important;
 }
+
+/* Fix leggibilità controlli - AddTransactionForm */
+.add-transaction-form input,
+.add-transaction-form select,
+.add-transaction-form textarea,
+.add-transaction-form .form-control,
+.add-transaction-form .form-select {
+  color: #111;
+  background-color: #fff;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+
+.add-transaction-form input::placeholder,
+.add-transaction-form textarea::placeholder {
+  color: rgba(0,0,0,0.45);
+}

@@ -966,3 +966,249 @@
     height: 35px;
   }
 }
+
+/* ============================
+   FIX MOBILE CATEGORIE (definitivo)
+   - niente sovrapposizioni
+   - titolo sempre leggibile
+   - azioni sotto ai dettagli
+============================ */
+@media (max-width: 768px) {
+  /* ---------- LIST VIEW ---------- */
+  .categories-page .categories-list .category-row .row-main {
+    display: grid !important;
+    grid-template-columns: 56px 1fr !important;
+    grid-template-areas:
+      "icon details"
+      "icon actions" !important;
+    column-gap: 12px !important;
+    row-gap: 10px !important;
+    align-items: start !important;
+  }
+
+  .categories-page .categories-list .category-row .category-icon {
+    grid-area: icon !important;
+    align-self: start !important;
+  }
+
+  .categories-page .categories-list .category-row .category-details {
+    grid-area: details !important;
+    min-width: 0 !important;
+  }
+
+  /* Titolo: NO a capo lettera-per-lettera */
+  .categories-page .categories-list .category-row .category-name {
+    margin: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Badge + sottocategorie: devono andare a capo puliti */
+  .categories-page .categories-list .category-row .category-meta-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-top: 6px !important;
+  }
+
+  /* Azioni: sotto ai dettagli, niente overlay */
+  .categories-page .categories-list .category-row .category-actions {
+    grid-area: actions !important;
+    position: static !important;
+    transform: none !important;
+    float: none !important;
+
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .categories-page .categories-list .category-row .category-actions .action-btn {
+    position: static !important;
+    transform: none !important;
+
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+
+    padding: 10px 12px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  /* 3 bottoni: expand + modifica + elimina -> si impaginano bene */
+  .categories-page .categories-list .category-row .action-btn.expand {
+    flex: 0 0 auto !important;
+    min-width: 44px !important;
+  }
+  .categories-page .categories-list .category-row .action-btn.edit,
+  .categories-page .categories-list .category-row .action-btn.delete {
+    flex: 1 1 140px !important;
+  }
+
+  /* ---------- GRID VIEW ---------- */
+  .categories-page .categories-grid .category-card .category-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .categories-page .categories-grid .category-card .category-main {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .categories-page .categories-grid .category-card .category-actions {
+    width: 100% !important;
+    position: static !important;
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: flex-start !important;
+  }
+
+  .categories-page .categories-grid .category-card .category-name {
+    white-space: normal !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+}
+
+/* Play (expand) vicino a "sottocategorie" in mobile */
+@media (max-width: 768px) {
+  .categories-page .categories-list .category-row .category-actions {
+    display: grid !important;
+    grid-template-columns: auto 1fr !important;
+    grid-template-areas:
+      "expand meta"
+      "edit edit"
+      "delete delete" !important;
+    gap: 8px !important;
+    align-items: center !important;
+  }
+
+  /* Bottone ▶/▼ in alto a sinistra */
+  .categories-page .categories-list .category-row .action-btn.expand {
+    grid-area: expand !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    padding: 10px 0 !important;
+  }
+
+  /* Sposto la riga meta (Uscita + 3 sottocategorie) nella stessa “riga” del play */
+  .categories-page .categories-list .category-row .category-details .category-meta-row {
+    /* la rendiamo “agganciabile” come area */
+    display: inline-flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* Hack pulito: faccio occupare la seconda colonna alla meta-row */
+  .categories-page .categories-list .category-row .category-actions::before {
+    content: "" !important;
+    grid-area: meta !important;
+  }
+
+  /* Metto davvero la meta-row nella colonna "meta" usando la grid del parent */
+  .categories-page .categories-list .category-row .category-details {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  /* Edit ed Elimina sotto, full width */
+  .categories-page .categories-list .category-row .action-btn.edit {
+    grid-area: edit !important;
+    width: 100% !important;
+  }
+
+  .categories-page .categories-list .category-row .action-btn.delete {
+    grid-area: delete !important;
+    width: 100% !important;
+  }
+}
+
+/* Forza tema scuro nella pagina Categorie */
+.categories-page {
+  background: transparent !important;
+  color: inherit;
+  min-height: 100vh;
+}
+
+.categories-page .categories-container,
+.categories-page .page-container,
+.categories-page .content,
+.categories-page .main {
+  background: transparent !important;
+}
+
+/* =========================
+   CATEGORIE - SURFACES DARK
+   ========================= */
+
+/* se c’è un contenitore che fa da “foglio bianco” */
+.categories-page,
+.categories-page .categories-container,
+.categories-page .categories-list,
+.categories-page .page-container,
+.categories-page .content,
+.categories-page .main {
+  background: transparent !important;
+}
+
+/* righe/card della lista (copre classi custom + Bootstrap) */
+.categories-page .category-item,
+.categories-page .category-card,
+.categories-page .category-row,
+.categories-page .list-item,
+.categories-page .list-group-item,
+.categories-page .card {
+  background: rgba(255,255,255,0.06) !important;
+  color: #e8eefc !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* separatori */
+.categories-page .category-item,
+.categories-page .list-group-item {
+  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+/* testi “muted” tipo descrizioni */
+.categories-page .text-muted,
+.categories-page .muted {
+  color: rgba(232,238,252,0.72) !important;
+}
+
+/* se da qualche parte usi Bootstrap bg-white */
+.categories-page .bg-white {
+  background: rgba(255,255,255,0.06) !important;
+}
+
+/* superfici tipiche (bootstrap/custom) */
+.categories-page .card,
+.categories-page .list-group-item,
+.categories-page .category-item,
+.categories-page .category-card,
+.categories-page .category-row {
+  background: var(--app-surface) !important;
+  color: var(--app-text) !important;
+  border-color: var(--app-border) !important;
+}
+
+/* se hai bg-white / bg-light */
+.categories-page .bg-white,
+.categories-page .bg-light {
+  background: var(--app-surface) !important;
+}

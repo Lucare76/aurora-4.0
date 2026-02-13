@@ -1187,3 +1187,70 @@ option:hover {
   background: rgba(79, 70, 229, 0.10);
   color: #4f46e5;
 }
+
+/* ============================
+   FIX: mostra descrizione completa (mobile + desktop)
+============================ */
+
+.transaction-primary {
+  gap: 12px;
+}
+
+.transaction-title {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  /* niente ellissi: vai a capo e mostra tutto */
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+
+  /* spezza anche parole lunghe */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.25;
+}
+
+/* l'importo non deve “schiacciarsi” */
+.transaction-amount {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+/* anche in tabella: se la descrizione è lunga, va a capo */
+.description-wrapper {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* Forza tema scuro nella pagina Transazioni */
+.transactions-page {
+  background: transparent !important;
+  color: inherit;
+  min-height: 100vh;
+}
+
+/* Se hai un contenitore che sta mettendo il bianco */
+.transactions-page .transactions-container,
+.transactions-page .page-container,
+.transactions-page .content,
+.transactions-page .main {
+  background: transparent !important;
+}
+
+.transactions-page .card,
+.transactions-page .list-group-item,
+.transactions-page .transactions-filters,
+.transactions-page .filters,
+.transactions-page .panel {
+  background: var(--app-surface) !important;
+  color: var(--app-text) !important;
+  border-color: var(--app-border) !important;
+}
+
+.transactions-page .bg-white,
+.transactions-page .bg-light {
+  background: var(--app-surface) !important;
+}
+

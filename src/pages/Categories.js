@@ -4,7 +4,12 @@ import { useFinancial } from '../contexts/FinancialContext';
 import './Categories.css';
 
 const Categories = () => {
-  const { categories, addCategory, updateCategory, deleteCategory } = useFinancial();
+  const {
+    categories = [],
+    addCategory,
+    updateCategory,
+    deleteCategory
+  } = useFinancial();
 
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
@@ -18,7 +23,7 @@ const Categories = () => {
     icon: '💰',
     color: '#3b82f6',
     type: 'expense',
-    subCategories: [],
+    subCategories: []
   });
 
   const [newSubcategory, setNewSubcategory] = useState('');
@@ -26,12 +31,12 @@ const Categories = () => {
   const defaultIcons = [
     '💰', '🛒', '🚗', '🎬', '🏥', '📋', '🛍️', '🍽️', '🏠', '💼',
     '💻', '📈', '🎁', '🎯', '⚡', '📱', '👕', '⛽', '🎵', '🏋️',
-    '🍺', '🐕', '💄', '🔧', '📷', '🎮', '✈️', '📚', '🎨', '💊',
+    '🍺', '🐕', '💄', '🔧', '📷', '🎮', '✈️', '📚', '🎨', '💊'
   ];
 
   const defaultColors = [
     '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981',
-    '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
+    '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899'
   ];
 
   // --- Helpers ---
@@ -58,13 +63,15 @@ const Categories = () => {
   // Prende una categoria e ritorna array di stringhe per la UI (lista/contatore)
   const getSubcategoriesNames = (category) => {
     const arr = category?.subCategories || [];
-    return arr.map((sub) => (typeof sub === 'string' ? sub : sub?.name)).filter(Boolean);
+    return arr
+      .map((sub) => (typeof sub === 'string' ? sub : sub?.name))
+      .filter(Boolean);
   };
 
   const toggleCategory = (categoryId) => {
     setExpandedCategories((prev) => ({
       ...prev,
-      [categoryId]: !prev[categoryId],
+      [categoryId]: !prev[categoryId]
     }));
   };
 
@@ -74,7 +81,7 @@ const Categories = () => {
 
     // evita duplicati (case-insensitive)
     const exists = (formData.subCategories || []).some(
-      (s) => s.name.toLowerCase() === name.toLowerCase()
+      (s) => (s?.name || '').toLowerCase() === name.toLowerCase()
     );
     if (exists) {
       setNewSubcategory('');
@@ -83,7 +90,7 @@ const Categories = () => {
 
     setFormData((prev) => ({
       ...prev,
-      subCategories: [...(prev.subCategories || []), { id: makeId(), name }],
+      subCategories: [...(prev.subCategories || []), { id: makeId(), name }]
     }));
     setNewSubcategory('');
   };
@@ -91,7 +98,7 @@ const Categories = () => {
   const handleRemoveSubcategoryFromForm = (subId) => {
     setFormData((prev) => ({
       ...prev,
-      subCategories: (prev.subCategories || []).filter((s) => s.id !== subId),
+      subCategories: (prev.subCategories || []).filter((s) => s.id !== subId)
     }));
   };
 
@@ -103,7 +110,7 @@ const Categories = () => {
       icon: '💰',
       color: '#3b82f6',
       type: 'expense',
-      subCategories: [],
+      subCategories: []
     });
     setNewSubcategory('');
   };
@@ -118,7 +125,7 @@ const Categories = () => {
         color: formData.color,
         type: formData.type,
         // Salviamo SEMPRE oggetti {id,name}
-        subCategories: normalizeSubCategories(formData.subCategories),
+        subCategories: normalizeSubCategories(formData.subCategories)
       };
 
       if (editingCategory) {
@@ -143,7 +150,7 @@ const Categories = () => {
       color: category.color || '#3b82f6',
       type: category.type || 'expense',
       // in edit normalizziamo (stringhe vecchie -> oggetti)
-      subCategories: normalizeSubCategories(category.subCategories || []),
+      subCategories: normalizeSubCategories(category.subCategories || [])
     });
 
     setShowForm(true);
@@ -166,10 +173,10 @@ const Categories = () => {
       console.error("❌ Errore completo nell'eliminazione:", error);
 
       let errorMessage = "Errore durante l'eliminazione della categoria.";
-      if (error.code === 'permission-denied') {
+      if (error?.code === 'permission-denied') {
         errorMessage =
           'Errore: Non hai i permessi per eliminare questa categoria. Verifica le regole di Firebase.';
-      } else if (error.message) {
+      } else if (error?.message) {
         errorMessage = `Errore: ${error.message}`;
       }
 
@@ -178,22 +185,21 @@ const Categories = () => {
   };
 
   const filteredCategories = useMemo(
-    () => categories.filter((cat) => filterType === 'all' || cat.type === filterType),
+    () => (categories || []).filter((cat) => filterType === 'all' || cat.type === filterType),
     [categories, filterType]
   );
 
   const incomeCategories = useMemo(
-    () => categories.filter((cat) => cat.type === 'income'),
+    () => (categories || []).filter((cat) => cat.type === 'income'),
     [categories]
   );
-
   const expenseCategories = useMemo(
-    () => categories.filter((cat) => cat.type === 'expense'),
+    () => (categories || []).filter((cat) => cat.type === 'expense'),
     [categories]
   );
 
   return (
-    <div className="categories-page">
+    <div className="page-shell page-shell--dark categories-page">
       {/* Header */}
       <div className="page-header">
         <div className="header-content">
@@ -287,18 +293,13 @@ const Categories = () => {
               return (
                 <div
                   key={category.id}
-                  className={`category-card ${category.type} ${
-                    expandedCategories[category.id] ? 'expanded' : ''
-                  }`}
+                  className={`category-card ${category.type} ${expandedCategories[category.id] ? 'expanded' : ''}`}
                 >
                   <div className="category-header">
                     <div className="category-main">
                       <div
                         className="category-icon"
-                        style={{
-                          backgroundColor: category.color + '20',
-                          color: category.color,
-                        }}
+                        style={{ backgroundColor: category.color + '20', color: category.color }}
                       >
                         {category.icon}
                       </div>
@@ -314,9 +315,7 @@ const Categories = () => {
                           </span>
 
                           {subcats.length > 0 && (
-                            <span className="subcategory-count">
-                              {subcats.length} sottocategorie
-                            </span>
+                            <span className="subcategory-count">{subcats.length} sottocategorie</span>
                           )}
                         </div>
                       </div>
@@ -377,17 +376,12 @@ const Categories = () => {
               return (
                 <div
                   key={category.id}
-                  className={`category-row ${category.type} ${
-                    expandedCategories[category.id] ? 'expanded' : ''
-                  }`}
+                  className={`category-row ${category.type} ${expandedCategories[category.id] ? 'expanded' : ''}`}
                 >
                   <div className="row-main">
                     <div
                       className="category-icon"
-                      style={{
-                        backgroundColor: category.color + '20',
-                        color: category.color,
-                      }}
+                      style={{ backgroundColor: category.color + '20', color: category.color }}
                     >
                       {category.icon}
                     </div>
@@ -403,27 +397,23 @@ const Categories = () => {
                         </span>
 
                         {subcats.length > 0 && (
-                          <span className="subcategory-count">
-                            {subcats.length} sottocategorie
-                          </span>
+                          <button
+                            type="button"
+                            className="subcategory-toggle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCategory(category.id);
+                            }}
+                            title={expandedCategories[category.id] ? 'Nascondi sottocategorie' : 'Mostra sottocategorie'}
+                          >
+                            <span className="toggle-icon">{expandedCategories[category.id] ? '▼' : '▶'}</span>
+                            <span>{subcats.length} sottocategorie</span>
+                          </button>
                         )}
                       </div>
                     </div>
 
                     <div className="category-actions">
-                      {subcats.length > 0 && (
-                        <button
-                          className="action-btn expand"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleCategory(category.id);
-                          }}
-                          title="Espandi"
-                        >
-                          {expandedCategories[category.id] ? '▼' : '▶'}
-                        </button>
-                      )}
-
                       <button
                         className="action-btn edit"
                         onClick={(e) => {
@@ -498,7 +488,7 @@ const Categories = () => {
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      name: e.target.value,
+                      name: e.target.value
                     }))
                   }
                   placeholder="Es. Alimentari, Stipendio..."

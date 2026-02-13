@@ -3989,3 +3989,213 @@ body {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+:root {
+  --app-bg: #0b1220;
+  --app-text: #e8eefc;
+  --app-surface: rgba(255,255,255,0.06);
+  --app-border: rgba(255,255,255,0.12);
+}
+
+html, body, #root {
+  min-height: 100%;
+  background: var(--app-bg) !important;
+  color: var(--app-text) !important;
+}
+
+/* Molto spesso il "foglio bianco" è un wrapper tipo .App / main / .container */
+.App, main, .app, .app-container, .page, .page-content, .content {
+  background: transparent !important;
+}
+
+/* ===== DARK SHELL (forza background scuro nelle pagine bianche) ===== */
+.page-shell--dark{
+  min-height: 100vh;
+  background: transparent !important; /* prende lo sfondo scuro dell’app */
+  color: inherit;
+}
+
+/* Se dentro la pagina ci sono "fogli bianchi" (cards/pannelli/bootstrap) */
+.page-shell--dark .card,
+.page-shell--dark .list-group-item,
+.page-shell--dark .bg-white,
+.page-shell--dark .bg-light,
+.page-shell--dark .dropdown-menu,
+.page-shell--dark .modal-content,
+.page-shell--dark .table,
+.page-shell--dark .panel,
+.page-shell--dark .section,
+.page-shell--dark .container,
+.page-shell--dark .content {
+  background: rgba(255,255,255,0.06) !important;
+  color: rgba(232,238,252,1) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* Input/select (risolve anche il testo bianco su bianco) */
+.page-shell--dark input,
+.page-shell--dark select,
+.page-shell--dark textarea,
+.page-shell--dark .form-control,
+.page-shell--dark .form-select {
+  background: rgba(255,255,255,0.08) !important;
+  color: rgba(232,238,252,1) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+.page-shell--dark input::placeholder,
+.page-shell--dark textarea::placeholder {
+  color: rgba(232,238,252,0.55) !important;
+}
+
+/* Evita scorrimento orizzontale e “ballo” su mobile */
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden; /* fallback */
+}
+
+/* meglio di hidden dove supportato */
+@supports (overflow: clip) {
+  html, body, #root {
+    overflow-x: clip;
+  }
+}
+
+/* box-sizing coerente (riduce sforamenti con padding/border) */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* evita “pan” orizzontale su mobile */
+main, .page, .page-shell, .app, .App {
+  max-width: 100%;
+  overflow-x: clip;
+  touch-action: pan-y;
+}
+
+/* ===== FIX OVERFLOW TESTI (Dashboard + Reports) ===== */
+.dashboard-page, .reports-page {
+  max-width: 100%;
+}
+
+/* Importantissimo per flex: permette ai testi di restringersi */
+.dashboard-page * , .reports-page * {
+  min-width: 0;
+}
+
+/* Wrapping robusto: spezza anche stringhe lunghe senza spazi */
+.dashboard-page .card,
+.reports-page .card,
+.dashboard-page .panel,
+.reports-page .panel,
+.dashboard-page .transaction-card,
+.reports-page .transaction-card,
+.dashboard-page .category-card,
+.reports-page .category-card {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Titoli e sottotitoli: devono andare a capo */
+.dashboard-page h1, .dashboard-page h2, .dashboard-page h3,
+.reports-page h1, .reports-page h2, .reports-page h3,
+.dashboard-page p, .reports-page p {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Header “card” (tipo Andamento Mensile + descrizione a destra): wrap invece di sforare */
+.dashboard-page .card-header,
+.reports-page .card-header,
+.dashboard-page .chart-header,
+.reports-page .chart-header,
+.dashboard-page .header-row,
+.reports-page .header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* blocchi testo dentro header */
+.dashboard-page .card-header .title,
+.reports-page .card-header .title,
+.dashboard-page .chart-header .title,
+.reports-page .chart-header .title {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* descrizione “a destra” va sotto su mobile */
+.dashboard-page .card-header .subtitle,
+.reports-page .card-header .subtitle,
+.dashboard-page .chart-header .subtitle,
+.reports-page .chart-header .subtitle {
+  flex: 1 1 100%;
+  opacity: 0.85;
+}
+
+/* ===== Card transazioni (quelle in dashboard) ===== */
+.dashboard-page .transaction-card,
+.reports-page .transaction-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* blocco sinistro testo */
+.dashboard-page .transaction-card .tx-main,
+.reports-page .transaction-card .tx-main,
+.dashboard-page .transaction-card .tx-left,
+.reports-page .transaction-card .tx-left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* importo a destra non deve andare a capo */
+.dashboard-page .transaction-card .tx-amount,
+.reports-page .transaction-card .tx-amount,
+.dashboard-page .transaction-card .amount,
+.reports-page .transaction-card .amount {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* stringhe tipo CID/MAN/IBAN: spezzale senza pietà */
+.dashboard-page .transaction-card .tx-title,
+.reports-page .transaction-card .tx-title,
+.dashboard-page .transaction-card .description,
+.reports-page .transaction-card .description {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* (opzionale) limita titoli lunghi a 3 righe, evita card gigantesche */
+.dashboard-page .transaction-card .tx-title,
+.reports-page .transaction-card .tx-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reports-page .andamento-mensile-header,
+.dashboard-page .andamento-mensile-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reports-page .andamento-mensile-header > * ,
+.dashboard-page .andamento-mensile-header > * {
+  min-width: 0;
+}
+
+.reports-page .andamento-mensile-header .right,
+.dashboard-page .andamento-mensile-header .right {
+  flex-basis: 100%;
+}

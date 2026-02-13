@@ -3,7 +3,7 @@
 /* ---------------------------
    Variables (easy theming)
 ---------------------------- */
-:root {
+.reports-container {
   --bg: #f8fafc;
   --card: #ffffff;
   --text: #2c3e50;
@@ -1243,4 +1243,81 @@
   .bars-container {
     height: 180px;
   }
+}
+
+/* ============================
+   ADD: Transfer badge + legend MonthlyBars
+============================ */
+
+.neutral {
+  color: #64748b;
+}
+
+/* Badge tipo transazione */
+.type-badge.transfer {
+  background: rgba(74, 144, 226, 0.14);
+  color: #1f6feb;
+  border: 1px solid rgba(74, 144, 226, 0.22);
+}
+
+/* Legend per MonthlyBars (prima non era stilata) */
+.chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+}
+
+.income-legend {
+  background: linear-gradient(180deg, var(--success) 0%, var(--success-2) 100%);
+}
+
+.expense-legend {
+  background: linear-gradient(180deg, var(--danger) 0%, var(--danger-2) 100%);
+}
+
+/* ===== Reports: header card che non deve uscire a destra ===== */
+.reports-page .report-card-header{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;          /* <-- fondamentale */
+  gap: 8px;
+  max-width: 100%;
+}
+
+.reports-page .report-card-title{
+  flex: 1 1 220px;
+  min-width: 0;
+  white-space: normal;
+}
+
+.reports-page .report-card-subtitle{
+  flex: 1 1 100%;           /* <-- va sotto su mobile */
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+
+  /* se avevi ellissi/taglio */
+  overflow: visible !important;
+  text-overflow: unset !important;
 }
