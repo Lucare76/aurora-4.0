@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /* src/pages/AddTransactionForm.css — Dark Theme */
 
 /* Container principale */
@@ -9,6 +10,40 @@
   margin: 0 auto;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
   color: #f1f5f9;
+=======
+/* src/pages/AddTransactionForm.css */
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --positive-color: #10b981;
+  --negative-color: #ef4444;
+  --error-color: #dc2626;
+  --bg-light: #f8fafc;
+  --bg-medium: #f1f5f9;
+  --bg-dark: #e2e8f0;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --border-radius: 12px;
+  --border-radius-lg: 16px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 25px rgba(0, 0, 0, 0.1);
+  --transition-base: all 0.3s ease;
+}
+
+/* Container principale */
+.transaction-form-container {
+  background: white;
+  border-radius: var(--border-radius-lg);
+  max-width: 700px;
+  width: 100%;
+  margin: 0 auto;
+  box-shadow: var(--shadow-md);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Header del form */
@@ -16,17 +51,31 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+<<<<<<< HEAD
   padding: 24px 32px;
   border-bottom: 2px solid rgba(148, 163, 184, 0.2);
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   border-radius: 16px 16px 0 0;
+=======
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 2px solid var(--bg-medium);
+  background: linear-gradient(135deg, #f6f9fc 0%, var(--bg-light) 100%);
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .form-header h2 {
   margin: 0;
+<<<<<<< HEAD
   font-size: 28px;
   font-weight: 700;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+=======
+  color: var(--text-primary);
+  font-size: 28px;
+  font-weight: 700;
+  background: var(--primary-gradient);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -36,7 +85,11 @@
   background: none;
   border: none;
   font-size: 36px;
+<<<<<<< HEAD
   color: #94a3b8;
+=======
+  color: var(--text-secondary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   cursor: pointer;
   width: 40px;
   height: 40px;
@@ -44,19 +97,29 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+<<<<<<< HEAD
   transition: all 0.3s ease;
+=======
+  transition: var(--transition-base);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   line-height: 1;
   padding: 0;
 }
 
 .close-button:hover {
+<<<<<<< HEAD
   background: rgba(148, 163, 184, 0.15);
   color: #f1f5f9;
+=======
+  background: var(--bg-medium);
+  color: var(--text-primary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   transform: rotate(90deg);
 }
 
 /* Form */
 .transaction-form {
+<<<<<<< HEAD
   padding: 32px;
 }
 
@@ -67,6 +130,18 @@
   border-radius: 12px;
   margin-bottom: 24px;
   border-left: 4px solid #dc2626;
+=======
+  padding: var(--spacing-xl);
+}
+
+.error-message {
+  background: #fee2e2;
+  color: var(--error-color);
+  padding: 16px;
+  border-radius: var(--border-radius);
+  margin-bottom: 24px;
+  border-left: 4px solid var(--error-color);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-weight: 500;
   display: flex;
   align-items: center;
@@ -74,7 +149,11 @@
 }
 
 .error-message::before {
+<<<<<<< HEAD
   content: '\26A0\FE0F';
+=======
+  content: '⚠️';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-size: 20px;
 }
 
@@ -93,7 +172,11 @@
 }
 
 .section-label {
+<<<<<<< HEAD
   color: #94a3b8;
+=======
+  color: var(--text-secondary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-weight: 600;
   font-size: 14px;
   text-transform: uppercase;
@@ -107,12 +190,21 @@
 .form-select {
   width: 100%;
   padding: 14px 20px;
+<<<<<<< HEAD
   border: 2px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   font-size: 16px;
   color: #f1f5f9;
   background: rgba(148, 163, 184, 0.1);
   transition: all 0.3s ease;
+=======
+  border: 2px solid var(--bg-dark);
+  border-radius: var(--border-radius);
+  font-size: 16px;
+  color: var(--text-primary);
+  background: white;
+  transition: var(--transition-base);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-family: inherit;
 }
 
@@ -120,6 +212,7 @@
 .date-input:focus,
 .form-select:focus {
   outline: none;
+<<<<<<< HEAD
   border-color: #2563eb;
   background: rgba(148, 163, 184, 0.15);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
@@ -127,6 +220,15 @@
 
 .description-input::placeholder {
   color: #64748b;
+=======
+  border-color: #4f46e5;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.description-input::placeholder {
+  color: var(--text-tertiary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-style: italic;
 }
 
@@ -141,6 +243,7 @@
 .currency-symbol {
   position: absolute;
   left: 20px;
+<<<<<<< HEAD
   top: 0;
   bottom: 0;
   display: flex;
@@ -151,10 +254,21 @@
   pointer-events: none;
   z-index: 2;
   user-select: none;
+=======
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  font-size: 18px;
+  font-weight: 700;
+  pointer-events: none; /* ✅ Permette di cliccare attraverso il simbolo */
+  z-index: 2; /* ✅ Simbolo sopra l'input */
+  user-select: none; /* ✅ Non selezionabile */
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .amount-input {
   width: 100%;
+<<<<<<< HEAD
   padding: 14px 20px 14px 50px;
   border: 2px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
@@ -163,14 +277,30 @@
   color: #f1f5f9;
   background: rgba(148, 163, 184, 0.1);
   transition: all 0.3s ease;
+=======
+  padding: 14px 20px 14px 50px; /* ✅ AUMENTATO padding-left da 40px a 50px */
+  border: 2px solid var(--bg-dark);
+  border-radius: var(--border-radius);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: white;
+  transition: var(--transition-base);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-family: inherit;
 }
 
 .amount-input:focus {
   outline: none;
+<<<<<<< HEAD
   border-color: #2563eb;
   background: rgba(148, 163, 184, 0.15);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+=======
+  border-color: #4f46e5;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Rimuovi le frecce spinner su Chrome/Safari */
@@ -198,6 +328,7 @@
 .type-button {
   flex: 1;
   padding: 14px 20px;
+<<<<<<< HEAD
   border: 2px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
   background: rgba(148, 163, 184, 0.1);
@@ -206,6 +337,16 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+=======
+  border: 2px solid var(--bg-dark);
+  border-radius: var(--border-radius);
+  background: white;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-base);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   display: flex;
   align-items: center;
   justify-content: center;
@@ -213,14 +354,20 @@
 }
 
 .type-button:hover {
+<<<<<<< HEAD
   border-color: rgba(148, 163, 184, 0.5);
   background: rgba(148, 163, 184, 0.15);
+=======
+  border-color: #cbd5e1;
+  background: var(--bg-light);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   transform: translateY(-2px);
 }
 
 .type-button.active {
   border-width: 2px;
   font-weight: 700;
+<<<<<<< HEAD
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -234,6 +381,21 @@
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.1) 100%);
   border-color: #ef4444;
   color: #fca5a5;
+=======
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.type-button.active.income {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  border-color: var(--positive-color);
+  color: #065f46;
+}
+
+.type-button.active.expense {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  border-color: var(--negative-color);
+  color: #991b1b;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Input data e ora */
@@ -243,6 +405,7 @@
 
 .date-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
+<<<<<<< HEAD
   filter: invert(0.7);
 }
 
@@ -260,39 +423,83 @@
   padding-right: 40px;
   font-weight: 700;
   color: #f1f5f9;
+=======
+  filter: opacity(0.6);
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  filter: opacity(1);
+}
+
+/* Select dropdown - MIGLIORATO CONTRASTO */
+.form-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+  font-weight: 700; /* ✅ Testo più grassetto */
+  color: #1e293b; /* ✅ Colore scuro fisso */
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Placeholder/opzione vuota */
 .form-select option[value=""] {
+<<<<<<< HEAD
   color: #64748b;
+=======
+  color: var(--text-tertiary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-style: italic;
   font-weight: 500;
 }
 
+<<<<<<< HEAD
 /* Opzioni normali */
 .form-select option {
   background-color: #1e293b !important;
   color: #f1f5f9 !important;
   font-weight: 700 !important;
+=======
+/* Opzioni normali - TESTO PIÙ VISIBILE */
+.form-select option {
+  background-color: white !important;
+  color: #1e293b !important; /* ✅ Colore scuro fisso */
+  font-weight: 700 !important; /* ✅ Molto grassetto */
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   padding: 12px !important;
 }
 
 /* Opzione selezionata nel dropdown */
 .form-select option:checked {
+<<<<<<< HEAD
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+=======
+  background: var(--primary-gradient) !important;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   color: white !important;
   font-weight: 700 !important;
 }
 
 /* Opzione al hover nel dropdown */
 .form-select option:hover {
+<<<<<<< HEAD
   background-color: rgba(148, 163, 184, 0.2) !important;
   color: #f1f5f9 !important;
+=======
+  background-color: #e0e7ff !important;
+  color: #1e293b !important;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Assicura che il testo selezionato sia ben visibile */
 .form-select:not([multiple]):not([size]) {
+<<<<<<< HEAD
   color: #f1f5f9;
+=======
+  color: #1e293b;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   font-weight: 700;
 }
 
@@ -302,11 +509,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+<<<<<<< HEAD
   background: rgba(148, 163, 184, 0.1);
   border-radius: 12px;
   margin-top: 8px;
   font-size: 14px;
   color: #94a3b8;
+=======
+  background: var(--bg-light);
+  border-radius: var(--border-radius);
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .account-balance-info strong {
@@ -315,11 +530,19 @@
 }
 
 .account-balance-info .positive {
+<<<<<<< HEAD
   color: #10b981;
 }
 
 .account-balance-info .negative {
   color: #ef4444;
+=======
+  color: var(--positive-color);
+}
+
+.account-balance-info .negative {
+  color: var(--negative-color);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Azioni form */
@@ -328,7 +551,11 @@
   gap: 16px;
   margin-top: 32px;
   padding-top: 24px;
+<<<<<<< HEAD
   border-top: 2px solid rgba(148, 163, 184, 0.2);
+=======
+  border-top: 2px solid var(--bg-medium);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .cancel-button,
@@ -336,11 +563,19 @@
   flex: 1;
   padding: 16px 24px;
   border: none;
+<<<<<<< HEAD
   border-radius: 12px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+=======
+  border-radius: var(--border-radius);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-base);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   display: flex;
   align-items: center;
   justify-content: center;
@@ -348,24 +583,43 @@
 }
 
 .cancel-button {
+<<<<<<< HEAD
   background: rgba(148, 163, 184, 0.15);
   color: #f1f5f9;
 }
 
 .cancel-button:hover {
   background: rgba(148, 163, 184, 0.25);
+=======
+  background: var(--bg-medium);
+  color: var(--text-primary);
+}
+
+.cancel-button:hover {
+  background: var(--bg-dark);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   transform: translateY(-2px);
 }
 
 .submit-button {
+<<<<<<< HEAD
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   color: white;
   box-shadow: 0 4px 15px rgba(79, 70, 229, 0.3);
+=======
+  background: var(--primary-gradient);
+  color: white;
+  box-shadow: 0 4px 15px rgba(79, 70, 229, 0.2);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .submit-button:hover:not(:disabled) {
   transform: translateY(-2px);
+<<<<<<< HEAD
   box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+=======
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.3);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 .submit-button:disabled {
@@ -374,6 +628,7 @@
   transform: none;
 }
 
+<<<<<<< HEAD
 /* ============================================
    Responsive - Tablet
    ============================================ */
@@ -506,6 +761,45 @@
 
   .form-header h2 {
     font-size: 19px;
+=======
+/* Responsive */
+@media (max-width: 768px) {
+  .transaction-form-container {
+    width: 95%;
+    margin: 20px auto;
+  }
+
+  .form-header {
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+
+  .form-header h2 {
+    font-size: 24px;
+  }
+
+  .transaction-form {
+    padding: var(--spacing-lg);
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .cancel-button,
+  .submit-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .form-header h2 {
+    font-size: 20px;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   }
 
   .close-button {
@@ -515,6 +809,7 @@
   }
 
   .transaction-form {
+<<<<<<< HEAD
     padding: 12px;
   }
 
@@ -547,6 +842,17 @@
     padding: 12px;
     font-size: 14px;
     margin-bottom: 14px;
+=======
+    padding: var(--spacing-md);
+  }
+
+  .amount-input {
+    font-size: 16px;
+  }
+
+  .currency-symbol {
+    font-size: 16px;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   }
 }
 
@@ -571,12 +877,21 @@
 /* Fix per Firefox */
 @-moz-document url-prefix() {
   .form-select {
+<<<<<<< HEAD
     background-color: rgba(148, 163, 184, 0.1);
   }
 
   .form-select option {
     background-color: #1e293b;
     color: #f1f5f9;
+=======
+    background-color: white;
+  }
+  
+  .form-select option {
+    background-color: white;
+    color: var(--text-primary);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   }
 }
 
@@ -585,20 +900,36 @@
   cursor: pointer;
 }
 
+<<<<<<< HEAD
 .transaction-form-container input:focus,
 .transaction-form-container select:focus,
 .transaction-form-container button:focus {
   outline: 2px solid #2563eb;
+=======
+input:focus,
+select:focus,
+button:focus {
+  outline: 2px solid #4f46e5;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   outline-offset: 2px;
 }
 
 /* Stati di validazione */
+<<<<<<< HEAD
 .transaction-form-container input:invalid:not(:placeholder-shown) {
   border-color: #dc2626;
 }
 
 .transaction-form-container input:valid:not(:placeholder-shown) {
   border-color: #10b981;
+=======
+input:invalid:not(:placeholder-shown) {
+  border-color: var(--error-color);
+}
+
+input:valid:not(:placeholder-shown) {
+  border-color: var(--positive-color);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Loading state */
@@ -618,6 +949,7 @@
     content: '...';
   }
 }
+<<<<<<< HEAD
 
 /* ============================================
    Receipt Scanner
@@ -912,12 +1244,25 @@
 .form-select {
   background-color: rgba(148, 163, 184, 0.1) !important;
   color: #f1f5f9 !important;
+=======
+/* Fix per select con sfondo scuro */
+.form-select {
+  background-color: white !important; /* ✅ Forza sfondo bianco */
+  color: #1e293b !important; /* ✅ Testo scuro */
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }
 
 /* Se hanno una classe specifica, aggiungi anche: */
 select[name="accountId"],
 select[name="category"] {
+<<<<<<< HEAD
   background-color: rgba(148, 163, 184, 0.1) !important;
   color: #f1f5f9 !important;
   font-weight: 700 !important;
 }
+=======
+  background-color: white !important;
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1

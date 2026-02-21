@@ -29,7 +29,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [userApprovalStatus, setUserApprovalStatus] = useState(null);
+<<<<<<< HEAD
   const [userSettings, setUserSettings] = useState({ currency: 'EUR' });
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const setUserFromFirebaseUser = useCallback((firebaseUser) => {
     if (!firebaseUser) {
@@ -46,6 +49,7 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
+<<<<<<< HEAD
   // 🔧 FUNZIONE PER GESTIRE ERRORI COMUNI (FIX: "Credenziali non valide")
   const getAuthErrorMessage = useCallback((error) => {
     const code = error?.code || '';
@@ -57,6 +61,15 @@ export const AuthProvider = ({ children }) => {
       case 'auth/user-not-found':
         return 'Credenziali non valide';
 
+=======
+  // 🔧 FUNZIONE PER GESTIRE ERRORI COMUNI
+  const getAuthErrorMessage = useCallback((error) => {
+    switch (error.code) {
+      case 'auth/user-not-found':
+        return 'Utente non trovato';
+      case 'auth/wrong-password':
+        return 'Password errata';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       case 'auth/email-already-in-use':
         return 'Email già registrata';
       case 'auth/weak-password':
@@ -67,6 +80,7 @@ export const AuthProvider = ({ children }) => {
         return 'Login Google annullato';
       case 'auth/network-request-failed':
         return 'Errore di rete. Controlla la connessione';
+<<<<<<< HEAD
       case 'auth/too-many-requests':
         return 'Troppi tentativi. Riprova più tardi';
       case 'auth/user-disabled':
@@ -75,6 +89,10 @@ export const AuthProvider = ({ children }) => {
       default:
         // 🔕 Evita di mostrare "Firebase: Error (...)" all’utente
         return 'Si è verificato un errore. Riprova';
+=======
+      default:
+        return error.message || 'Si è verificato un errore';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     }
   }, []);
 
@@ -192,11 +210,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('🔄 onAuthStateChanged -> user:', firebaseUser);
+<<<<<<< HEAD
 
+=======
+      
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (firebaseUser) {
         // ✅ Controlla approvazione
         const approvalStatus = await checkUserApproval(firebaseUser.uid);
         setUserApprovalStatus(approvalStatus);
+<<<<<<< HEAD
 
         // ✅ Carica settings utente (currency, etc.)
         try {
@@ -218,6 +241,12 @@ export const AuthProvider = ({ children }) => {
         setUserSettings({ currency: 'EUR' });
       }
 
+=======
+      } else {
+        setUserApprovalStatus(null);
+      }
+      
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       setUserFromFirebaseUser(firebaseUser);
       setLoading(false);
     }, (error) => {
@@ -225,7 +254,11 @@ export const AuthProvider = ({ children }) => {
       setAuthError(getAuthErrorMessage(error));
       setLoading(false);
     });
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     return unsubscribe;
   }, [setUserFromFirebaseUser, getAuthErrorMessage]);
 
@@ -234,8 +267,11 @@ export const AuthProvider = ({ children }) => {
     user,
     userData,
     userApprovalStatus,
+<<<<<<< HEAD
     userSettings,
     setUserSettings,
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     loginWithGoogle,
     login,
     signup,
@@ -246,6 +282,7 @@ export const AuthProvider = ({ children }) => {
     error: authError,
     clearError: () => setAuthError(null)
   }), [
+<<<<<<< HEAD
     user,
     userData,
     userApprovalStatus,
@@ -257,6 +294,18 @@ export const AuthProvider = ({ children }) => {
     updateUserProfile,
     resetPassword,
     loading,
+=======
+    user, 
+    userData,
+    userApprovalStatus,
+    loginWithGoogle, 
+    login, 
+    signup, 
+    logout, 
+    updateUserProfile, 
+    resetPassword, 
+    loading, 
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     authError
   ]);
 
@@ -292,4 +341,8 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1

@@ -13,8 +13,12 @@ import {
   query,
   where,
   serverTimestamp,
+<<<<<<< HEAD
   getDoc,
   getDocs // ✅ aggiunto
+=======
+  getDoc
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 } from '../services/firebase';
 
 export const FinancialContext = createContext(null);
@@ -54,6 +58,7 @@ const buildSubCategoryObjects = (names, baseColor) => {
   }));
 };
 
+<<<<<<< HEAD
 const generateId = () => {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -69,6 +74,8 @@ const toJsDate = (d) => {
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 export const FinancialProvider = ({ children }) => {
   const [transactions, setTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -168,6 +175,7 @@ export const FinancialProvider = ({ children }) => {
     });
   }, []);
 
+<<<<<<< HEAD
   const applyBalanceAdjustForChange = useCallback(
     async (oldAccountId, oldAmount, newAccountId, newAmount) => {
       const oldAcc = oldAccountId || null;
@@ -210,6 +218,8 @@ export const FinancialProvider = ({ children }) => {
     [user]
   );
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   // ----------------------------
   // Default categories (una volta)
   // ----------------------------
@@ -271,7 +281,10 @@ export const FinancialProvider = ({ children }) => {
           ...d.data(),
           balance: parseFloat(d.data().balance) || 0
         }));
+<<<<<<< HEAD
         data.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'it-IT'));
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         setAccounts(data);
       },
       (error) => console.error('❌ Errore caricamento accounts:', error)
@@ -330,9 +343,12 @@ export const FinancialProvider = ({ children }) => {
           }
         }
 
+<<<<<<< HEAD
         // ✅ Ordina alfabeticamente per nome
 data.sort((a, b) => a.name.localeCompare(b.name));
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         setCategories(data);
       },
       (error) => console.error('❌ Errore caricamento categories:', error)
@@ -419,7 +435,11 @@ data.sort((a, b) => a.name.localeCompare(b.name));
   };
 
   // ----------------------------
+<<<<<<< HEAD
   // Transactions CRUD
+=======
+  // Transactions CRUD (FIX salvataggio)
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   // ----------------------------
   const createTransaction = async (transactionData) => {
     if (!user) throw new Error('❌ Utente non autenticato');
@@ -471,6 +491,7 @@ data.sort((a, b) => a.name.localeCompare(b.name));
     return { id: docRef.id, ...newTransaction };
   };
 
+<<<<<<< HEAD
   /**
    * ✅ Giroconto: crea 2 transazioni collegate (expense + income).
    * Ritorna { transferId, fromTransactionId, toTransactionId }
@@ -546,6 +567,8 @@ data.sort((a, b) => a.name.localeCompare(b.name));
     }
   };
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const updateTransaction = async (transactionId, updates) => {
     if (!user) throw new Error('❌ Utente non autenticato');
 
@@ -555,6 +578,7 @@ data.sort((a, b) => a.name.localeCompare(b.name));
 
     const old = snap.data();
 
+<<<<<<< HEAD
     // ✅ GIROCONTO: aggiorna anche la gemella
     if (old.isTransfer && old.transferId) {
       const peer = await findTransferPeer(old.transferId, transactionId);
@@ -690,6 +714,8 @@ const thisIsIncome = thisType === 'income';
     // ✅ NORMALE (come prima)
     // ----------------------------
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     // vecchi valori
     const oldAccountId = old.accountId || null;
     const oldAmount = typeof old.amount === 'string' ? parseFloat(old.amount) || 0 : old.amount || 0;
@@ -772,6 +798,7 @@ const thisIsIncome = thisType === 'income';
 
     const t = snap.data();
     const accountId = t.accountId || null;
+<<<<<<< HEAD
     const amount = parseAmountSafe(t.amount);
 
     // ✅ GIROCONTO: elimina anche la gemella
@@ -797,6 +824,12 @@ const thisIsIncome = thisType === 'income';
 
     // ✅ NORMALE
     await deleteDoc(transactionRef);
+=======
+    const amount = typeof t.amount === 'string' ? parseFloat(t.amount) || 0 : t.amount || 0;
+
+    await deleteDoc(transactionRef);
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     if (accountId) await adjustAccountBalance(accountId, -amount);
   };
 
@@ -888,7 +921,10 @@ const thisIsIncome = thisType === 'income';
     deleteAccount,
 
     createTransaction,
+<<<<<<< HEAD
     createTransfer, // ✅ esposto
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     updateTransaction,
     deleteTransaction,
 
@@ -897,12 +933,16 @@ const thisIsIncome = thisType === 'income';
     deleteCategory,
 
     addSubCategory,
+<<<<<<< HEAD
     removeSubCategory,
 
     // Helpers esposti per recurring
     resolveAccount,
     resolveCategory,
     resolveSubCategory
+=======
+    removeSubCategory
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   };
 
   return <FinancialContext.Provider value={value}>{children}</FinancialContext.Provider>;

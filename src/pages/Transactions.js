@@ -1,19 +1,32 @@
 // src/pages/Transactions.js
+<<<<<<< HEAD
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
+=======
+import React, { useState, useMemo, useCallback } from 'react';
+import { useFinancial } from '../contexts/FinancialContext';
+import { useAuth } from '../contexts/AuthContext';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import AddTransactionForm from './AddTransactionForm';
 import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
+<<<<<<< HEAD
 const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const { transactions = [], accounts = [], categories = [], loading, deleteTransaction } = useFinancial();
   const { user, userSettings } = useAuth();
+=======
+const Transactions = () => {
+  const { transactions, accounts, categories, loading, deleteTransaction } = useFinancial();
+  const { user } = useAuth();
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const [showForm, setShowForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(null);
 
+<<<<<<< HEAD
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -72,14 +85,36 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         .trim(),
     []
   );
+=======
+  const [filterType, setFilterType] = useState('all');
+  const [selectedAccount, setSelectedAccount] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('list');
+
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   // === DATE HELPERS ===
   const parseDate = (date) => {
     if (!date) return new Date();
+<<<<<<< HEAD
     if (date && typeof date === 'object' && typeof date.toDate === 'function') return date.toDate();
     if (date instanceof Date) return date;
     const d = new Date(date);
     return Number.isNaN(d.getTime()) ? new Date() : d;
+=======
+
+    // Firestore Timestamp
+    if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
+      return date.toDate();
+    }
+
+    if (date instanceof Date) return date;
+
+    return new Date(date);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   };
 
   const formatTime = (date) => {
@@ -102,7 +137,11 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     return d.toLocaleDateString('it-IT', {
       day: '2-digit',
       month: '2-digit',
+<<<<<<< HEAD
       year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+=======
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     });
   };
 
@@ -110,11 +149,24 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const getCategoryId = useCallback((tx) => tx?.categoryId || tx?.category || null, []);
   const getSubCategoryId = useCallback((tx) => tx?.subCategoryId || tx?.subCategory || null, []);
 
+<<<<<<< HEAD
   const isTransferTx = useCallback((tx) => !!(tx?.isTransfer || tx?.transferId), []);
 
   // === MAPPE (ID -> LABEL) ===
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((acc) => [acc.id, acc.name])), [accounts]);
   const categoryMap = useMemo(() => Object.fromEntries(categories.map((cat) => [cat.id, cat.name])), [categories]);
+=======
+  // === MAPPE (ID -> LABEL) ===
+  const accountMap = useMemo(
+    () => Object.fromEntries(accounts.map((acc) => [acc.id, acc.name])),
+    [accounts]
+  );
+
+  const categoryMap = useMemo(
+    () => Object.fromEntries(categories.map((cat) => [cat.id, cat.name])),
+    [categories]
+  );
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   // Mappa sottocategorie: "categoryId:subId" -> "Nome Sottocategoria"
   const subCategoryMap = useMemo(() => {
@@ -122,16 +174,30 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     for (const cat of categories) {
       const subs = Array.isArray(cat.subCategories) ? cat.subCategories : [];
       for (const sub of subs) {
+<<<<<<< HEAD
         if (sub && sub.id && sub.name) entries.push([`${cat.id}:${sub.id}`, sub.name]);
+=======
+        if (sub && sub.id && sub.name) {
+          entries.push([`${cat.id}:${sub.id}`, sub.name]);
+        }
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       }
     }
     return Object.fromEntries(entries);
   }, [categories]);
 
+<<<<<<< HEAD
   // === ICONA/COLORE CATEGORIA ===
   const getCategoryIcon = useCallback(
     (txOrCategoryId) => {
       const categoryId = typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+=======
+  // === ICONA/COLORE CATEGORIA (usa ID normalizzato) ===
+  const getCategoryIcon = useCallback(
+    (txOrCategoryId) => {
+      const categoryId =
+        typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (!categoryId) return '💰';
       const category = categories.find((cat) => cat.id === categoryId);
       return category?.icon || '💰';
@@ -141,7 +207,12 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
   const getCategoryColor = useCallback(
     (txOrCategoryId) => {
+<<<<<<< HEAD
       const categoryId = typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+=======
+      const categoryId =
+        typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (!categoryId) return '#6b7280';
       const category = categories.find((cat) => cat.id === categoryId);
       return category?.color || '#6b7280';
@@ -149,24 +220,45 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     [categories, getCategoryId]
   );
 
+<<<<<<< HEAD
   // === SOTTOCATEGORIA: RISOLUZIONE ID -> NOME ===
   const getSubCategoryLabel = useCallback(
     (tx) => {
+=======
+  // === SOTTOCATEGORIA: RISOLUZIONE ID -> NOME (stabile) ===
+  const getSubCategoryLabel = useCallback(
+    (tx) => {
+      // 1) Se ho un nome già pronto
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (tx?.subCategoryName && typeof tx.subCategoryName === 'string') return tx.subCategoryName;
 
       const catId = getCategoryId(tx);
       const subId = getSubCategoryId(tx);
+<<<<<<< HEAD
       if (!catId || !subId) return '';
 
       const resolved = subCategoryMap[`${catId}:${subId}`];
       if (resolved) return resolved;
 
       if (typeof tx?.subCategory === 'string') return tx.subCategory;
+=======
+
+      if (!catId || !subId) return '';
+
+      // 2) Provo a risolvere via mappa "catId:subId"
+      const resolved = subCategoryMap[`${catId}:${subId}`];
+      if (resolved) return resolved;
+
+      // 3) Se subCategory era già un nome (vecchio formato)
+      if (typeof tx?.subCategory === 'string') return tx.subCategory;
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       return '';
     },
     [getCategoryId, getSubCategoryId, subCategoryMap]
   );
 
+<<<<<<< HEAD
   // === COLLASSO GIROCONTO: 2 righe -> 1 riga ===
   const displayTransactions = useMemo(() => {
     const list = [];
@@ -327,20 +419,92 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const stats = useMemo(() => {
     const onlyNormal = displayTransactions.filter((t) => !t.__isDisplayTransfer);
 
+=======
+  // === FILTRI + ORDINAMENTO ===
+  const filteredTransactions = useMemo(() => {
+    let filtered = transactions.filter((tx) => {
+      const matchesType =
+        filterType === 'all' ||
+        (filterType === 'income' && tx.amount > 0) ||
+        (filterType === 'expense' && tx.amount < 0);
+
+      const matchesAccount = selectedAccount === 'all' || tx.accountId === selectedAccount;
+
+      const catId = getCategoryId(tx);
+      const matchesCategory = selectedCategory === 'all' || catId === selectedCategory;
+
+      const subLabel = getSubCategoryLabel(tx);
+
+      const q = (searchTerm || '').toLowerCase();
+
+      const matchesSearch =
+        !q ||
+        (tx.description && tx.description.toLowerCase().includes(q)) ||
+        (accountMap[tx.accountId] && accountMap[tx.accountId].toLowerCase().includes(q)) ||
+        (catId && categoryMap[catId] && categoryMap[catId].toLowerCase().includes(q)) ||
+        (subLabel && subLabel.toLowerCase().includes(q));
+
+      return matchesType && matchesAccount && matchesCategory && matchesSearch;
+    });
+
+    filtered.sort((a, b) => {
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
+      return dateB - dateA;
+    });
+
+    return filtered;
+  }, [
+    transactions,
+    filterType,
+    selectedAccount,
+    selectedCategory,
+    searchTerm,
+    accountMap,
+    categoryMap,
+    getCategoryId,
+    getSubCategoryLabel,
+  ]);
+
+  // === STATISTICHE ===
+  const stats = useMemo(() => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
+<<<<<<< HEAD
     const monthlyTransactions = onlyNormal.filter((tx) => {
+=======
+    const monthlyTransactions = transactions.filter((tx) => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       const txDate = parseDate(tx.date);
       return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
     });
 
+<<<<<<< HEAD
     const totalIncome = onlyNormal.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + (tx.amount || 0), 0);
     const totalExpenses = onlyNormal.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 
     const monthlyIncome = monthlyTransactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + (tx.amount || 0), 0);
     const monthlyExpenses = monthlyTransactions.filter((tx) => tx.amount < 0).reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+=======
+    const totalIncome = transactions
+      .filter((tx) => tx.amount && tx.amount > 0)
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    const totalExpenses = transactions
+      .filter((tx) => tx.amount && tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+    const monthlyIncome = monthlyTransactions
+      .filter((tx) => tx.amount && tx.amount > 0)
+      .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+    const monthlyExpenses = monthlyTransactions
+      .filter((tx) => tx.amount && tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
     return {
       totalIncome,
@@ -348,6 +512,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       totalBalance: totalIncome - totalExpenses,
       monthlyIncome,
       monthlyExpenses,
+<<<<<<< HEAD
       monthlyBalance: monthlyIncome - monthlyExpenses
     };
   }, [displayTransactions]);
@@ -437,6 +602,23 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     try {
       setDeleting(true);
       await deleteTransaction(transactionToDelete.id); // FinancialContext elimina anche la peer se è giroconto
+=======
+      monthlyBalance: monthlyIncome - monthlyExpenses,
+    };
+  }, [transactions]);
+
+  // === DELETE ===
+  const startDeleteTransaction = (transactionId) => {
+    setTransactionToDelete(transactionId);
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+
+    try {
+      setDeleting(true);
+      await deleteTransaction(transactionToDelete);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       setTransactionToDelete(null);
     } catch (error) {
       console.error("❌ Errore nell'eliminazione:", error);
@@ -477,18 +659,43 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         <div className="header-content">
           <h1>Transazioni</h1>
           <p className="header-subtitle">
+<<<<<<< HEAD
             {filteredTransactions.length} di {displayTransactions.length} transazioni
+=======
+            {filteredTransactions.length} di {transactions.length} transazioni
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </p>
         </div>
 
         <div className="header-actions">
+<<<<<<< HEAD
+=======
+          <div className="view-toggle">
+            <button
+              className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              📋 Lista
+            </button>
+            <button
+              className={`toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
+              onClick={() => setViewMode('table')}
+            >
+              📊 Tabella
+            </button>
+          </div>
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
             Aggiungi Transazione
           </button>
+<<<<<<< HEAD
           <button className="secondary-btn export-btn" onClick={exportFilteredCsv} type="button">
             Esporta CSV
           </button>
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         </div>
       </div>
 
@@ -497,27 +704,44 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         <div className="stat-item">
           <div className="stat-label">Bilancio Totale</div>
           <div className={`stat-value ${stats.totalBalance >= 0 ? 'positive' : 'negative'}`}>
+<<<<<<< HEAD
             {formatMoney(stats.totalBalance)}
+=======
+            €{stats.totalBalance.toFixed(2)}
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
         <div className="stat-item">
           <div className="stat-label">Questo Mese</div>
           <div className={`stat-value ${stats.monthlyBalance >= 0 ? 'positive' : 'negative'}`}>
+<<<<<<< HEAD
             {formatMoney(stats.monthlyBalance)}
+=======
+            €{stats.monthlyBalance.toFixed(2)}
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
         <div className="stat-item">
           <div className="stat-label">Entrate Totali</div>
+<<<<<<< HEAD
           <div className="stat-value positive">{formatMoney(stats.totalIncome)}</div>
         </div>
         <div className="stat-item">
           <div className="stat-label">Uscite Totali</div>
           <div className="stat-value negative">{formatMoney(stats.totalExpenses)}</div>
+=======
+          <div className="stat-value positive">€{stats.totalIncome.toFixed(2)}</div>
+        </div>
+        <div className="stat-item">
+          <div className="stat-label">Uscite Totali</div>
+          <div className="stat-value negative">€{stats.totalExpenses.toFixed(2)}</div>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         </div>
       </div>
 
       {/* Filtri */}
       <div className="filters-section">
+<<<<<<< HEAD
         <div className="filters-top-row">
           <div className="search-box">
             <input
@@ -555,6 +779,16 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
               Reset filtri
             </button>
           )}
+=======
+        <div className="search-box">
+          <input
+            type="text"
+            placeholder="Cerca nelle transazioni..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         </div>
 
         <div className="filter-controls">
@@ -562,10 +796,20 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
             <option value="all">Tutti i tipi</option>
             <option value="income">Solo entrate</option>
             <option value="expense">Solo uscite</option>
+<<<<<<< HEAD
             <option value="transfer">Solo giroconti</option>
           </select>
 
           <select value={selectedAccount} onChange={(e) => setSelectedAccount(e.target.value)} className="filter-select">
+=======
+          </select>
+
+          <select
+            value={selectedAccount}
+            onChange={(e) => setSelectedAccount(e.target.value)}
+            className="filter-select"
+          >
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             <option value="all">Tutti i conti</option>
             {accounts.map((account) => (
               <option key={account.id} value={account.id}>
@@ -574,15 +818,25 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
             ))}
           </select>
 
+<<<<<<< HEAD
           <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="filter-select">
             <option value="all">Tutte le categorie</option>
             <option value="uncategorized">Senza categoria</option>
+=======
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="filter-select"
+          >
+            <option value="all">Tutte le categorie</option>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
             ))}
           </select>
+<<<<<<< HEAD
 
           <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
             <option value="all">Tutti i mesi</option>
@@ -628,6 +882,9 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           )}
         </div>
 
+=======
+        </div>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       </div>
 
       {/* Modal Aggiungi */}
@@ -649,7 +906,11 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       )}
 
       {/* Modal Conferma Eliminazione */}
+<<<<<<< HEAD
       {transactionToDelete?.id && (
+=======
+      {transactionToDelete && (
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         <div className="modal-backdrop">
           <div className="confirm-modal">
             <h3>Conferma Eliminazione</h3>
@@ -666,6 +927,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* Lista */}
       <div className="transactions-list">
           {filteredTransactions.map((tx, index) => {
@@ -746,22 +1008,35 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
               );
             }
 
+=======
+      {/* Lista / Tabella */}
+      {viewMode === 'list' ? (
+        <div className="transactions-list">
+          {filteredTransactions.map((tx) => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             const catId = getCategoryId(tx);
             const subLabel = getSubCategoryLabel(tx);
 
             return (
               <div key={tx.id} className="transaction-row">
+<<<<<<< HEAD
                 {showMonthHeader && (
                   <div className="month-header">
                     <span className="month-title">{monthLabel}</span>
                   </div>
                 )}
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 <div className="transaction-icon-wrapper">
                   <div
                     className="transaction-icon"
                     style={{
                       backgroundColor: getCategoryColor(catId) + '20',
+<<<<<<< HEAD
                       color: getCategoryColor(catId)
+=======
+                      color: getCategoryColor(catId),
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     }}
                   >
                     {getCategoryIcon(catId)}
@@ -769,6 +1044,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                 </div>
 
                 <div className="transaction-info">
+<<<<<<< HEAD
                   <h4 className="transaction-title">
                     {tx.isRecurring && <span title="Ricorrente">🔄 </span>}
                     {formatDescription(tx.description, 'Transazione senza descrizione')}
@@ -778,11 +1054,28 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                     <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
                     <span className="transaction-category">{categoryMap[catId] || tx.categoryName || 'Senza categoria'}</span>
                     {subLabel ? <span className="transaction-category">{subLabel}</span> : null}
+=======
+                  <div className="transaction-primary">
+                    <h4 className="transaction-title">{tx.description || 'Transazione senza descrizione'}</h4>
+                    <div className={`transaction-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                      {tx.amount >= 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
+                    </div>
+                  </div>
+
+                  <div className="transaction-secondary">
+                    <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
+
+                    <span className="transaction-category">{categoryMap[catId] || 'Senza categoria'}</span>
+
+                    {subLabel ? <span className="transaction-category">{subLabel}</span> : null}
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     <span className="transaction-date">
                       {formatDate(tx.date)} • {formatTime(tx.date)}
                     </span>
                   </div>
                 </div>
+<<<<<<< HEAD
                 <div className={`transaction-amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
                   {`${tx.amount >= 0 ? '+' : '-'} ${formatMoney(Math.abs(tx.amount || 0))}`}
                 </div>
@@ -792,13 +1085,111 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                     ✏️
                   </button>
                   <button onClick={() => startDeleteTransaction(tx.id, false)} className="delete-btn" title="Elimina transazione">
+=======
+
+                <div className="transaction-actions">
+                  <button
+                    onClick={() => setShowEditForm(tx)}
+                    className="edit-btn"
+                    title="Modifica transazione"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => startDeleteTransaction(tx.id)}
+                    className="delete-btn"
+                    title="Elimina transazione"
+                  >
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     🗑️
                   </button>
                 </div>
               </div>
             );
           })}
+<<<<<<< HEAD
       </div>
+=======
+        </div>
+      ) : (
+        <div className="transactions-table-wrapper">
+          <table className="transactions-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Descrizione</th>
+                <th>Categoria</th>
+                <th>Conto</th>
+                <th>Importo</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTransactions.map((tx) => {
+                const catId = getCategoryId(tx);
+                const subLabel = getSubCategoryLabel(tx);
+
+                return (
+                  <tr key={tx.id}>
+                    <td className="date-cell">
+                      <div className="date-info">
+                        <div className="date-primary">{formatDate(tx.date)}</div>
+                        <div className="date-secondary">{formatTime(tx.date)}</div>
+                      </div>
+                    </td>
+
+                    <td className="description-cell">
+                      <div className="description-wrapper">
+                        <div
+                          className="category-indicator"
+                          style={{ backgroundColor: getCategoryColor(catId) }}
+                        ></div>
+                        {tx.description || 'Transazione senza descrizione'}
+                      </div>
+                    </td>
+
+                    <td className="category-cell">
+                      <div className="category-info">
+                        <span className="category-icon" style={{ color: getCategoryColor(catId) }}>
+                          {getCategoryIcon(catId)}
+                        </span>
+                        <span className="category-name">{categoryMap[catId] || 'Senza categoria'}</span>
+                        {subLabel ? <span className="category-name">{subLabel}</span> : null}
+                      </div>
+                    </td>
+
+                    <td className="account-cell">{accountMap[tx.accountId] || 'Conto sconosciuto'}</td>
+
+                    <td className="amount-cell">
+                      <span className={`amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
+                        {tx.amount >= 0 ? '+' : ''}€{Math.abs(tx.amount || 0).toFixed(2)}
+                      </span>
+                    </td>
+
+                    <td className="actions-cell">
+                      <button
+                        onClick={() => setShowEditForm(tx)}
+                        className="edit-btn-table"
+                        title="Modifica transazione"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => startDeleteTransaction(tx.id)}
+                        className="delete-btn-table"
+                        title="Elimina transazione"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
       {/* Stato vuoto */}
       {filteredTransactions.length === 0 && (
@@ -806,16 +1197,31 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           <div className="empty-icon">📊</div>
           <h3>Nessuna transazione trovata</h3>
           <p>
+<<<<<<< HEAD
             {searchTerm || filterType !== 'all' || selectedAccount !== 'all' || selectedCategory !== 'all' || selectedMonth !== 'all'
+=======
+            {searchTerm || filterType !== 'all' || selectedAccount !== 'all' || selectedCategory !== 'all'
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               ? 'Prova a modificare i filtri di ricerca.'
               : 'Inizia aggiungendo la tua prima transazione!'}
           </p>
 
+<<<<<<< HEAD
           {!searchTerm && filterType === 'all' && selectedAccount === 'all' && selectedCategory === 'all' && selectedMonth === 'all' && (
             <button onClick={() => setShowForm(true)} className="secondary-btn">
               Aggiungi Prima Transazione
             </button>
           )}
+=======
+          {!searchTerm &&
+            filterType === 'all' &&
+            selectedAccount === 'all' &&
+            selectedCategory === 'all' && (
+              <button onClick={() => setShowForm(true)} className="secondary-btn">
+                Aggiungi Prima Transazione
+              </button>
+            )}
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         </div>
       )}
     </div>
@@ -823,5 +1229,8 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 };
 
 export default Transactions;
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1

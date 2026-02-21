@@ -10,7 +10,11 @@ import {
   getDaysUntilBirthday,
   calculateAge
 } from '../services/birthdaysService';
+<<<<<<< HEAD
 import { sendBirthdayReminder, isEmailJSConfigured } from '../services/emailService';
+=======
+import { sendBirthdayReminder, sendTestEmail, isEmailJSConfigured } from '../services/emailService';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import {
   FiPlus,
   FiEdit2,
@@ -19,6 +23,7 @@ import {
   FiCalendar,
   FiGift,
   FiAlertCircle,
+<<<<<<< HEAD
   FiCheckCircle
 } from 'react-icons/fi';
 import './Birthdays.css';
@@ -56,6 +61,13 @@ function isValidBirthdayDate(dateValue) {
   return day <= (maxByMonth[month] || 31);
 }
 
+=======
+  FiCheckCircle,
+  FiSend
+} from 'react-icons/fi';
+import './Birthdays.css';
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 function Birthdays() {
   const { user } = useAuth();
 
@@ -144,11 +156,14 @@ function Birthdays() {
     e.preventDefault();
     if (!user?.uid) return;
 
+<<<<<<< HEAD
     if (!isValidBirthdayDate(formData.date)) {
       alert('Data non valida. Usa il formato GG/MM, ad esempio 15/03.');
       return;
     }
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     try {
       if (editingBirthday) {
         // Modifica
@@ -191,6 +206,7 @@ function Birthdays() {
     }
   };
 
+<<<<<<< HEAD
   const handleDateInputChange = (value) => {
     setFormData((prev) => ({
       ...prev,
@@ -198,6 +214,8 @@ function Birthdays() {
     }));
   };
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const resetForm = () => {
     setFormData({
       name: '',
@@ -210,6 +228,27 @@ function Birthdays() {
     setShowForm(false);
   };
 
+<<<<<<< HEAD
+=======
+  const handleTestEmail = async () => {
+    if (!emailConfigured) {
+      alert('⚠️ Configura prima EmailJS in src/services/emailService.js');
+      return;
+    }
+    if (!user?.email) {
+      alert('⚠️ Nessuna email utente disponibile');
+      return;
+    }
+
+    const result = await sendTestEmail(user.email, user.displayName);
+
+    if (result.success) {
+      alert('✅ Email di test inviata! Controlla la tua casella email.');
+    } else {
+      alert(`❌ Errore: ${result.error}`);
+    }
+  };
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const getBirthdayStatus = (birthday) => {
     const days = getDaysUntilBirthday(birthday.date);
@@ -257,6 +296,12 @@ function Birthdays() {
                 <FiAlertCircle /> EmailJS non configurato
               </div>
             )}
+<<<<<<< HEAD
+=======
+            <button className="btn-secondary" onClick={handleTestEmail} disabled={!emailConfigured}>
+              <FiSend /> Test Email
+            </button>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             <button className="btn-primary" onClick={() => setShowForm(true)}>
               <FiPlus /> Aggiungi Compleanno
             </button>
@@ -316,12 +361,18 @@ function Birthdays() {
                     <input
                       type="text"
                       value={formData.date}
+<<<<<<< HEAD
                       onChange={(e) => handleDateInputChange(e.target.value)}
                       placeholder="DD/MM (es. 15/03)"
                       pattern="\d{2}/\d{2}"
                       inputMode="numeric"
                       autoComplete="off"
                       maxLength={5}
+=======
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      placeholder="DD/MM (es. 15/03)"
+                      pattern="\d{2}/\d{2}"
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                       required
                     />
                     <small>Formato: GG/MM (es. 15/03)</small>
@@ -387,9 +438,13 @@ function Birthdays() {
           </div>
         ) : (
           <div className="birthdays-grid">
+<<<<<<< HEAD
             {[...birthdays]
               .sort((a, b) => getDaysUntilBirthday(a.date) - getDaysUntilBirthday(b.date))
               .map((birthday) => {
+=======
+            {birthdays.map((birthday) => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               const status = getBirthdayStatus(birthday);
               const age = birthday.birthYear ? calculateAge(birthday.date, birthday.birthYear) : null;
 

@@ -10,9 +10,12 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+<<<<<<< HEAD
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const navigate = useNavigate();
 
   // Verifica se l'utente è già loggato
@@ -35,7 +38,11 @@ const Login = () => {
       await loginWithEmail(email, password);
       navigate('/dashboard');
     } catch (err) {
+<<<<<<< HEAD
       setError('Credenziali non valide. Controlla email e password e riprova.');
+=======
+      setError(err?.message || 'Errore durante il login');
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     } finally {
       setLoading(false);
     }
@@ -49,12 +56,17 @@ const Login = () => {
       await loginWithGoogle();
       navigate('/dashboard');
     } catch (err) {
+<<<<<<< HEAD
       setError('Impossibile accedere con Google. Riprova più tardi.');
+=======
+      setError(err?.message || 'Errore durante il login con Google');
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     } finally {
       setLoading(false);
     }
   };
 
+<<<<<<< HEAD
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (!resetEmail.trim()) return;
@@ -69,6 +81,17 @@ const Login = () => {
       setResetMessage('error');
     } finally {
       setLoading(false);
+=======
+  const handleForgotPassword = async () => {
+    const emailInput = prompt('Inserisci la tua email per reimpostare la password:');
+    if (!emailInput) return;
+
+    try {
+      await resetPassword(emailInput);
+      alert('Email di recupero inviata con successo!');
+    } catch (err) {
+      alert("Errore durante l'invio dell'email di recupero: " + (err?.message || 'Errore sconosciuto'));
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     }
   };
 
@@ -207,6 +230,7 @@ const Login = () => {
             </div>
           </div>
 
+<<<<<<< HEAD
           {/* Recupera Password */}
           <div className="login-footer">
             {!showResetPassword ? (
@@ -254,6 +278,13 @@ const Login = () => {
                 )}
               </div>
             )}
+=======
+          {/* Footer */}
+          <div className="login-footer">
+            <button className="switch-btn-premium" onClick={handleForgotPassword} type="button">
+              Hai dimenticato la password?
+            </button>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
 

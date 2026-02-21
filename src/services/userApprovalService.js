@@ -31,8 +31,12 @@ export async function createUserDocument(userId, userData) {
       // ✅ Email per i reminder compleanni
       reminderEmail: userData.email,
       reminderDaysBefore: 2, // Default: reminder 2 giorni prima
+<<<<<<< HEAD
       emailNotificationSent: false, // Flag per tracciare email inviata
       weatherCity: 'Roma' // Città per il widget meteo
+=======
+      emailNotificationSent: false // Flag per tracciare email inviata
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     });
     
     // ✅ Invia email all'admin per nuovo utente (SOLO UNA VOLTA)
@@ -248,6 +252,7 @@ export async function updateReminderSettings(userId, reminderEmail, reminderDays
     console.error('❌ Errore aggiornamento reminder:', error);
     return { success: false, error: error.message };
   }
+<<<<<<< HEAD
 }
 
 /**
@@ -267,4 +272,6 @@ export async function updateWeatherCity(userId, city) {
     console.error('❌ Errore aggiornamento città meteo:', error);
     return { success: false, error: error.message };
   }
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 }

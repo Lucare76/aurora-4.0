@@ -1,8 +1,13 @@
 // src/pages/Reports.js
+<<<<<<< HEAD
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
+=======
+import React, { useCallback, useMemo, useState } from 'react';
+import { useFinancial } from '../contexts/FinancialContext';
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import './Reports.css';
 
 import {
@@ -16,6 +21,7 @@ import {
   FiPrinter
 } from 'react-icons/fi';
 
+<<<<<<< HEAD
 import MonthlyTrendChart from '../components/reports/MonthlyTrendChart';
 import ExpenseDonutChart from '../components/reports/ExpenseDonutChart';
 import YearOverYearChart from '../components/reports/YearOverYearChart';
@@ -26,12 +32,20 @@ function Reports() {
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
   const { userSettings } = useAuth();
   const currencyCode = userSettings?.currency || 'EUR';
+=======
+function Reports() {
+  const { transactions = [], accounts = [], categories = [] } = useFinancial();
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   // -----------------------------
   // Helpers robusti
   // -----------------------------
   const parseDate = useCallback((date) => {
     if (!date) return new Date();
+<<<<<<< HEAD
+=======
+    // Firestore Timestamp
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     if (typeof date === 'object' && date !== null && typeof date.toDate === 'function') {
       return date.toDate();
     }
@@ -40,11 +54,16 @@ function Reports() {
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }, []);
 
+<<<<<<< HEAD
   const getAmountSigned = useCallback((t) => {
+=======
+  const getAmount = useCallback((t) => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     const n = Number(t?.amount);
     return Number.isFinite(n) ? n : 0;
   }, []);
 
+<<<<<<< HEAD
   const isTransferTx = useCallback((t) => !!(t?.isTransfer || t?.transferId), []);
 
   const getType = useCallback(
@@ -60,11 +79,29 @@ function Reports() {
   const getAccountName = useCallback(
     (accountId) => {
       const acc = accounts.find((a) => a.id === accountId);
+=======
+  const getType = useCallback(
+    (t) => {
+      const type = t?.type;
+      if (type === 'income' || type === 'expense' || type === 'transfer') return type;
+      // fallback dal segno
+      return getAmount(t) >= 0 ? 'income' : 'expense';
+    },
+    [getAmount]
+  );
+
+  const getAccountNameFromTx = useCallback(
+    (t) => {
+      // se in tx abbiamo già accountName, usiamolo
+      if (t?.accountName) return t.accountName;
+      const acc = accounts.find((a) => a.id === t?.accountId);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       return acc?.name || 'Conto';
     },
     [accounts]
   );
 
+<<<<<<< HEAD
   const getAccountNameFromTx = useCallback(
     (t) => {
       if (t?.accountName) return t.accountName;
@@ -76,6 +113,11 @@ function Reports() {
   const getCategoryNameFromTx = useCallback(
     (t) => {
       if (isTransferTx(t)) return 'Giroconto';
+=======
+  const getCategoryNameFromTx = useCallback(
+    (t) => {
+      // Priorità: campo salvato in transazione
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (t?.categoryName) return t.categoryName;
 
       const rawId = t?.categoryId;
@@ -88,12 +130,20 @@ function Reports() {
       if (typeof rawName === 'string' && rawName.trim()) return rawName.trim();
       return 'Senza categoria';
     },
+<<<<<<< HEAD
     [categories, isTransferTx]
+=======
+    [categories]
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   );
 
   const getSubCategoryNameFromTx = useCallback(
     (t) => {
+<<<<<<< HEAD
       if (isTransferTx(t)) return '';
+=======
+      // Priorità: campo salvato in transazione
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (t?.subCategoryName) return t.subCategoryName;
 
       const rawSubId = t?.subCategoryId;
@@ -109,7 +159,11 @@ function Reports() {
       const sub = subs.find((s) => s?.id === rawSubId);
       return sub?.name || '';
     },
+<<<<<<< HEAD
     [categories, isTransferTx]
+=======
+    [categories]
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   );
 
   // -----------------------------
@@ -126,6 +180,7 @@ function Reports() {
     };
   });
 
+<<<<<<< HEAD
   const [activeTab, setActiveTab] = useState('overview');
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
@@ -169,6 +224,21 @@ function Reports() {
 
   // -----------------------------
   // Normalizzazione date
+=======
+  const [activeTab, setActiveTab] = useState('overview'); // overview | categories | subcategories | accounts | transactions
+
+  // Filtri avanzati
+  const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
+  const [filterAccount, setFilterAccount] = useState('all'); // id
+  const [filterCategory, setFilterCategory] = useState('all'); // id
+  const [filterSubCategory, setFilterSubCategory] = useState('all'); // id
+
+  const [sortBy, setSortBy] = useState('date'); // date | amount
+  const [sortDir, setSortDir] = useState('desc'); // asc | desc
+
+  // -----------------------------
+  // Normalizzazione date (FIX definitivo per il bug "0 transazioni")
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   // -----------------------------
   const normalizedStartDate = useMemo(() => {
     if (!dateRange.start) return null;
@@ -180,12 +250,20 @@ function Reports() {
   const normalizedEndDate = useMemo(() => {
     if (!dateRange.end) return null;
     const d = new Date(dateRange.end);
+<<<<<<< HEAD
     d.setHours(23, 59, 59, 999);
+=======
+    d.setHours(23, 59, 59, 999); // 🔥 fondamentale
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     return d;
   }, [dateRange.end]);
 
   // -----------------------------
+<<<<<<< HEAD
   // Subcategories per select
+=======
+  // Subcategories per select (dipendono dalla categoria selezionata)
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   // -----------------------------
   const availableSubCategories = useMemo(() => {
     if (filterCategory === 'all') return [];
@@ -194,6 +272,10 @@ function Reports() {
     return Array.isArray(subs) ? subs : [];
   }, [categories, filterCategory]);
 
+<<<<<<< HEAD
+=======
+  // Se cambio categoria e la sub non esiste più, reset
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   React.useEffect(() => {
     if (filterCategory === 'all') {
       if (filterSubCategory !== 'all') setFilterSubCategory('all');
@@ -204,6 +286,7 @@ function Reports() {
   }, [availableSubCategories, filterCategory, filterSubCategory]);
 
   // -----------------------------
+<<<<<<< HEAD
   // Collasso giroconti (in report)
   // -----------------------------
   const collapseTransfers = useCallback(
@@ -287,6 +370,18 @@ function Reports() {
           __transferKey: t.transferId || (t.isTransfer ? String(t.timestamp || d.getTime()) : null)
         };
       })
+=======
+  // Filtraggio transazioni (unico punto di verità)
+  // -----------------------------
+  const filteredTransactions = useMemo(() => {
+    const list = transactions
+      .map((t) => ({
+        ...t,
+        __date: parseDate(t.date),
+        __type: getType(t),
+        __amount: getAmount(t)
+      }))
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       .filter((t) => {
         // date
         if (normalizedStartDate && t.__date < normalizedStartDate) return false;
@@ -295,6 +390,7 @@ function Reports() {
         // type
         if (filterType !== 'all' && t.__type !== filterType) return false;
 
+<<<<<<< HEAD
         // account (transfer: matcha accountId di una delle gambe, quindi va bene)
         if (filterAccount !== 'all' && t.accountId !== filterAccount) {
           // se è transfer e ho peer id salvato, prova a matchare anche quello
@@ -343,32 +439,57 @@ function Reports() {
 
           if (!haystack.includes(q)) return false;
         }
+=======
+        // account
+        if (filterAccount !== 'all' && t.accountId !== filterAccount) return false;
+
+        // category
+        if (filterCategory !== 'all' && t.categoryId !== filterCategory) return false;
+
+        // subcategory
+        if (filterSubCategory !== 'all' && t.subCategoryId !== filterSubCategory) return false;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
         return true;
       });
 
+<<<<<<< HEAD
     // collassa i transfer per evitare doppio conteggio e doppie righe
     const collapsed = collapseTransfers(base);
 
     // sort
     const dir = sortDir === 'asc' ? 1 : -1;
     collapsed.sort((a, b) => {
+=======
+    // sort
+    const dir = sortDir === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       if (sortBy === 'amount') return (a.__amount - b.__amount) * dir;
       return (a.__date - b.__date) * dir;
     });
 
+<<<<<<< HEAD
     return collapsed;
+=======
+    return list;
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   }, [
     transactions,
     parseDate,
     getType,
+<<<<<<< HEAD
     getAmountSigned,
+=======
+    getAmount,
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     normalizedStartDate,
     normalizedEndDate,
     filterType,
     filterAccount,
     filterCategory,
     filterSubCategory,
+<<<<<<< HEAD
     searchTerm,
     sortBy,
     sortDir,
@@ -452,6 +573,30 @@ function Reports() {
 
   // -----------------------------
   // Aggregazioni (categorie/sottocategorie/conti) (escludi transfer)
+=======
+    sortBy,
+    sortDir
+  ]);
+
+  // -----------------------------
+  // Stats principali
+  // -----------------------------
+  const stats = useMemo(() => {
+    const income = filteredTransactions
+      .filter((t) => t.__type === 'income')
+      .reduce((sum, t) => sum + Math.abs(t.__amount), 0);
+
+    const expenses = filteredTransactions
+      .filter((t) => t.__type === 'expense')
+      .reduce((sum, t) => sum + Math.abs(t.__amount), 0);
+
+    const net = income - expenses;
+    return { income, expenses, net, count: filteredTransactions.length };
+  }, [filteredTransactions]);
+
+  // -----------------------------
+  // Aggregazioni (categorie/sottocategorie/conti)
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   // -----------------------------
   const expensesByCategory = useMemo(() => {
     const map = new Map();
@@ -464,7 +609,11 @@ function Reports() {
         const key = `${catId}__${catName}`;
 
         const prev = map.get(key) || { categoryId: catId, categoryName: catName, amount: 0, count: 0 };
+<<<<<<< HEAD
         prev.amount += Math.abs(t.__amountSigned);
+=======
+        prev.amount += Math.abs(t.__amount);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         prev.count += 1;
         map.set(key, prev);
       });
@@ -494,7 +643,11 @@ function Reports() {
             count: 0
           };
 
+<<<<<<< HEAD
         prev.amount += Math.abs(t.__amountSigned);
+=======
+        prev.amount += Math.abs(t.__amount);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         prev.count += 1;
         map.set(key, prev);
       });
@@ -505,6 +658,7 @@ function Reports() {
   const statsByAccount = useMemo(() => {
     const map = new Map();
 
+<<<<<<< HEAD
     filteredTransactions
       .filter((t) => t.__type !== 'transfer')
       .forEach((t) => {
@@ -518,11 +672,25 @@ function Reports() {
         prev.count += 1;
         map.set(key, prev);
       });
+=======
+    filteredTransactions.forEach((t) => {
+      const name = getAccountNameFromTx(t);
+      const id = t.accountId || 'no-account';
+      const key = `${id}__${name}`;
+
+      const prev = map.get(key) || { accountId: id, accountName: name, income: 0, expenses: 0, count: 0 };
+      if (t.__type === 'income') prev.income += Math.abs(t.__amount);
+      if (t.__type === 'expense') prev.expenses += Math.abs(t.__amount);
+      prev.count += 1;
+      map.set(key, prev);
+    });
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
     return Array.from(map.values()).sort((a, b) => (b.income - b.expenses) - (a.income - a.expenses));
   }, [filteredTransactions, getAccountNameFromTx]);
 
   // -----------------------------
+<<<<<<< HEAD
   // Grafico mensile (periodo selezionato) (escludi transfer)
   // -----------------------------
   const monthlyChart = useMemo(() => {
@@ -539,13 +707,41 @@ function Reports() {
         if (t.__type === 'expense') prev.expenses += Math.abs(t.__amountSigned);
         buckets.set(key, prev);
       });
+=======
+  // Grafico mensile (ultimi 12 mesi) basato sulle transazioni (NON filtrato dal periodo)
+  // ma rispettando i filtri tipo/conto/categoria/sottocategoria (se vuoi)
+  // Qui lo facciamo sul filteredTransactions? No: user vuole grafico "periodo".
+  // Usiamo filteredTransactions, ma raggruppiamo per mese.
+  // -----------------------------
+  const monthlyChart = useMemo(() => {
+    const buckets = new Map(); // key YYYY-MM
+
+    filteredTransactions.forEach((t) => {
+      const d = t.__date;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+      const prev = buckets.get(key) || { key, year: d.getFullYear(), month: d.getMonth(), income: 0, expenses: 0 };
+      if (t.__type === 'income') prev.income += Math.abs(t.__amount);
+      if (t.__type === 'expense') prev.expenses += Math.abs(t.__amount);
+      buckets.set(key, prev);
+    });
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
     const arr = Array.from(buckets.values()).sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
       return a.month - b.month;
     });
 
+<<<<<<< HEAD
     const max = Math.max(100, ...arr.map((x) => x.income), ...arr.map((x) => x.expenses));
+=======
+    const max = Math.max(
+      100,
+      ...arr.map((x) => x.income),
+      ...arr.map((x) => x.expenses)
+    );
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     return { data: arr, max };
   }, [filteredTransactions]);
 
@@ -558,6 +754,7 @@ function Reports() {
     const rows = filteredTransactions.map((t) => {
       const d = t.__date.toISOString().split('T')[0];
       const desc = (t.description || 'Nessuna descrizione').replaceAll('"', '""');
+<<<<<<< HEAD
 
       let tipo = 'Uscita';
       if (t.__type === 'income') tipo = 'Entrata';
@@ -577,6 +774,22 @@ function Reports() {
       const amount = t.__type === 'transfer' ? t.__amount : t.__amountSigned;
 
       return [d, `"${desc}"`, tipo, String(amount), `"${conto}"`, `"${cat}"`, `"${sub}"`].join(',');
+=======
+      const tipo = t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento';
+      const conto = getAccountNameFromTx(t).replaceAll('"', '""');
+      const cat = getCategoryNameFromTx(t).replaceAll('"', '""');
+      const sub = (getSubCategoryNameFromTx(t) || '').replaceAll('"', '""');
+
+      return [
+        d,
+        `"${desc}"`,
+        tipo,
+        String(t.__amount),
+        `"${conto}"`,
+        `"${cat}"`,
+        `"${sub}"`
+      ].join(',');
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     });
 
     const content = [headers.join(','), ...rows].join('\n');
@@ -595,6 +808,7 @@ function Reports() {
     dateRange.end,
     getAccountNameFromTx,
     getCategoryNameFromTx,
+<<<<<<< HEAD
     getSubCategoryNameFromTx,
     getAccountName
   ]);
@@ -723,12 +937,20 @@ function Reports() {
     setSavedPresets((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+=======
+    getSubCategoryNameFromTx
+  ]);
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const resetFilters = useCallback(() => {
     setFilterType('all');
     setFilterAccount('all');
     setFilterCategory('all');
     setFilterSubCategory('all');
+<<<<<<< HEAD
     setSearchTerm('');
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     setSortBy('date');
     setSortDir('desc');
   }, []);
@@ -736,11 +958,87 @@ function Reports() {
   // -----------------------------
   // UI pieces
   // -----------------------------
+<<<<<<< HEAD
+=======
+  const formatEUR = useCallback((n) => {
+    const v = Number.isFinite(n) ? n : 0;
+    return v.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
+  }, []);
+
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const formatDateIT = useCallback((d) => {
     if (!d) return '';
     return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }, []);
 
+<<<<<<< HEAD
+=======
+  const MonthlyBars = useMemo(() => {
+    const { data, max } = monthlyChart;
+
+    return (
+      <div className="chart-container">
+        <div className="chart-header">
+          <h4>Andamento Mensile (Periodo Selezionato)</h4>
+          <span className="chart-subtitle">Entrate vs Uscite per mese</span>
+        </div>
+
+        <div className="chart-bars">
+          {data.length === 0 ? (
+            <div className="empty-state" style={{ padding: 20 }}>
+              <div className="empty-icon">📉</div>
+              <h3>Nessun dato nel periodo</h3>
+              <p>Prova ad ampliare le date o a resettare i filtri.</p>
+            </div>
+          ) : (
+            data.map((m) => {
+              const label = new Date(m.year, m.month, 1).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+              const incH = (m.income / max) * 100;
+              const expH = (m.expenses / max) * 100;
+
+              return (
+                <div key={m.key} className="chart-bar-group">
+                  <div className="month-label">{label}</div>
+                  <div className="bars-container">
+                    {m.income > 0 && (
+                      <div
+                        className="bar income-bar"
+                        style={{ height: `${incH}%`, width: '40%' }}
+                        title={`Entrate: ${formatEUR(m.income)}`}
+                      >
+                        <div className="bar-value">{m.income >= 100 ? formatEUR(m.income).replace(',00', '') : ''}</div>
+                      </div>
+                    )}
+                    {m.expenses > 0 && (
+                      <div
+                        className="bar expense-bar"
+                        style={{ height: `${expH}%`, width: '40%' }}
+                        title={`Uscite: ${formatEUR(m.expenses)}`}
+                      >
+                        <div className="bar-value">{m.expenses >= 100 ? formatEUR(m.expenses).replace(',00', '') : ''}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="chart-legend">
+          <div className="legend-item">
+            <div className="legend-color income-legend"></div>
+            <span>Entrate</span>
+          </div>
+          <div className="legend-item">
+            <div className="legend-color expense-legend"></div>
+            <span>Uscite</span>
+          </div>
+        </div>
+      </div>
+    );
+  }, [monthlyChart, formatEUR]);
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   // -----------------------------
   // Render
@@ -789,7 +1087,11 @@ function Reports() {
                 <option value="all">Tutti</option>
                 <option value="income">Entrate</option>
                 <option value="expense">Uscite</option>
+<<<<<<< HEAD
                 <option value="transfer">Giroconti</option>
+=======
+                <option value="transfer">Trasferimenti</option>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </select>
             </div>
 
@@ -849,6 +1151,7 @@ function Reports() {
                 <option value="asc">Crescente</option>
               </select>
             </div>
+<<<<<<< HEAD
 
             <div className="filter-group">
               <label>Cerca</label>
@@ -873,12 +1176,15 @@ function Reports() {
                 )}
               </div>
             </div>
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
 
           <div className="filter-actions">
             <button className="reset-filters-btn" onClick={resetFilters}>
               <FiRefreshCw /> Reset Filtri
             </button>
+<<<<<<< HEAD
             <div className="filter-results">
               {stats.count} transazioni trovate {stats.transferCount ? `• ${stats.transferCount} giroconti` : ''}
             </div>
@@ -910,6 +1216,9 @@ function Reports() {
                 ))}
               </div>
             )}
+=======
+            <div className="filter-results">{stats.count} transazioni trovate</div>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
 
@@ -918,11 +1227,16 @@ function Reports() {
           <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
             <FiPieChart /> Riepilogo
           </button>
+<<<<<<< HEAD
           <button className={`tab-btn ${activeTab === 'trends' ? 'active' : ''}`} onClick={() => setActiveTab('trends')}>
             <FiTrendingUp /> Tendenze
           </button>
           <button className={`tab-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
             <FiBarChart2 /> Categorie
+=======
+          <button className={`tab-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
+            <FiTrendingUp /> Categorie
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </button>
           <button className={`tab-btn ${activeTab === 'subcategories' ? 'active' : ''}`} onClick={() => setActiveTab('subcategories')}>
             <FiTrendingUp /> Sottocategorie
@@ -940,6 +1254,7 @@ function Reports() {
       <div className="stats-grid">
         <div className="stat-card">
           <h3>Saldo Netto</h3>
+<<<<<<< HEAD
           <p className={`amount-stat ${stats.net >= 0 ? 'positive' : 'negative'}`}>{formatEUR(stats.net)}</p>
         </div>
         <div className="stat-card">
@@ -949,6 +1264,17 @@ function Reports() {
         <div className="stat-card">
           <h3>Totale Uscite</h3>
           <p className="amount-stat negative">{formatEUR(stats.expenses)}</p>
+=======
+          <p className={stats.net >= 0 ? 'positive' : 'negative'}>{formatEUR(stats.net)}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Totale Entrate</h3>
+          <p className="positive">{formatEUR(stats.income)}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Totale Uscite</h3>
+          <p className="negative">{formatEUR(stats.expenses)}</p>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         </div>
         <div className="stat-card">
           <h3>Transazioni</h3>
@@ -956,6 +1282,7 @@ function Reports() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {periodComparison && (
         <div className="comparison-panel">
           <div className="comparison-head">
@@ -999,6 +1326,8 @@ function Reports() {
         </div>
       )}
 
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       {/* Tab content */}
       {stats.count === 0 ? (
         <div className="empty-state">
@@ -1011,6 +1340,7 @@ function Reports() {
         <>
           {activeTab === 'overview' && (
             <>
+<<<<<<< HEAD
               <MonthlyTrendChart data={monthlyChart.data} formatEUR={formatEUR} />
               <div className="charts-row">
                 <ExpenseDonutChart
@@ -1030,6 +1360,10 @@ function Reports() {
                   monthlyExpenses={stats.expenses}
                 />
               </div>
+=======
+              {MonthlyBars}
+              <div style={{ marginTop: 20 }} />
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <div className="top-categories-section">
                 <h4>🏷️ Top Spese per Categoria</h4>
                 <div className="top-categories-list">
@@ -1054,6 +1388,7 @@ function Reports() {
             </>
           )}
 
+<<<<<<< HEAD
           {activeTab === 'trends' && (
             <>
               <YearOverYearChart
@@ -1077,11 +1412,21 @@ function Reports() {
               <h3>Distribuzione Spese per Categoria</h3>
               <div className="table-scroll">
                 <table className="expenses-table">
+=======
+          {activeTab === 'categories' && (
+            <div className="categories-section">
+              <h3>Distribuzione Spese per Categoria</h3>
+              <table className="expenses-table">
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 <thead>
                   <tr>
                     <th>Categoria</th>
                     <th>Transazioni</th>
+<<<<<<< HEAD
                     <th className="amount-col">Totale Spese</th>
+=======
+                    <th>Totale Spese</th>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     <th>%</th>
                   </tr>
                 </thead>
@@ -1092,7 +1437,11 @@ function Reports() {
                       <tr key={c.categoryId + c.categoryName}>
                         <td>{c.categoryName}</td>
                         <td>{c.count}</td>
+<<<<<<< HEAD
                         <td className="negative amount-col">{formatEUR(c.amount)}</td>
+=======
+                        <td className="negative">{formatEUR(c.amount)}</td>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                         <td>{perc.toFixed(1)}%</td>
                       </tr>
                     );
@@ -1101,26 +1450,42 @@ function Reports() {
                 <tfoot>
                   <tr>
                     <td colSpan={2}><strong>Totale</strong></td>
+<<<<<<< HEAD
                     <td className="negative amount-col"><strong>{formatEUR(stats.expenses)}</strong></td>
                     <td><strong>100%</strong></td>
                   </tr>
                 </tfoot>
                 </table>
               </div>
+=======
+                    <td className="negative"><strong>{formatEUR(stats.expenses)}</strong></td>
+                    <td><strong>100%</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             </div>
           )}
 
           {activeTab === 'subcategories' && (
             <div className="categories-section">
               <h3>Distribuzione Spese per Sottocategoria</h3>
+<<<<<<< HEAD
               <div className="table-scroll">
                 <table className="expenses-table">
+=======
+              <table className="expenses-table">
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 <thead>
                   <tr>
                     <th>Categoria</th>
                     <th>Sottocategoria</th>
                     <th>Transazioni</th>
+<<<<<<< HEAD
                     <th className="amount-col">Totale Spese</th>
+=======
+                    <th>Totale Spese</th>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                   </tr>
                 </thead>
                 <tbody>
@@ -1129,12 +1494,20 @@ function Reports() {
                       <td>{x.categoryName}</td>
                       <td>{x.subCategoryName || '—'}</td>
                       <td>{x.count}</td>
+<<<<<<< HEAD
                       <td className="negative amount-col">{formatEUR(x.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
                 </table>
               </div>
+=======
+                      <td className="negative">{formatEUR(x.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             </div>
           )}
 
@@ -1178,8 +1551,12 @@ function Reports() {
           {activeTab === 'transactions' && (
             <div className="categories-section">
               <h3>Transazioni (dettaglio)</h3>
+<<<<<<< HEAD
               <div className="table-scroll">
                 <table className="full-transactions-table">
+=======
+              <table className="full-transactions-table">
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 <thead>
                   <tr>
                     <th>Data</th>
@@ -1188,6 +1565,7 @@ function Reports() {
                     <th>Sottocategoria</th>
                     <th>Conto</th>
                     <th>Tipo</th>
+<<<<<<< HEAD
                     <th className="amount-col">Importo</th>
                   </tr>
                 </thead>
@@ -1219,6 +1597,31 @@ function Reports() {
                 </tbody>
                 </table>
               </div>
+=======
+                    <th>Importo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTransactions.map((t) => (
+                    <tr key={t.id}>
+                      <td>{formatDateIT(t.__date)}</td>
+                      <td>{t.description || 'Nessuna descrizione'}</td>
+                      <td>{getCategoryNameFromTx(t)}</td>
+                      <td>{getSubCategoryNameFromTx(t) || '—'}</td>
+                      <td>{getAccountNameFromTx(t)}</td>
+                      <td>
+                        <span className={`type-badge ${t.__type}`}>
+                          {t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento'}
+                        </span>
+                      </td>
+                      <td className={t.__type === 'expense' ? 'negative' : 'positive'}>
+                        {formatEUR(t.__amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             </div>
           )}
         </>
@@ -1229,9 +1632,12 @@ function Reports() {
         <button className="action-btn export-btn" onClick={exportCSV}>
           <FiDownload className="btn-icon" /> Esporta CSV
         </button>
+<<<<<<< HEAD
         <button className="action-btn print-btn" onClick={exportPDF}>
           <FiPrinter className="btn-icon" /> Esporta PDF
         </button>
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         <button className="action-btn print-btn" onClick={() => window.print()}>
           <FiPrinter className="btn-icon" /> Stampa
         </button>

@@ -1,7 +1,12 @@
 {
+<<<<<<< HEAD
     "name": "aurora-4.0",
   "version": "0.1.0",
   "homepage": ".",
+=======
+  "name": "aurora-4.0",
+  "version": "0.1.0",
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   "private": true,
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -22,7 +27,10 @@
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.9.6",
     "react-scripts": "5.0.1",
+<<<<<<< HEAD
     "recharts": "^3.7.0",
+=======
+>>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },
