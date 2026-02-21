@@ -799,10 +799,10 @@ function fmt(n) {
 
 // ==================== INSIGHTS SECTION ====================
 
-function InsightsSection({ transactions, categories, monthlyIncome, monthlyExpenses, currentMonthIndex, currentYear, cs }) {
+function InsightsSection({ transactions, categories, accounts, monthlyIncome, monthlyExpenses, currentMonthIndex, currentYear, cs }) {
     const insights = useMemo(() => {
     const comparison = getMonthComparison(transactions, currentMonthIndex, currentYear);
-    const topGrowing = getTopGrowingCategory(transactions, categories, currentMonthIndex, currentYear);
+    const topGrowing = getTopGrowingCategory(transactions, categories, currentMonthIndex, currentYear, accounts);
     const anomalies = getAnomalies(transactions, categories, currentMonthIndex, currentYear);
     const savingsRate = getSavingsRate(monthlyIncome, monthlyExpenses);
 
@@ -812,7 +812,7 @@ function InsightsSection({ transactions, categories, monthlyIncome, monthlyExpen
     const projected = getProjectedExpenses(monthlyExpenses, currentDay, daysInMonth);
 
     return { comparison, topGrowing, anomalies, savingsRate, projected, daysInMonth, currentDay };
-  }, [transactions, categories, monthlyIncome, monthlyExpenses, currentMonthIndex, currentYear]);
+  }, [transactions, categories, accounts, monthlyIncome, monthlyExpenses, currentMonthIndex, currentYear]);
 
   const { comparison, topGrowing, anomalies, savingsRate, projected } = insights;
 
@@ -1154,7 +1154,8 @@ function DashboardContent({ setActiveMenu, setPendingFilter }) {
 
   const monthlyUncategorizedCount = monthlyTransactions.filter((t) => {
     const cat = t?.categoryId || t?.category;
-    return !cat;
+    const isTransfer = !!(t?.isTransfer || t?.transferId || t?.type === 'transfer');
+    return !cat && !isTransfer;
   }).length;
 
   const todayActions = useMemo(() => {
@@ -1315,6 +1316,7 @@ function DashboardContent({ setActiveMenu, setPendingFilter }) {
         <InsightsSection
           transactions={transactions}
           categories={categories}
+          accounts={accounts}
           monthlyIncome={monthlyIncome}
           monthlyExpenses={monthlyExpenses}
           currentMonthIndex={currentMonthIndex}

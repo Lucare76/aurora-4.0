@@ -8,7 +8,7 @@ import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
 const Transactions = ({ initialFilter, onFilterConsumed }) => {
-  const { transactions = [], accounts = [], categories = [], loading, deleteTransaction, updateTransaction } = useFinancial();
+  const { transactions = [], accounts = [], categories = [], loading, deleteTransaction } = useFinancial();
   const { user, userSettings } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
@@ -19,7 +19,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('list');
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState(() => {
     try {
@@ -33,11 +32,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [bulkAccountId, setBulkAccountId] = useState('all');
-  const [bulkCategoryId, setBulkCategoryId] = useState('all');
-  const [bulkSubCategoryId, setBulkSubCategoryId] = useState('all');
-  const [bulkSaving, setBulkSaving] = useState(false);
   const hasActiveFilters =
     !!searchTerm ||
     filterType !== 'all' ||
@@ -65,12 +59,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     },
     [userSettings?.currency]
   );
-  const bulkCategory = useMemo(
-    () => categories.find((c) => c.id === bulkCategoryId) || null,
-    [categories, bulkCategoryId]
-  );
-  const bulkSubOptions = bulkCategory?.subCategories || [];
-
   const formatDescription = useCallback(
     (value, fallback) => String(value || fallback).toLocaleUpperCase('it-IT'),
     []
@@ -317,12 +305,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     normalizeForSearch
   ]);
 
-  useEffect(() => {
-    // Mantiene selezione solo su righe ancora visibili
-    const allowed = new Set(filteredTransactions.filter((t) => !t.__isDisplayTransfer).map((t) => t.id));
-    setSelectedIds((prev) => prev.filter((id) => allowed.has(id)));
-  }, [filteredTransactions]);
-
   const monthOptions = useMemo(() => {
     const seen = new Set();
     const options = [];
@@ -369,57 +351,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       monthlyBalance: monthlyIncome - monthlyExpenses
     };
   }, [displayTransactions]);
-
-  const selectableTransactions = useMemo(
-    () => filteredTransactions.filter((t) => !t.__isDisplayTransfer),
-    [filteredTransactions]
-  );
-
-  const allVisibleSelected = selectableTransactions.length > 0 && selectedIds.length === selectableTransactions.length;
-
-  const toggleSelectOne = useCallback((id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }, []);
-
-  const toggleSelectAllVisible = useCallback(() => {
-    if (allVisibleSelected) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds(selectableTransactions.map((t) => t.id));
-  }, [allVisibleSelected, selectableTransactions]);
-
-  const applyBulkCategoryChange = useCallback(async () => {
-    const canChangeCategory = bulkCategoryId !== 'all';
-    const canChangeAccount = bulkAccountId !== 'all';
-    if (!selectedIds.length || (!canChangeCategory && !canChangeAccount)) return;
-
-    setBulkSaving(true);
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          updateTransaction(id, {
-            ...(canChangeAccount ? { accountId: bulkAccountId } : {}),
-            ...(canChangeCategory
-              ? {
-                  categoryId: bulkCategoryId,
-                  subCategoryId: bulkSubCategoryId !== 'all' ? bulkSubCategoryId : null
-                }
-              : {})
-          })
-        )
-      );
-      setSelectedIds([]);
-      setBulkAccountId('all');
-      setBulkCategoryId('all');
-      setBulkSubCategoryId('all');
-    } catch (error) {
-      console.error('Errore bulk update categoria:', error);
-      alert(`Errore aggiornamento multiplo: ${error?.message || 'sconosciuto'}`);
-    } finally {
-      setBulkSaving(false);
-    }
-  }, [selectedIds, bulkAccountId, bulkCategoryId, bulkSubCategoryId, updateTransaction]);
 
   const applyPreset = useCallback((preset) => {
     if (!preset) return;
@@ -551,21 +482,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         </div>
 
         <div className="header-actions">
-          <div className="view-toggle">
-            <button
-              className={`toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              📋 Lista
-            </button>
-            <button
-              className={`toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => setViewMode('table')}
-            >
-              📊 Tabella
-            </button>
-          </div>
-
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
             Aggiungi Transazione
@@ -712,66 +628,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           )}
         </div>
 
-        <div className="bulk-edit-bar">
-          <label className="bulk-checkbox-label">
-            <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible} />
-            Seleziona tutte ({selectableTransactions.length})
-          </label>
-
-          <div className="bulk-edit-controls">
-            <select
-              value={bulkAccountId}
-              onChange={(e) => setBulkAccountId(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">Conto massivo (opzionale)...</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={bulkCategoryId}
-              onChange={(e) => {
-                setBulkCategoryId(e.target.value);
-                setBulkSubCategoryId('all');
-              }}
-              className="filter-select"
-            >
-              <option value="all">Categoria massiva...</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={bulkSubCategoryId}
-              onChange={(e) => setBulkSubCategoryId(e.target.value)}
-              className="filter-select"
-              disabled={!bulkCategory || bulkSubOptions.length === 0}
-            >
-              <option value="all">Sottocategoria (opzionale)</option>
-              {bulkSubOptions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="button"
-              className="clear-filters-btn"
-              disabled={!selectedIds.length || (bulkCategoryId === 'all' && bulkAccountId === 'all') || bulkSaving}
-              onClick={applyBulkCategoryChange}
-            >
-              {bulkSaving ? 'Aggiorno...' : `Applica a ${selectedIds.length}`}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Modal Aggiungi */}
@@ -810,9 +666,8 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         </div>
       )}
 
-      {/* Lista / Tabella */}
-      {viewMode === 'list' ? (
-        <div className="transactions-list">
+      {/* Lista */}
+      <div className="transactions-list">
           {filteredTransactions.map((tx, index) => {
             const txDate = parseDate(tx.date);
             const txMonthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
@@ -902,13 +757,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                   </div>
                 )}
                 <div className="transaction-icon-wrapper">
-                  <input
-                    type="checkbox"
-                    className="tx-select-checkbox"
-                    checked={selectedIds.includes(tx.id)}
-                    onChange={() => toggleSelectOne(tx.id)}
-                    aria-label="Seleziona transazione"
-                  />
                   <div
                     className="transaction-icon"
                     style={{
@@ -950,139 +798,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
               </div>
             );
           })}
-        </div>
-      ) : (
-        <div className="transactions-table-wrapper">
-          <table className="transactions-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Descrizione</th>
-                <th>Categoria</th>
-                <th>Conto</th>
-                <th>Importo</th>
-                <th>Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((tx) => {
-                const isTransfer = !!tx.__isDisplayTransfer;
-
-                if (isTransfer) {
-                  const txForEdit = {
-                    id: tx.legId,
-                    isTransfer: true,
-                    transferId: tx.transferId,
-                    type: 'transfer',
-                    description: tx.description || '',
-                    amount: tx.amount,
-                    fromAccountId: tx.fromAccountId,
-                    toAccountId: tx.toAccountId,
-                    date: tx.date
-                  };
-
-                  return (
-                    <tr key={tx.id}>
-                      <td className="date-cell">
-                        <div className="date-info">
-                          <div className="date-primary">{formatDate(tx.date)}</div>
-                          <div className="date-secondary">{formatTime(tx.date)}</div>
-                        </div>
-                      </td>
-
-                      <td className="description-cell">
-                        <div className="description-wrapper">
-                          <div className="category-indicator" style={{ backgroundColor: '#6b7280' }}></div>
-                          {formatDescription(tx.description, 'Giroconto')}
-                        </div>
-                      </td>
-
-                      <td className="category-cell">
-                        <div className="category-info">
-                          <span className="category-icon" style={{ color: '#6b7280' }}>🔁</span>
-                          <span className="category-name">Giroconto</span>
-                        </div>
-                      </td>
-
-                      <td className="account-cell">
-                        Da {tx.fromAccountName || 'Conto'} → A {tx.toAccountName || 'Conto'}
-                      </td>
-
-                      <td className="amount-cell">
-                        <span className="amount transfer">{formatMoney(tx.amount)}</span>
-                      </td>
-
-                      <td className="actions-cell">
-                        <button onClick={() => setShowEditForm(txForEdit)} className="edit-btn-table" title="Modifica giroconto">
-                          ✏️
-                        </button>
-                        <button onClick={() => startDeleteTransaction(tx.legId, true)} className="delete-btn-table" title="Elimina giroconto">
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                }
-
-                const catId = getCategoryId(tx);
-                const subLabel = getSubCategoryLabel(tx);
-
-                return (
-                  <tr key={tx.id}>
-                    <td className="date-cell">
-                      <input
-                        type="checkbox"
-                        className="tx-select-checkbox"
-                        checked={selectedIds.includes(tx.id)}
-                        onChange={() => toggleSelectOne(tx.id)}
-                        aria-label="Seleziona transazione"
-                      />
-                      <div className="date-info">
-                        <div className="date-primary">{formatDate(tx.date)}</div>
-                        <div className="date-secondary">{formatTime(tx.date)}</div>
-                      </div>
-                    </td>
-
-                    <td className="description-cell">
-                      <div className="description-wrapper">
-                        <div className="category-indicator" style={{ backgroundColor: getCategoryColor(catId) }}></div>
-                        {formatDescription(tx.description, 'Transazione senza descrizione')}
-                      </div>
-                    </td>
-
-                    <td className="category-cell">
-                      <div className="category-info">
-                        <span className="category-icon" style={{ color: getCategoryColor(catId) }}>
-                          {getCategoryIcon(catId)}
-                        </span>
-                        <span className="category-name">{categoryMap[catId] || tx.categoryName || 'Senza categoria'}</span>
-                        {subLabel ? <span className="category-name">{subLabel}</span> : null}
-                      </div>
-                    </td>
-
-                    <td className="account-cell">{accountMap[tx.accountId] || 'Conto sconosciuto'}</td>
-
-                    <td className="amount-cell">
-                      <span className={`amount ${tx.amount > 0 ? 'income' : 'expense'}`}>
-                        {`${tx.amount >= 0 ? '+' : '-'} ${formatMoney(Math.abs(tx.amount || 0))}`}
-                      </span>
-                    </td>
-
-                    <td className="actions-cell">
-                      <button onClick={() => setShowEditForm(tx)} className="edit-btn-table" title="Modifica transazione">
-                        ✏️
-                      </button>
-                      <button onClick={() => startDeleteTransaction(tx.id, false)} className="delete-btn-table" title="Elimina transazione">
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </div>
 
       {/* Stato vuoto */}
       {filteredTransactions.length === 0 && (

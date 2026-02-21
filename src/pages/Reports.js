@@ -1022,7 +1022,12 @@ function Reports() {
                 <InsightsPanel
                   transactions={transactions}
                   categories={categories}
+                  accounts={accounts}
                   formatEUR={formatEUR}
+                  currentMonth={new Date(dateRange.start).getMonth()}
+                  currentYear={new Date(dateRange.start).getFullYear()}
+                  monthlyIncome={stats.income}
+                  monthlyExpenses={stats.expenses}
                 />
               </div>
               <div className="top-categories-section">

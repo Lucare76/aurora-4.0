@@ -36,19 +36,22 @@ export const getMonthComparison = (transactions, currentMonth, currentYear) => {
   return { currentTotal, prevTotal, percentChange };
 };
 
-export const getTopGrowingCategory = (transactions, categories, currentMonth, currentYear) => {
+export const getTopGrowingCategory = (transactions, categories, currentMonth, currentYear, accounts = []) => {
   const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
   const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-  
+
+  // Nomi dei conti in minuscolo — categorie con lo stesso nome vengono escluse
+  const accountNames = new Set(accounts.map(a => (a.name || '').toLowerCase().trim()));
+
   const currentMap = {};
   const prevMap = {};
 
   transactions.forEach(t => {
     const type = t.type || (t.amount < 0 ? 'expense' : 'income');
-    if (type !== 'expense' || t.isTransfer) return;
+    if (type !== 'expense' || t.isTransfer || t.transferId) return;
 
     const d = parseDate(t.date);
-    const catId = t.categoryId || 'unknown';
+    const catId = t.categoryId || t.category || 'unknown';
     const amt = Math.abs(t.amount || 0);
 
     if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
@@ -63,10 +66,15 @@ export const getTopGrowingCategory = (transactions, categories, currentMonth, cu
 
   Object.keys(currentMap).forEach(catId => {
     if (catId === 'unknown') return;
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+    // Escludi categorie il cui nome coincide con un nome conto
+    if (accountNames.has(cat.name.toLowerCase().trim())) return;
+
     const curr = currentMap[catId] || 0;
     const prev = prevMap[catId] || 0;
     const diff = curr - prev;
-    
+
     if (diff > maxDiff) {
       maxDiff = diff;
       best = catId;
@@ -76,7 +84,7 @@ export const getTopGrowingCategory = (transactions, categories, currentMonth, cu
   if (!best) return null;
   const cat = categories.find(c => c.id === best);
   const growth = prevMap[best] > 0 ? (maxDiff / prevMap[best]) * 100 : 100;
-  
+
   return cat ? { name: cat.name, icon: cat.icon || '📁', growth } : null;
 };
 

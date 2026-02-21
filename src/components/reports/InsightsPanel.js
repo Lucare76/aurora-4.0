@@ -20,6 +20,7 @@ const fallbackMoney = (value) => {
 const InsightsPanel = ({
   transactions,
   categories,
+  accounts,
   currentMonth,
   currentYear,
   monthlyIncome,
@@ -27,7 +28,7 @@ const InsightsPanel = ({
   formatEUR
 }) => {
   const comp = getMonthComparison(transactions, currentMonth, currentYear);
-  const growth = getTopGrowingCategory(transactions, categories, currentMonth, currentYear);
+  const growth = getTopGrowingCategory(transactions, categories, currentMonth, currentYear, accounts);
   const anomalies = getAnomalies(transactions, categories, currentMonth, currentYear);
   const savings = getSavingsRate(monthlyIncome, monthlyExpenses);
 

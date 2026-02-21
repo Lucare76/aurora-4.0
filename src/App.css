@@ -4470,8 +4470,17 @@ html, body, #root {
     min-width: 0;
   }
 
-  .main-content .insights-grid .insight-card.insight-card-wide {
+  .main-content .insights-grid .insight-card.insight-card-wide,
+  .main-content .insights-grid .insight-card.anomaly-card {
     grid-column: 1 / -1 !important;
+  }
+
+  .main-content .today-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content .today-action-card {
+    min-height: 72px;
   }
 }
 

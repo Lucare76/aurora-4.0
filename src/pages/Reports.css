@@ -1720,6 +1720,7 @@
   border-radius: 20px;
   padding: 28px;
   margin-top: 20px;
+  grid-column: 1 / -1;
 }
 
 .insights-panel h4 {
@@ -1727,7 +1728,8 @@
   color: #fff;
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: -0.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .insights-grid {
@@ -1789,6 +1791,8 @@
   font-size: 13px;
   color: #64748b;
   line-height: 1.5;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 /* Card Anomalie Full-Width */
@@ -1823,11 +1827,15 @@
   color: #f8fafc;
   font-weight: 600;
   font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .anomaly-details {
   color: #64748b;
   font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .anomaly-price {
