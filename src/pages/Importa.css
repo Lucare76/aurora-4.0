@@ -1,0 +1,227 @@
+.importa-page {
+  width: 100%;
+  padding: 24px;
+}
+
+.importa-card {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  padding: 20px;
+  color: #e2e8f0;
+}
+
+.importa-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.importa-subtitle {
+  margin-top: 8px;
+  opacity: 0.9;
+}
+
+.importa-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.importa-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--badge-color);
+  color: var(--badge-color);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.importa-controls {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.importa-file-input {
+  max-width: 100%;
+}
+
+.importa-account-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.importa-account-label {
+  opacity: 0.9;
+}
+
+.importa-account-note {
+  margin-left: 6px;
+  opacity: 0.65;
+  font-size: 12px;
+}
+
+.importa-select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.importa-status {
+  margin-top: 12px;
+}
+
+.importa-error {
+  margin-top: 12px;
+  color: #f87171;
+}
+
+.importa-meta {
+  margin-top: 12px;
+  opacity: 0.92;
+  display: grid;
+  gap: 4px;
+}
+
+.importa-meta-stats {
+  margin-top: 6px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.meta-income {
+  color: #22c55e;
+}
+
+.meta-expense {
+  color: #ef4444;
+}
+
+.meta-transfer {
+  color: #6366f1;
+}
+
+.meta-skipped {
+  opacity: 0.7;
+}
+
+.importa-imported {
+  margin-top: 4px;
+  color: #4ade80;
+  font-weight: 700;
+}
+
+.importa-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.importa-preview-head h3 {
+  margin: 0;
+}
+
+.importa-confirm-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(99, 102, 241, 0.2);
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.importa-confirm-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.importa-table-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.importa-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.importa-table th,
+.importa-table td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  text-align: left;
+}
+
+.importa-table th {
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+}
+
+.importa-table .right {
+  text-align: right;
+}
+
+.importa-table .amount {
+  font-weight: 700;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.importa-table .amount.income {
+  color: #22c55e;
+}
+
+.importa-table .amount.expense {
+  color: #ef4444;
+}
+
+.importa-table .ellipsis {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.importa-table .type-cell {
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+.importa-preview-note {
+  margin-top: 12px;
+  opacity: 0.8;
+}
+
+@media (min-width: 1025px) {
+  .importa-page {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .importa-page {
+    padding: 12px;
+  }
+
+  .importa-card {
+    padding: 14px;
+  }
+
+  .importa-title {
+    font-size: 22px;
+  }
+}

@@ -1,0 +1,461 @@
+/* src/pages/SavingsGoals.css */
+
+.savings-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.savings-summary-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.savings-summary-card .summary-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.savings-summary-card .summary-label {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.summary-value-saved {
+  color: #22c55e;
+}
+
+.summary-value-active {
+  color: #4f46e5;
+}
+
+.summary-value-completed {
+  color: #22c55e;
+}
+
+.savings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Griglia obiettivi */
+.savings-goals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1100px) {
+  .savings-goals-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .savings-goals-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card obiettivo */
+.savings-goal-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 18px;
+  padding: 22px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.savings-goal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.savings-goal-card.completed {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.goal-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.goal-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.goal-card-header .goal-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex: 1;
+}
+
+.goal-badge-completed {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.goal-badge-expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.goal-badge-auto {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+/* Progress bar */
+.goal-progress-bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.goal-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.goal-progress-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.goal-progress-info .goal-amounts {
+  opacity: 0.85;
+}
+
+.goal-progress-info .goal-pct {
+  font-weight: 700;
+}
+
+/* Deadline info */
+.goal-deadline-info {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.goal-account-info {
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-account-name {
+  opacity: 0.75;
+}
+
+/* Card actions */
+.goal-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.goal-card-actions button {
+  flex: 1;
+  min-width: 70px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.goal-card-actions button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.goal-card-actions .btn-deposit {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.goal-card-actions .btn-deposit:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.goal-card-actions .btn-withdraw {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.3);
+  color: #f97316;
+}
+
+.goal-card-actions .btn-withdraw:hover {
+  background: rgba(249, 115, 22, 0.25);
+}
+
+.goal-card-actions .btn-delete {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.goal-card-actions .btn-delete:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* Modal overlay */
+.savings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.savings-modal {
+  background: rgba(30, 30, 50, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 28px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  backdrop-filter: blur(20px);
+}
+
+.savings-modal h2 {
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+}
+
+.savings-modal .form-group {
+  margin-bottom: 16px;
+}
+
+.savings-modal .form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+
+.savings-modal .form-group input,
+.savings-modal .form-group select,
+.savings-modal .form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.savings-modal .form-group input:focus,
+.savings-modal .form-group select:focus,
+.savings-modal .form-group textarea:focus {
+  border-color: rgba(79, 70, 229, 0.5);
+}
+
+.savings-modal .form-group textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* Emoji picker */
+.emoji-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emoji-picker-grid button {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.emoji-picker-grid button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.emoji-picker-grid button.selected {
+  border-color: rgba(79, 70, 229, 0.7);
+  background: rgba(79, 70, 229, 0.2);
+}
+
+/* Color picker */
+.color-picker-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.color-picker-grid button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.color-picker-grid button:hover {
+  transform: scale(1.15);
+}
+
+.color-picker-grid button.selected {
+  border-color: white;
+  transform: scale(1.15);
+}
+
+/* Modal actions */
+.savings-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.savings-modal-actions button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.savings-modal-actions .btn-save {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+}
+
+.savings-modal-actions .btn-save:hover {
+  opacity: 0.9;
+}
+
+.savings-modal-actions .btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.savings-modal-actions .btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Deposit modal */
+.deposit-modal-input {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.deposit-modal-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.3);
+  color: white;
+  font-size: 1.1rem;
+  outline: none;
+}
+
+/* Empty state */
+.savings-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  opacity: 0.7;
+}
+
+.savings-empty-state .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.savings-empty-state p {
+  margin-bottom: 8px;
+}
+
+/* New goal button */
+.btn-new-goal {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #f97316, #ef4444);
+  color: white;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-new-goal:hover {
+  opacity: 0.9;
+}
+
+@media (max-width: 700px) {
+  .savings-header {
+    align-items: flex-start;
+  }
+}
