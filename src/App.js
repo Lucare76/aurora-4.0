@@ -1,9 +1,5 @@
 // src/App.js
-<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
-=======
-import React, { useState, useEffect } from 'react';
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import { BrowserRouter as Router } from 'react-router-dom';
 
 import Reports from './pages/Reports';
@@ -13,20 +9,14 @@ import Categories from './pages/Categories';
 import Importa from './pages/Importa';
 import Budgets from './pages/Budgets';
 import Birthdays from './pages/Birthdays';
-<<<<<<< HEAD
 import SavingsGoals from './pages/SavingsGoals';
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import AdminApproval from './pages/AdminApproval';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FinancialProvider, useFinancial } from './contexts/FinancialContext';
 
 import { getBudgetsByMonth } from './services/budgetsService';
-<<<<<<< HEAD
 import { getBirthdays, getDaysUntilBirthday, calculateAge } from './services/birthdaysService';
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import { initEmailJS } from './services/emailService';
 
 import {
@@ -45,7 +35,6 @@ import {
   FiLogOut,
   FiShield,
   FiMail,
-<<<<<<< HEAD
   FiCheck,
   FiTarget
 } from 'react-icons/fi';
@@ -60,12 +49,6 @@ import {
   getProjectedExpenses
 } from './services/insightsService';
 import { processRecurring } from './services/recurringService';
-=======
-  FiCheck
-} from 'react-icons/fi';
-
-import { WiDaySunny } from 'react-icons/wi';
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import './App.css';
 
 // ==================== PENDING APPROVAL COMPONENT ====================
@@ -81,34 +64,19 @@ function PendingApproval({ user, onLogout }) {
       <div className="pending-approval-container">
         <div className="pending-approval-card">
           <div className="approval-icon">⏳</div>
-<<<<<<< HEAD
 
           <h1>Account in Attesa di Approvazione</h1>
 
-=======
-          
-          <h1>Account in Attesa di Approvazione</h1>
-          
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <div className="approval-message">
             <p>
               Ciao <strong>{user?.displayName || 'Utente'}</strong>! 👋
             </p>
             <p>
-<<<<<<< HEAD
               Il tuo account è stato creato con successo ma è in attesa di approvazione da parte
               dell'amministratore.
             </p>
             <p>
               Riceverai una email a <strong>{user?.email}</strong> non appena il tuo account verrà attivato.
-=======
-              Il tuo account è stato creato con successo ma è in attesa di approvazione 
-              da parte dell'amministratore.
-            </p>
-            <p>
-              Riceverai una email a <strong>{user?.email}</strong> non appena 
-              il tuo account verrà attivato.
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             </p>
           </div>
 
@@ -120,11 +88,7 @@ function PendingApproval({ user, onLogout }) {
                 <p>{user?.email}</p>
               </div>
             </div>
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             <div className="info-item">
               <span className="info-icon">⏱️</span>
               <div>
@@ -135,27 +99,13 @@ function PendingApproval({ user, onLogout }) {
           </div>
 
           <div className="approval-actions">
-<<<<<<< HEAD
             <button className="btn-logout" onClick={onLogout} type="button">
-=======
-            <button 
-              className="btn-logout" 
-              onClick={onLogout}
-              type="button"
-            >
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               Logout
             </button>
           </div>
 
           <div className="approval-footer">
-<<<<<<< HEAD
             <p>Hai bisogno di aiuto? Contatta l'amministratore</p>
-=======
-            <p>
-              Hai bisogno di aiuto? Contatta l'amministratore
-            </p>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
       </div>
@@ -163,11 +113,6 @@ function PendingApproval({ user, onLogout }) {
   );
 }
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 // ==================== NOTIFICATION BADGE ====================
 function NotificationBadge() {
   const [pendingCount, setPendingCount] = useState(0);
@@ -179,10 +124,6 @@ function NotificationBadge() {
       return;
     }
 
-<<<<<<< HEAD
-=======
-    // Listener in tempo reale per utenti pending
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     const setupListener = async () => {
       try {
         const { collection, query, where, onSnapshot } = await import('firebase/firestore');
@@ -210,11 +151,7 @@ function NotificationBadge() {
     };
 
     let unsubscribe;
-<<<<<<< HEAD
     setupListener().then((unsub) => {
-=======
-    setupListener().then(unsub => {
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       unsubscribe = unsub;
     });
 
@@ -226,35 +163,20 @@ function NotificationBadge() {
   }, [user]);
 
   return (
-<<<<<<< HEAD
     <button
       className="action-btn notification-btn"
-=======
-    <button 
-      className="action-btn notification-btn" 
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       type="button"
       title={pendingCount > 0 ? `${pendingCount} utenti in attesa di approvazione` : 'Nessuna notifica'}
     >
       <FiBell />
-<<<<<<< HEAD
       {pendingCount > 0 && <span className="notification-badge">{pendingCount}</span>}
-=======
-      {pendingCount > 0 && (
-        <span className="notification-badge">{pendingCount}</span>
-      )}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     </button>
   );
 }
 
 // ==================== COMPONENTE LOGIN PREMIUM ====================
 function Login() {
-<<<<<<< HEAD
   const { loginWithGoogle, login, signup, loading: authLoading, resetPassword } = useAuth();
-=======
-  const { loginWithGoogle, login, signup, loading: authLoading } = useAuth();
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const [formData, setFormData] = useState({ email: '', password: '', displayName: '' });
   const [loading, setLoading] = useState(false);
   const [activePanel, setActivePanel] = useState('login');
@@ -292,13 +214,7 @@ function Login() {
       }
     } catch (err) {
       console.error('Errore autenticazione:', err);
-<<<<<<< HEAD
       setError(`Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${err?.message || ''}`);
-=======
-      setError(
-        `Errore durante ${activePanel === 'login' ? 'il login' : 'la registrazione'}: ${err?.message || ''}`
-      );
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     } finally {
       setLoading(false);
     }
@@ -467,7 +383,6 @@ function Login() {
                     <div className="input-decoration" />
                   </div>
 
-<<<<<<< HEAD
                   {/* ✅ PASSWORD DIMENTICATA */}
                   <div className="forgot-password-wrapper">
                     <button
@@ -501,8 +416,6 @@ function Login() {
                     </button>
                   </div>
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                   <button type="submit" className="auth-submit-btn-premium" disabled={loading || authLoading}>
                     <span className="btn-text">
                       {loading ? (
@@ -552,11 +465,7 @@ function Login() {
                       className="form-input-premium"
                       disabled={loading}
                     />
-<<<<<<< HEAD
                     <label className="form-label">Nome</label>
-=======
-                    <label className="form-label">Nome e Cognome</label>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     <div className="input-decoration" />
                   </div>
 
@@ -585,41 +494,20 @@ function Login() {
                       required
                       className="form-input-premium"
                       disabled={loading}
-<<<<<<< HEAD
                     />
                     <label className="form-label">Password</label>
                     <div className="input-decoration" />
                   </div>
 
                   <button type="submit" className="auth-submit-btn-premium" disabled={loading || authLoading}>
-=======
-                      minLength={6}
-                    />
-                    <label className="form-label">Password (min. 6 caratteri)</label>
-                    <div className="input-decoration" />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="auth-submit-btn-premium register"
-                    disabled={loading || authLoading}
-                  >
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     <span className="btn-text">
                       {loading ? (
                         <>
                           <div className="loading-spinner" />
-<<<<<<< HEAD
                           Registrazione in corso...
                         </>
                       ) : (
                         'Crea Account'
-=======
-                          Creazione account...
-                        </>
-                      ) : (
-                        'Crea il Mio Account'
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                       )}
                     </span>
                     <div className="btn-shine" />
@@ -693,7 +581,6 @@ function Login() {
 }
 
 // ==================== SIDEBAR ====================
-<<<<<<< HEAD
 // Mappa weather_code Open-Meteo a icona e descrizione italiana
 function getWeatherInfo(code) {
   if (code === 0) return { icon: <WiDaySunny className="weather-icon" />, desc: 'Sereno' };
@@ -749,10 +636,6 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     const interval = setInterval(fetchWeather, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
-=======
-function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
-  const { user, logout } = useAuth();
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const menuItems = [
     { id: 'dashboard', icon: <FiHome />, label: 'Dashboard', color: '#4f46e5' },
@@ -761,23 +644,14 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'categories', icon: <FiBarChart2 />, label: 'Categorie', color: '#8b5cf6' },
     { id: 'reports', icon: <FiBarChart2 />, label: 'Report', color: '#f59e0b' },
     { id: 'budgets', icon: <FiPieChart />, label: 'Budget', color: '#22c55e' },
-<<<<<<< HEAD
     { id: 'savings', icon: <FiTarget />, label: 'Obiettivi', color: '#f97316' },
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     { id: 'import', icon: <FiUpload />, label: 'Importa', color: '#ef4444' },
     { id: 'birthdays', icon: <FiGift />, label: 'Compleanni', color: '#ec4899' },
     { id: 'admin', icon: <FiShield />, label: 'Admin', color: '#dc2626' },
     { id: 'settings', icon: <FiSettings />, label: 'Impostazioni', color: '#6b7280' }
   ];
 
-<<<<<<< HEAD
   const handleClose = () => setSidebarOpen(false);
-=======
-  const handleClose = () => {
-    setSidebarOpen(false);
-  };
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const handleMenuClick = (itemId) => {
     setActiveMenu(itemId);
@@ -808,15 +682,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
             <div className="logo">
               <div className="logo-icon">
                 <div className="aurora-glow"></div>
-<<<<<<< HEAD
                 <img src="/aurora-ghibli.png" alt="Aurora" className="logo-img" />
-=======
-                <img
-                  src="/aurora-ghibli.png"
-                  alt="Aurora"
-                  className="logo-img"
-                />
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </div>
               <div className="logo-text">
                 <h2>Aurora</h2>
@@ -829,7 +695,6 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
           </div>
 
           <nav className="sidebar-nav">
-<<<<<<< HEAD
             {menuItems
               .filter((item) => {
                 if (item.id === 'admin' && user?.email !== 'lucarenna76@gmail.com') return false;
@@ -848,38 +713,16 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
                   <div className="nav-indicator" />
                 </button>
               ))}
-=======
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                className={`nav-item ${activeMenu === item.id ? 'active' : ''}`}
-                onClick={() => handleMenuClick(item.id)}
-                style={{ '--accent-color': item.color }}
-                type="button"
-              >
-                <div className="nav-icon-wrapper">{item.icon}</div>
-                <span className="nav-label">{item.label}</span>
-                <div className="nav-indicator" />
-              </button>
-            ))}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </nav>
 
           <div className="sidebar-footer">
             <div className="weather-card">
-<<<<<<< HEAD
               {weather ? weather.icon : <WiDaySunny className="weather-icon" />}
               <div className="weather-info">
                 <div className="weather-temp">{weather ? `${weather.temp}°C` : '...'}</div>
                 <div className="weather-location">
                   {weather ? `${weather.city}, ${weather.desc}` : 'Caricamento...'}
                 </div>
-=======
-              <WiDaySunny className="weather-icon" />
-              <div className="weather-info">
-                <div className="weather-temp">22°C</div>
-                <div className="weather-location">Roma, Sole</div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </div>
             </div>
 
@@ -891,10 +734,6 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
                 <div className="user-name">{user?.displayName || 'Utente'}</div>
                 <div className="user-status">Online</div>
               </div>
-<<<<<<< HEAD
-=======
-              {/* Logout SOLO desktop (nella sidebar) */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <button className="logout-btn desktop-only" onClick={handleLogout} title="Logout" type="button">
                 <FiLogOut />
               </button>
@@ -928,25 +767,13 @@ function Header({ setSidebarOpen }) {
       </div>
 
       <div className="header-content">
-<<<<<<< HEAD
         <button className="menu-toggle" onClick={() => setSidebarOpen(true)} type="button">
-=======
-        <button 
-          className="menu-toggle" 
-          onClick={() => setSidebarOpen(true)} 
-          type="button"
-        >
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <FiMenu />
         </button>
 
         <div className="header-actions">
           <NotificationBadge />
 
-<<<<<<< HEAD
-=======
-          {/* Logout SOLO mobile (nell'header) */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <button
             className="logout-btn header-logout mobile-only"
             onClick={handleLogout}
@@ -961,7 +788,6 @@ function Header({ setSidebarOpen }) {
   );
 }
 
-<<<<<<< HEAD
 // ==================== FORMATO NUMERI ====================
 function fmt(n) {
   const num = Math.abs(Number(n) || 0);
@@ -1060,19 +886,11 @@ function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const { user, userSettings } = useAuth();
   const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
   const cs = getCurrencySymbol(userSettings?.currency);
-=======
-// ==================== DASHBOARD ====================
-function DashboardContent() {
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const { user } = useAuth();
-  const { transactions = [], accounts = [], categories = [] } = useFinancial();
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const currentMonthIndex = new Date().getMonth();
   const currentYear = new Date().getFullYear();
   const currentMonthNumber = currentMonthIndex + 1;
 
-<<<<<<< HEAD
   useEffect(() => {
     if (!user?.uid) return;
     const key = `aurora_recurring_processed_${new Date().toISOString().split('T')[0]}`;
@@ -1086,17 +904,12 @@ function DashboardContent() {
       .catch((e) => console.error('Errore processing ricorrenti:', e));
   }, [user?.uid, createTransaction]);
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const [budgets, setBudgets] = useState([]);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetsError, setBudgetsError] = useState('');
 
-<<<<<<< HEAD
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -1104,7 +917,6 @@ function DashboardContent() {
 
   useEffect(() => {
     let mounted = true;
-<<<<<<< HEAD
     async function loadBirthdays() {
       if (!user?.uid) return;
       try {
@@ -1127,8 +939,6 @@ function DashboardContent() {
 
   useEffect(() => {
     let mounted = true;
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
     async function loadBudgets() {
       if (!user?.uid) return;
@@ -1210,14 +1020,9 @@ function DashboardContent() {
     const sub = getSubCategoryName(t);
     const acc = getAccountName(t);
     const catLabel = sub ? `${cat} / ${sub}` : cat;
-<<<<<<< HEAD
 
     if (desc) return `${desc} • ${catLabel}`.toLocaleUpperCase('it-IT');
     return `${catLabel} • ${acc}`.toLocaleUpperCase('it-IT');
-=======
-    if (desc) return `${desc} • ${catLabel}`;
-    return `${catLabel} • ${acc}`;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   };
 
   const getTransactionIcon = (t) => {
@@ -1258,7 +1063,6 @@ function DashboardContent() {
   const monthlySavings = monthlyIncome - monthlyExpenses;
   const totalBalance = accounts.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0);
 
-<<<<<<< HEAD
   const normalizeForSearch = (value) =>
     String(value || '')
       .normalize('NFD')
@@ -1291,11 +1095,6 @@ function DashboardContent() {
       return haystack.includes(activityQuery);
     })
     .slice(0, activityQuery ? 12 : 4);
-=======
-  const recentTransactions = [...transactions]
-    .sort((a, b) => parseDate(b.date) - parseDate(a.date))
-    .slice(0, 4);
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const monthlyExpenseByCategoryKey = monthlyTransactions
     .filter((t) => getType(t) === 'expense')
@@ -1305,7 +1104,6 @@ function DashboardContent() {
       return acc;
     }, {});
 
-<<<<<<< HEAD
   const monthlyExpenseByCategoryName = monthlyTransactions
     .filter((t) => getType(t) === 'expense')
     .reduce((acc, t) => {
@@ -1341,29 +1139,10 @@ function DashboardContent() {
       const budget = Number(b?.amount ?? b?.budget ?? 0) || 0;
       const spent =
         monthlyExpenseByCategoryKey[key] || monthlyExpenseByCategoryName[String(c?.name || '').trim().toLowerCase()] || 0;
-=======
-  const labelForCategoryKey = (key) => {
-    const found = categories.find((c) => c.id === key);
-    return found?.name || key;
-  };
-
-  const budgetByCategoryKey = (budgets || []).reduce((acc, b) => {
-    const key = b?.categoryId || b?.categoryName || 'Senza categoria';
-    const val = Number(b?.amount ?? b?.budget ?? 0) || 0;
-    acc[key] = val;
-    return acc;
-  }, {});
-
-  const budgetAlerts = Object.keys(budgetByCategoryKey)
-    .map((key) => {
-      const budget = budgetByCategoryKey[key] || 0;
-      const spent = monthlyExpenseByCategoryKey[key] || 0;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       const pct = budget > 0 ? spent / budget : 0;
 
       let level = 'ok';
       if (budget > 0 && pct >= 1) level = 'over';
-<<<<<<< HEAD
       else if (budget > 0 && pct >= 0.9) level = 'danger';
       else if (budget > 0 && pct >= 0.75) level = 'warn';
       else if (budget > 0 && pct >= 0.5) level = 'watch';
@@ -1450,14 +1229,6 @@ function DashboardContent() {
     cs
   ]);
 
-=======
-      else if (budget > 0 && pct >= 0.75) level = 'warn';
-
-      return { key, label: labelForCategoryKey(key), budget, spent, pct, level };
-    })
-    .sort((a, b) => b.pct - a.pct);
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   return (
     <div className="content-page">
       <div className="aurora-background">
@@ -1481,7 +1252,6 @@ function DashboardContent() {
               <span className="time">{currentTime.toLocaleTimeString('it-IT')}</span>
             </div>
           </div>
-<<<<<<< HEAD
           <button className="quick-add-btn" onClick={() => setActiveMenu('transactions')} type="button">
             + Transazione
           </button>
@@ -1496,15 +1266,6 @@ function DashboardContent() {
               <div className="mini-value mini-value-expense">
                 {cs} {fmt(monthlyExpenses)}
               </div>
-=======
-          <div className="header-stats">
-            <div className="mini-stat">
-              <div className="mini-value">€ {monthlyIncome.toFixed(2)}</div>
-              <div className="mini-label">Entrate Mese</div>
-            </div>
-            <div className="mini-stat">
-              <div className="mini-value">€ {monthlyExpenses.toFixed(2)}</div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <div className="mini-label">Uscite Mese</div>
             </div>
           </div>
@@ -1512,26 +1273,16 @@ function DashboardContent() {
 
         <div className="financial-overview">
           <div className="finance-card total-balance">
-<<<<<<< HEAD
             <div className="card-content">
               <h3>Saldo Totale</h3>
               <div className="amount">
                 {cs} {fmt(totalBalance)}
               </div>
-=======
-            <div className="card-graphic">
-              <div className="floating-coins">💰💵💶</div>
-            </div>
-            <div className="card-content">
-              <h3>Saldo Totale</h3>
-              <div className="amount">€ {totalBalance.toFixed(2)}</div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <div className="trend positive">{accounts.length} conti attivi</div>
             </div>
           </div>
 
           <div className="finance-card cash-flow">
-<<<<<<< HEAD
             <div className="card-content">
               <h3>Cash Flow Mensile</h3>
               <div className="amount" style={{ color: monthlySavings >= 0 ? '#10b981' : '#ef4444' }}>
@@ -1544,16 +1295,6 @@ function DashboardContent() {
                 <span className="cf-expense">
                   −{cs} {fmt(monthlyExpenses)}
                 </span>
-=======
-            <div className="card-graphic">
-              <div className="flow-animation" />
-            </div>
-            <div className="card-content">
-              <h3>Cash Flow Mensile</h3>
-              <div className="amount">€ {monthlySavings.toFixed(2)}</div>
-              <div className={`trend ${monthlySavings >= 0 ? 'positive' : 'negative'}`}>
-                {monthlySavings >= 0 ? 'Positivo' : 'Negativo'}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </div>
             </div>
           </div>
@@ -1572,7 +1313,6 @@ function DashboardContent() {
           </div>
         </div>
 
-<<<<<<< HEAD
         <InsightsSection
           transactions={transactions}
           categories={categories}
@@ -1601,8 +1341,6 @@ function DashboardContent() {
           </div>
         </div>
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         <div className="section">
           <h2 className="section-title">Alert Budget 📌</h2>
 
@@ -1622,7 +1360,6 @@ function DashboardContent() {
           ) : (
             <div style={{ display: 'grid', gap: 10 }}>
               {budgetAlerts.slice(0, 6).map((a) => {
-<<<<<<< HEAD
                 const badge =
                   a.level === 'over'
                     ? '100%+ SUPERATO'
@@ -1642,14 +1379,6 @@ function DashboardContent() {
                     ? '2px solid #f59e0b'
                     : a.level === 'watch'
                     ? '2px solid #eab308'
-=======
-                const badge = a.level === 'over' ? '🔴 Superato' : a.level === 'warn' ? '🟠 In arrivo' : '🟢 OK';
-                const border =
-                  a.level === 'over'
-                    ? '2px solid #ef4444'
-                    : a.level === 'warn'
-                    ? '2px solid #f59e0b'
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     : '2px solid #22c55e';
 
                 return (
@@ -1672,11 +1401,7 @@ function DashboardContent() {
                         <span style={{ marginLeft: 10, fontWeight: 600, opacity: 0.9 }}>{badge}</span>
                       </div>
                       <div style={{ opacity: 0.85, marginTop: 4 }}>
-<<<<<<< HEAD
                         Speso: {cs} {fmt(a.spent)} / Budget: {cs} {fmt(a.budget)}
-=======
-                        Speso: € {a.spent.toFixed(2)} / Budget: € {a.budget.toFixed(2)}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                       </div>
                     </div>
 
@@ -1690,7 +1415,6 @@ function DashboardContent() {
           )}
         </div>
 
-<<<<<<< HEAD
         {upcomingBirthdays.length > 0 && (
           <div className="section">
             <h2 className="section-title">Prossimi Compleanni 🎂</h2>
@@ -1778,13 +1502,6 @@ function DashboardContent() {
           {filteredRecentTransactions.length > 0 ? (
             <div className="activity-timeline">
               {filteredRecentTransactions.map((transaction) => {
-=======
-        <div className="section">
-          <h2 className="section-title">Attività Recente ⚡</h2>
-          {recentTransactions.length > 0 ? (
-            <div className="activity-timeline">
-              {recentTransactions.map((transaction) => {
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 const type = getType(transaction);
                 const amount = getAmount(transaction);
 
@@ -1798,13 +1515,9 @@ function DashboardContent() {
                     </div>
 
                     <div className={`activity-amount ${type === 'income' ? 'positive' : 'negative'}`}>
-<<<<<<< HEAD
                       {type === 'income' ? '+' : '-'}
                       {cs}
                       {fmt(amount)}
-=======
-                      {type === 'income' ? '+' : '-'}€{Math.abs(amount).toFixed(2)}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     </div>
                   </div>
                 );
@@ -1812,18 +1525,10 @@ function DashboardContent() {
             </div>
           ) : (
             <div className="empty-state">
-<<<<<<< HEAD
               <p>{activityQuery ? 'Nessun risultato per questa ricerca.' : 'Nessuna transazione recente. Inizia a tracciare le tue finanze!'}</p>
             </div>
           )}
         </div>
-=======
-              <p>Nessuna transazione recente. Inizia a tracciare le tue finanze!</p>
-            </div>
-          )}
-        </div>
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       </div>
     </div>
   );
@@ -1831,7 +1536,6 @@ function DashboardContent() {
 
 // ==================== SETTINGS ====================
 function SettingsContent() {
-<<<<<<< HEAD
   const { user, userSettings, setUserSettings } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1848,56 +1552,27 @@ function SettingsContent() {
     const loadSettings = async () => {
       if (!user?.uid) return;
 
-=======
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
-  
-  const [settings, setSettings] = useState({
-    reminderEmail: '',
-    reminderDaysBefore: 2,
-  });
-
-  // Carica impostazioni utente
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (!user?.uid) return;
-      
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       setLoading(true);
       try {
         const { doc, getDoc } = await import('firebase/firestore');
         const { db } = await import('./services/firebase');
-<<<<<<< HEAD
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-=======
-        
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         if (userDoc.exists()) {
           const data = userDoc.data();
           setSettings({
             reminderEmail: data.reminderEmail || user.email,
             reminderDaysBefore: data.reminderDaysBefore || 2,
-<<<<<<< HEAD
             weatherCity: data.weatherCity || 'Roma',
             currency: data.currency || 'EUR'
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           });
         } else {
           setSettings({
             reminderEmail: user.email,
             reminderDaysBefore: 2,
-<<<<<<< HEAD
             weatherCity: 'Roma',
             currency: 'EUR'
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           });
         }
       } catch (error) {
@@ -1913,7 +1588,6 @@ function SettingsContent() {
 
   const handleSave = async () => {
     if (!user?.uid) return;
-<<<<<<< HEAD
 
     setSaving(true);
     setMessage({ text: '', type: '' });
@@ -1935,22 +1609,6 @@ function SettingsContent() {
       }
 
       if (result.success && weatherResult.success) {
-=======
-    
-    setSaving(true);
-    setMessage({ text: '', type: '' });
-    
-    try {
-      const { updateReminderSettings } = await import('./services/userApprovalService');
-      
-      const result = await updateReminderSettings(
-        user.uid,
-        settings.reminderEmail,
-        settings.reminderDaysBefore
-      );
-      
-      if (result.success) {
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         setMessage({ text: '✅ Impostazioni salvate con successo!', type: 'success' });
       } else {
         setMessage({ text: '❌ Errore salvataggio impostazioni', type: 'error' });
@@ -1965,11 +1623,7 @@ function SettingsContent() {
   };
 
   const handleChange = (field, value) => {
-<<<<<<< HEAD
     setSettings((prev) => ({ ...prev, [field]: value }));
-=======
-    setSettings(prev => ({ ...prev, [field]: value }));
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   };
 
   if (loading) {
@@ -2005,29 +1659,16 @@ function SettingsContent() {
         </div>
 
         {message.text && (
-<<<<<<< HEAD
           <div
-=======
-          <div 
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             style={{
               padding: '1rem',
               borderRadius: '12px',
               marginBottom: '1.5rem',
-<<<<<<< HEAD
               background: message.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
               border:
                 message.type === 'success'
                   ? '1px solid rgba(34, 197, 94, 0.3)'
                   : '1px solid rgba(239, 68, 68, 0.3)',
-=======
-              background: message.type === 'success' 
-                ? 'rgba(34, 197, 94, 0.1)' 
-                : 'rgba(239, 68, 68, 0.1)',
-              border: message.type === 'success'
-                ? '1px solid rgba(34, 197, 94, 0.3)'
-                : '1px solid rgba(239, 68, 68, 0.3)',
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               color: 'white',
               textAlign: 'center'
             }}
@@ -2037,23 +1678,11 @@ function SettingsContent() {
         )}
 
         <div className="settings-grid">
-<<<<<<< HEAD
-=======
-          {/* Profilo Utente */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <div className="setting-section">
             <h3>👤 Profilo Utente</h3>
             <div className="user-profile-info">
               <div className="profile-avatar">
-<<<<<<< HEAD
                 {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser size={40} />}
-=======
-                {user?.photoURL ? (
-                  <img src={user.photoURL} alt="Avatar" className="avatar-img" />
-                ) : (
-                  <FiUser size={40} />
-                )}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </div>
               <div className="profile-details">
                 <h4>{user?.displayName || 'Utente'}</h4>
@@ -2063,20 +1692,12 @@ function SettingsContent() {
             </div>
           </div>
 
-<<<<<<< HEAD
-=======
-          {/* Notifiche Compleanni */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <div className="setting-section">
             <h3>🎂 Notifiche Compleanni</h3>
             <p className="section-description">
               Ricevi promemoria via email per non dimenticare mai un compleanno importante
             </p>
-<<<<<<< HEAD
 
-=======
-            
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             <div className="setting-form">
               <div className="form-group">
                 <label htmlFor="reminderEmail">
@@ -2118,21 +1739,15 @@ function SettingsContent() {
                 <div className="preview-icon">📧</div>
                 <div className="preview-text">
                   <strong>Anteprima:</strong> Riceverai un'email a <strong>{settings.reminderEmail}</strong>{' '}
-<<<<<<< HEAD
                   <strong>
                     {settings.reminderDaysBefore} {settings.reminderDaysBefore === 1 ? 'giorno' : 'giorni'}
                   </strong>{' '}
                   prima di ogni compleanno alle ore 9:00.
-=======
-                  <strong>{settings.reminderDaysBefore} {settings.reminderDaysBefore === 1 ? 'giorno' : 'giorni'}</strong> prima 
-                  di ogni compleanno alle ore 9:00.
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                 </div>
               </div>
             </div>
           </div>
 
-<<<<<<< HEAD
           <div className="setting-section">
             <h3>🌤️ Widget Meteo</h3>
             <p className="section-description">Scegli la città per il widget meteo nella sidebar</p>
@@ -2182,9 +1797,6 @@ function SettingsContent() {
             </div>
           </div>
 
-=======
-          {/* Info Sistema */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <div className="setting-section">
             <h3>ℹ️ Informazioni Sistema</h3>
             <div className="system-info">
@@ -2206,19 +1818,8 @@ function SettingsContent() {
           </div>
         </div>
 
-<<<<<<< HEAD
         <div className="settings-actions">
           <button onClick={handleSave} disabled={saving} className="btn-save-settings" type="button">
-=======
-        {/* Pulsante Salva */}
-        <div className="settings-actions">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-save-settings"
-            type="button"
-          >
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             {saving ? (
               <>
                 <div className="loading-spinner"></div>
@@ -2238,7 +1839,6 @@ function SettingsContent() {
 }
 
 // ==================== MAIN CONTENT ====================
-<<<<<<< HEAD
 function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilter, setSidebarOpen }) {
   const { user } = useAuth();
 
@@ -2250,46 +1850,25 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
         return <Accounts />;
       case 'transactions':
         return <Transactions initialFilter={pendingFilter} onFilterConsumed={() => setPendingFilter(null)} />;
-=======
-function MainContent({ activeMenu, setSidebarOpen }) {
-  const renderContent = () => {
-    switch (activeMenu) {
-      case 'dashboard':
-        return <DashboardContent />;
-      case 'accounts':
-        return <Accounts />;
-      case 'transactions':
-        return <Transactions />;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       case 'categories':
         return <Categories />;
       case 'reports':
         return <Reports />;
       case 'budgets':
         return <Budgets />;
-<<<<<<< HEAD
       case 'savings':
         return <SavingsGoals />;
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       case 'import':
         return <Importa />;
       case 'birthdays':
         return <Birthdays />;
       case 'admin':
-<<<<<<< HEAD
         if (user?.email !== 'lucarenna76@gmail.com') return <DashboardContent setActiveMenu={setActiveMenu} setPendingFilter={setPendingFilter} />;
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         return <AdminApproval />;
       case 'settings':
         return <SettingsContent />;
       default:
-<<<<<<< HEAD
         return <DashboardContent setActiveMenu={setActiveMenu} setPendingFilter={setPendingFilter} />;
-=======
-        return <DashboardContent />;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     }
   };
 
@@ -2305,19 +1884,8 @@ function MainContent({ activeMenu, setSidebarOpen }) {
 function AppContent() {
   const MENU_STORAGE_KEY = 'aurora_active_menu';
 
-<<<<<<< HEAD
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [pendingFilter, setPendingFilter] = useState(null);
-=======
-  const [activeMenu, setActiveMenu] = useState(() => {
-    try {
-      return localStorage.getItem(MENU_STORAGE_KEY) || 'dashboard';
-    } catch {
-      return 'dashboard';
-    }
-  });
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, loading: authLoading, userApprovalStatus, logout } = useAuth();
 
@@ -2342,7 +1910,6 @@ function AppContent() {
 
   if (authLoading) {
     return (
-<<<<<<< HEAD
       <div
         style={{
           display: 'flex',
@@ -2352,15 +1919,6 @@ function AppContent() {
           backgroundColor: '#f8fafc'
         }}
       >
-=======
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        backgroundColor: '#f8fafc'
-      }}>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         <div>Caricamento...</div>
       </div>
     );
@@ -2368,30 +1926,18 @@ function AppContent() {
 
   if (!user) return <Login />;
 
-<<<<<<< HEAD
-=======
-  // ✅ Controlla se utente non è approvato
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   if (userApprovalStatus && !userApprovalStatus.approved) {
     return <PendingApproval user={user} onLogout={logout} />;
   }
 
-<<<<<<< HEAD
   return (
     <div className="app">
-=======
-  // ✅ UTENTE APPROVATO: Mostra app normale
-  return (
-    <div className="app">
-      {/* <DebugApprovalStatus /> */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       <Sidebar
         activeMenu={activeMenu}
         setActiveMenu={setActiveMenu}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
-<<<<<<< HEAD
       <MainContent activeMenu={activeMenu} setActiveMenu={setActiveMenu} pendingFilter={pendingFilter} setPendingFilter={setPendingFilter} setSidebarOpen={setSidebarOpen} />
     </div>
   );
@@ -2399,15 +1945,6 @@ function AppContent() {
 
 // ==================== APP PRINCIPALE ====================
 function App() {
-=======
-      <MainContent activeMenu={activeMenu} setSidebarOpen={setSidebarOpen} />
-    </div>
-  );
-}
-// ==================== APP PRINCIPALE ====================
-function App() {
-  // Inizializza EmailJS all'avvio (solo se configurato)
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   useEffect(() => {
     initEmailJS();
   }, []);
@@ -2423,8 +1960,4 @@ function App() {
   );
 }
 
-<<<<<<< HEAD
 export default App;
-=======
-export default App;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1

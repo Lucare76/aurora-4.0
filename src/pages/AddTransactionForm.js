@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,10 +8,6 @@ import {
 } from '../services/smartCategoryService';
 import { addRecurring } from '../services/recurringService';
 import { analyzeReceipt } from '../services/receiptService';
-=======
-import React, { useState, useEffect } from 'react';
-import { useFinancial } from '../contexts/FinancialContext';
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 import './AddTransactionForm.css';
 
 /* Data/ora locale per input datetime-local */
@@ -40,7 +35,6 @@ function parseLocalDateFromInput(value) {
   return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), 0, 0);
 }
 
-<<<<<<< HEAD
 function pickDifferentAccountId(accounts, excludeId) {
   const other = (accounts || []).find((a) => a.id !== excludeId);
   return other?.id || '';
@@ -72,34 +66,22 @@ const AddTransactionForm = ({ onClose }) => {
   const { accounts = [], categories = [], transactions = [], createTransaction, createTransfer } = useFinancial();
   const { userSettings, user } = useAuth();
   const cs = getCurrencySymbol(userSettings?.currency);
-=======
-const AddTransactionForm = ({ onClose }) => {
-  const { accounts, categories, createTransaction } = useFinancial();
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-<<<<<<< HEAD
     type: 'expense', // income | expense | transfer
     category: '',
     subCategory: '',
     accountId: '',
     fromAccountId: '',
     toAccountId: '',
-=======
-    type: 'expense',
-    category: '',
-    subCategory: '',
-    accountId: '',
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     date: getLocalDateTimeForInput()
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-<<<<<<< HEAD
   // Receipt scanner
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState(null);
@@ -270,22 +252,10 @@ const AddTransactionForm = ({ onClose }) => {
       return next;
     });
   }, [accounts]);
-=======
-  /* Conto di default */
-  useEffect(() => {
-    if (accounts?.length > 0 && !formData.accountId) {
-      setFormData(prev => ({
-        ...prev,
-        accountId: accounts[0].id
-      }));
-    }
-  }, [accounts, formData.accountId]);
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-<<<<<<< HEAD
     if (name === 'amount') {
       setFormData((prev) => ({ ...prev, amount: formatInputAmount(value) }));
       return;
@@ -353,49 +323,11 @@ const AddTransactionForm = ({ onClose }) => {
     e.preventDefault();
 
     const amountNum = parseAmountFromInput(formData.amount);
-=======
-    if (name === 'category') {
-      setFormData(prev => ({
-        ...prev,
-        category: value,
-        subCategory: ''
-      }));
-      return;
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleTypeChange = (type) => {
-    setFormData(prev => ({
-      ...prev,
-      type,
-      category: '',
-      subCategory: ''
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    const amountNum = parseFloat(formData.amount);
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     if (!amountNum || amountNum <= 0) {
       setError('Inserisci un importo valido');
       return;
     }
 
-<<<<<<< HEAD
-=======
-    if (!formData.accountId) {
-      setError('Seleziona un conto');
-      return;
-    }
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     const transactionDate = parseLocalDateFromInput(formData.date);
     if (!transactionDate) {
       setError('Data non valida');
@@ -406,7 +338,6 @@ const AddTransactionForm = ({ onClose }) => {
       setLoading(true);
       setError('');
 
-<<<<<<< HEAD
       // ✅ GIROCONTO
       if (formData.type === 'transfer') {
         if (!accounts || accounts.length < 2) {
@@ -455,10 +386,6 @@ const AddTransactionForm = ({ onClose }) => {
 
       await createTransaction({
         description: formData.description.trim() || '',
-=======
-      await createTransaction({
-        description: formData.description.trim() || '', // ✅ Adesso è opzionale
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         amount: formData.type === 'income' ? amountNum : -amountNum,
         type: formData.type,
         category: formData.category || null,
@@ -468,7 +395,6 @@ const AddTransactionForm = ({ onClose }) => {
         timestamp: transactionDate.getTime()
       });
 
-<<<<<<< HEAD
       // Crea ricorrenza se attivata
       if (isRecurring && user?.uid) {
         const selCat = categories.find(c => c.id === formData.category);
@@ -497,8 +423,6 @@ const AddTransactionForm = ({ onClose }) => {
         });
       }
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       setFormData({
         description: '',
         amount: '',
@@ -506,11 +430,8 @@ const AddTransactionForm = ({ onClose }) => {
         category: '',
         subCategory: '',
         accountId: accounts?.[0]?.id || '',
-<<<<<<< HEAD
         fromAccountId: accounts?.[0]?.id || '',
         toAccountId: pickDifferentAccountId(accounts, accounts?.[0]?.id || ''),
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         date: getLocalDateTimeForInput()
       });
 
@@ -522,23 +443,6 @@ const AddTransactionForm = ({ onClose }) => {
     }
   };
 
-<<<<<<< HEAD
-=======
-  const filteredCategories = (categories || []).filter(
-    c => c.type === formData.type
-  );
-
-  const selectedCategory = categories?.find(
-    c => c.id === formData.category
-  );
-
-  const subCategories = selectedCategory?.subCategories || [];
-
-  const selectedAccount = accounts?.find(
-    a => a.id === formData.accountId
-  );
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   return (
     <div className="transaction-form-container">
       <div className="form-header">
@@ -549,7 +453,6 @@ const AddTransactionForm = ({ onClose }) => {
       </div>
 
       <div className="transaction-form">
-<<<<<<< HEAD
         {/* Template bar */}
         {templates.length > 0 && (
           <div className="template-bar">
@@ -612,8 +515,6 @@ const AddTransactionForm = ({ onClose }) => {
           )}
         </div>
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit}>
@@ -628,7 +529,6 @@ const AddTransactionForm = ({ onClose }) => {
                 onChange={handleChange}
                 placeholder="(Opzionale)"
                 className="description-input"
-<<<<<<< HEAD
               />
               {suggestions.length > 0 && (
                 <div className="suggestion-list">
@@ -651,10 +551,6 @@ const AddTransactionForm = ({ onClose }) => {
                   ))}
                 </div>
               )}
-=======
-                // ⬇️ Rimosso "required"
-              />
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>
                 Facoltativo — puoi lasciare vuoto.
               </small>
@@ -662,7 +558,6 @@ const AddTransactionForm = ({ onClose }) => {
 
             <div className="form-group">
               <label className="section-label">Importo *</label>
-<<<<<<< HEAD
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -702,18 +597,6 @@ const AddTransactionForm = ({ onClose }) => {
                     boxShadow: 'none',
                     width: '100%'
                   }}
-=======
-              <div className="amount-input-wrapper">
-                <span className="currency-symbol">€</span>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleChange}
-                  min="0.01"
-                  step="0.01"
-                  className="amount-input"
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                   required
                 />
               </div>
@@ -740,7 +623,6 @@ const AddTransactionForm = ({ onClose }) => {
                 >
                   📉 Uscita
                 </button>
-<<<<<<< HEAD
 
                 <button
                   type="button"
@@ -751,8 +633,6 @@ const AddTransactionForm = ({ onClose }) => {
                 >
                   🔁 Giroconto
                 </button>
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               </div>
             </div>
 
@@ -769,7 +649,6 @@ const AddTransactionForm = ({ onClose }) => {
             </div>
           </div>
 
-<<<<<<< HEAD
           {/* Conti */}
           {formData.type !== 'transfer' ? (
             <div className="form-group">
@@ -873,73 +752,10 @@ const AddTransactionForm = ({ onClose }) => {
                   {filteredCategories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.icon} {cat.name}
-=======
-          {/* Conto */}
-          <div className="form-group">
-            <label className="section-label">Conto *</label>
-            <select
-              name="accountId"
-              value={formData.accountId}
-              onChange={handleChange}
-              className="form-select"
-              required
-            >
-              <option value="">Seleziona un conto</option>
-              {accounts?.map(acc => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({acc.type})
-                </option>
-              ))}
-            </select>
-
-            {selectedAccount && (
-              <div className="account-balance-info">
-                <span>Saldo attuale:</span>
-                <strong className={selectedAccount.balance >= 0 ? 'positive' : 'negative'}>
-                  €{selectedAccount.balance.toFixed(2)}
-                </strong>
-              </div>
-            )}
-          </div>
-
-          {/* Categoria */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="section-label">Categoria</label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleChange}
-                className="form-select"
-              >
-                <option value="">Senza categoria</option>
-                {filteredCategories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {formData.category && subCategories.length > 0 && (
-              <div className="form-group">
-                <label className="section-label">Sottocategoria</label>
-                <select
-                  name="subCategory"
-                  value={formData.subCategory}
-                  onChange={handleChange}
-                  className="form-select"
-                >
-                  <option value="">Nessuna sottocategoria</option>
-                  {subCategories.map(sub => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.icon || '📋'} {sub.name}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                     </option>
                   ))}
                 </select>
               </div>
-<<<<<<< HEAD
 
               {formData.category && subCategories.length > 0 && (
                 <div className="form-group">
@@ -985,22 +801,15 @@ const AddTransactionForm = ({ onClose }) => {
               )}
             </div>
           )}
-=======
-            )}
-          </div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
           {/* Azioni */}
           <div className="form-actions">
             <button type="button" className="cancel-button" onClick={onClose}>
               Annulla
             </button>
-<<<<<<< HEAD
             <button type="button" className="template-save-button" onClick={saveTemplate}>
               ⭐ Salva template
             </button>
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
             <button type="submit" className="submit-button" disabled={loading}>
               {loading ? 'Creazione…' : '➕ Crea Transazione'}
             </button>
@@ -1011,8 +820,4 @@ const AddTransactionForm = ({ onClose }) => {
   );
 };
 
-<<<<<<< HEAD
 export default AddTransactionForm;
-=======
-export default AddTransactionForm;
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1

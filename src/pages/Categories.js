@@ -1,5 +1,4 @@
 // src/pages/Categories.js
-<<<<<<< HEAD
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import './Categories.css';
@@ -48,22 +47,6 @@ const Categories = () => {
   const [filterType, setFilterType] = useState('all');
   const [expandedCategories, setExpandedCategories] = useState({});
 
-=======
-import React, { useState, useMemo } from 'react';
-import { useFinancial } from '../contexts/FinancialContext';
-import './Categories.css';
-
-const Categories = () => {
-  const { categories, addCategory, updateCategory, deleteCategory } = useFinancial();
-
-  const [showForm, setShowForm] = useState(false);
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [viewMode, setViewMode] = useState('list'); // lista come default
-  const [filterType, setFilterType] = useState('all');
-  const [expandedCategories, setExpandedCategories] = useState({});
-
-  // subCategories ora sono OGGETTI: { id, name }
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const [formData, setFormData] = useState({
     name: '',
     icon: '💰',
@@ -85,30 +68,17 @@ const Categories = () => {
     '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899',
   ];
 
-<<<<<<< HEAD
   const makeId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-=======
-  // --- Helpers ---
-
-  // Genera ID sicuro (senza dipendenze)
-  const makeId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  // Normalizza sottocategorie: supporta sia stringhe che oggetti
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const normalizeSubCategories = (arr) => {
     const input = Array.isArray(arr) ? arr : [];
     return input
       .map((sub) => {
-<<<<<<< HEAD
         if (typeof sub === 'string') {
           const name = sub.trim();
           if (!name) return null;
           return { id: makeId(), name };
         }
-=======
-        if (typeof sub === 'string') return { id: makeId(), name: sub.trim() };
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         if (sub && typeof sub === 'object') {
           const name = (sub.name ?? '').toString().trim();
           if (!name) return null;
@@ -119,16 +89,11 @@ const Categories = () => {
       .filter(Boolean);
   };
 
-<<<<<<< HEAD
-=======
-  // Prende una categoria e ritorna array di stringhe per la UI (lista/contatore)
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   const getSubcategoriesNames = (category) => {
     const arr = category?.subCategories || [];
     return arr.map((sub) => (typeof sub === 'string' ? sub : sub?.name)).filter(Boolean);
   };
 
-<<<<<<< HEAD
   /* Accordion su mobile (apre 1 sola categoria alla volta) */
   const toggleCategory = useCallback(
     (categoryId) => {
@@ -140,27 +105,13 @@ const Categories = () => {
     },
     [isMobile]
   );
-=======
-  const toggleCategory = (categoryId) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }));
-  };
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
   const handleAddSubcategory = () => {
     const name = newSubcategory.trim();
     if (!name) return;
 
-<<<<<<< HEAD
     const exists = (formData.subCategories || []).some(
       (s) => s?.name?.toLowerCase?.() === name.toLowerCase()
-=======
-    // evita duplicati (case-insensitive)
-    const exists = (formData.subCategories || []).some(
-      (s) => s.name.toLowerCase() === name.toLowerCase()
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     );
     if (exists) {
       setNewSubcategory('');
@@ -203,10 +154,6 @@ const Categories = () => {
         icon: formData.icon,
         color: formData.color,
         type: formData.type,
-<<<<<<< HEAD
-=======
-        // Salviamo SEMPRE oggetti {id,name}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
         subCategories: normalizeSubCategories(formData.subCategories),
       };
 
@@ -225,24 +172,13 @@ const Categories = () => {
 
   const handleEdit = (category) => {
     setEditingCategory(category);
-<<<<<<< HEAD
-=======
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     setFormData({
       name: category.name || '',
       icon: category.icon || '💰',
       color: category.color || '#3b82f6',
       type: category.type || 'expense',
-<<<<<<< HEAD
       subCategories: normalizeSubCategories(category.subCategories || []),
     });
-=======
-      // in edit normalizziamo (stringhe vecchie -> oggetti)
-      subCategories: normalizeSubCategories(category.subCategories || []),
-    });
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     setShowForm(true);
   };
 
@@ -274,7 +210,6 @@ const Categories = () => {
     }
   };
 
-<<<<<<< HEAD
   const filteredCategories = useMemo(() => {
     return allCategories.filter((cat) => filterType === 'all' || cat.type === filterType);
   }, [allCategories, filterType]);
@@ -429,23 +364,6 @@ const Categories = () => {
   };
 
   /* ==================== RENDER ==================== */
-=======
-  const filteredCategories = useMemo(
-    () => categories.filter((cat) => filterType === 'all' || cat.type === filterType),
-    [categories, filterType]
-  );
-
-  const incomeCategories = useMemo(
-    () => categories.filter((cat) => cat.type === 'income'),
-    [categories]
-  );
-
-  const expenseCategories = useMemo(
-    () => categories.filter((cat) => cat.type === 'expense'),
-    [categories]
-  );
-
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   return (
     <div className="categories-page">
       {/* Header */}
@@ -458,7 +376,6 @@ const Categories = () => {
         </div>
 
         <div className="header-actions">
-<<<<<<< HEAD
           {!isMobile && (
             <div className="view-controls">
               <button
@@ -475,22 +392,6 @@ const Categories = () => {
               </button>
             </div>
           )}
-=======
-          <div className="view-controls">
-            <button
-              className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              onClick={() => setViewMode('grid')}
-            >
-              <span>⊞</span> Griglia
-            </button>
-            <button
-              className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              <span>☰</span> Lista
-            </button>
-          </div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
@@ -501,7 +402,6 @@ const Categories = () => {
 
       {/* Statistiche */}
       <div className="stats-overview">
-<<<<<<< HEAD
         <div
           className={`stat-card total ${filterType === 'all' ? 'active-filter' : ''}`}
           onClick={() => setFilterType('all')}
@@ -535,68 +435,15 @@ const Categories = () => {
           <div className="stat-info">
             <div className="stat-value">{expenseCategories.length}</div>
             <div className="stat-label">Uscite</div>
-=======
-        <div className="stat-card total">
-          <div className="stat-icon">📊</div>
-          <div className="stat-info">
-            <div className="stat-value">{categories.length}</div>
-            <div className="stat-label">Totale Categorie</div>
-          </div>
-        </div>
-
-        <div className="stat-card income">
-          <div className="stat-icon">📈</div>
-          <div className="stat-info">
-            <div className="stat-value">{incomeCategories.length}</div>
-            <div className="stat-label">Categorie Entrate</div>
-          </div>
-        </div>
-
-        <div className="stat-card expense">
-          <div className="stat-icon">📉</div>
-          <div className="stat-info">
-            <div className="stat-value">{expenseCategories.length}</div>
-            <div className="stat-label">Categorie Uscite</div>
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           </div>
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Lista categorie */}
       <div className="categories-section">
         {isMobile ? (
           <div style={{ padding: 16 }}>{filteredCategories.map(renderMobileCard)}</div>
         ) : viewMode === 'grid' ? (
-=======
-      {/* Filtri */}
-      <div className="filter-section">
-        <div className="filter-tabs">
-          <button
-            className={`filter-tab ${filterType === 'all' ? 'active' : ''}`}
-            onClick={() => setFilterType('all')}
-          >
-            Tutte ({categories.length})
-          </button>
-          <button
-            className={`filter-tab ${filterType === 'income' ? 'active' : ''}`}
-            onClick={() => setFilterType('income')}
-          >
-            Entrate ({incomeCategories.length})
-          </button>
-          <button
-            className={`filter-tab ${filterType === 'expense' ? 'active' : ''}`}
-            onClick={() => setFilterType('expense')}
-          >
-            Uscite ({expenseCategories.length})
-          </button>
-        </div>
-      </div>
-
-      {/* Lista Categorie */}
-      <div className="categories-section">
-        {viewMode === 'grid' ? (
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
           <div className="categories-grid">
             {filteredCategories.map((category) => {
               const subcats = getSubcategoriesNames(category);
@@ -613,13 +460,8 @@ const Categories = () => {
                       <div
                         className="category-icon"
                         style={{
-<<<<<<< HEAD
                           backgroundColor: (category.color || '#3b82f6') + '20',
                           color: category.color || '#3b82f6',
-=======
-                          backgroundColor: category.color + '20',
-                          color: category.color,
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                         }}
                       >
                         {category.icon}
@@ -707,13 +549,8 @@ const Categories = () => {
                     <div
                       className="category-icon"
                       style={{
-<<<<<<< HEAD
                         backgroundColor: (category.color || '#3b82f6') + '20',
                         color: category.color || '#3b82f6',
-=======
-                        backgroundColor: category.color + '20',
-                        color: category.color,
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                       }}
                     >
                       {category.icon}
@@ -822,16 +659,7 @@ const Categories = () => {
                 <input
                   type="text"
                   value={formData.name}
-<<<<<<< HEAD
                   onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-=======
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
                   placeholder="Es. Alimentari, Stipendio..."
                   required
                 />
@@ -901,10 +729,6 @@ const Categories = () => {
                 </div>
               </div>
 
-<<<<<<< HEAD
-=======
-              {/* Sottocategorie */}
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
               <div className="form-group">
                 <label>Sottocategorie (opzionale)</label>
 

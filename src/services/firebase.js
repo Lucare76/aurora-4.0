@@ -23,12 +23,8 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-<<<<<<< HEAD
   updateProfile,
   sendPasswordResetEmail
-=======
-  updateProfile
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 
@@ -56,7 +52,6 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-<<<<<<< HEAD
 // Funzioni Auth wrapper
 export const loginWithEmail = async (email, password) => {
   return signInWithEmailAndPassword(auth, email, password);
@@ -70,8 +65,6 @@ export const resetPassword = async (email) => {
   return sendPasswordResetEmail(auth, email);
 };
 
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 // Esporta tutto
 export {
   db,

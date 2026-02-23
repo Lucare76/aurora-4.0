@@ -43,11 +43,7 @@ export const getBudgetsForDashboard = getBudgetsByMonth;
  * Crea o aggiorna il budget per una categoria nel mese.
  * Se esiste già, lo aggiorna (upsert logico).
  */
-<<<<<<< HEAD
 export async function upsertBudget(userId, year, month, categoryId, amount, categoryName = "") {
-=======
-export async function upsertBudget(userId, year, month, categoryId, amount) {
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
   if (!userId) throw new Error("userId mancante");
   if (!categoryId) throw new Error("categoryId mancante");
 
@@ -69,10 +65,7 @@ export async function upsertBudget(userId, year, month, categoryId, amount) {
     const existing = snap.docs[0];
     await updateDoc(doc(db, "budgets", existing.id), {
       amount: safeAmount,
-<<<<<<< HEAD
       categoryName: categoryName || "",
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
       updatedAt: serverTimestamp()
     });
     return existing.id;
@@ -84,10 +77,7 @@ export async function upsertBudget(userId, year, month, categoryId, amount) {
     year,
     month,
     categoryId,
-<<<<<<< HEAD
     categoryName: categoryName || "",
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
     amount: safeAmount,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
