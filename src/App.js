@@ -879,9 +879,26 @@ function InsightsSection({ transactions, categories, accounts, monthlyIncome, mo
   );
 }
 
+// ==================== CLOCK (componente isolato per evitare re-render globali) ====================
+function LiveClock() {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <div className="current-time">
+      {currentTime.toLocaleDateString('it-IT', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      })}
+      <br />
+      <span className="time">{currentTime.toLocaleTimeString('it-IT')}</span>
+    </div>
+  );
+}
+
 // ==================== DASHBOARD ====================
 function DashboardContent({ setActiveMenu, setPendingFilter }) {
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [activitySearch, setActivitySearch] = useState('');
   const { user, userSettings } = useAuth();
   const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
@@ -909,11 +926,6 @@ function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const [budgetsError, setBudgetsError] = useState('');
 
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1241,16 +1253,7 @@ function DashboardContent({ setActiveMenu, setPendingFilter }) {
         <div className="dashboard-header">
           <div className="header-main">
             <h1>Buongiorno, {user?.displayName?.split(' ')[0] || 'Utente'}! 👋</h1>
-            <div className="current-time">
-              {currentTime.toLocaleDateString('it-IT', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-              <br />
-              <span className="time">{currentTime.toLocaleTimeString('it-IT')}</span>
-            </div>
+            <LiveClock />
           </div>
           <button className="quick-add-btn" onClick={() => setActiveMenu('transactions')} type="button">
             + Transazione

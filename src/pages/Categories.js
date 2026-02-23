@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import './Categories.css';
 
+
 /* Hook per rilevare mobile (matchMedia) */
 function useIsMobile(breakpoint = 768) {
   const query = `(max-width: ${breakpoint}px)`;
@@ -37,6 +38,7 @@ const Categories = () => {
   const allCategories = useMemo(() => {
   return Array.isArray(categories) ? categories : [];
 }, [categories]);
+  };
 
 
   const isMobile = useIsMobile();
