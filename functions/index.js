@@ -30,14 +30,9 @@ const {DateTime} = require("luxon");
 admin.initializeApp();
 const db = admin.firestore();
 
-<<<<<<< HEAD
 // Definisci i secrets
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const visionApiKey = defineSecret("GOOGLE_VISION_API_KEY");
-=======
-// Definisci il secret per Resend
-const resendApiKey = defineSecret("RESEND_API_KEY");
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 
 /**
  * Returns a Resend client instance
@@ -691,7 +686,6 @@ exports.testBirthdayReminder = onRequest(
         });
       }
     },
-<<<<<<< HEAD
 );
 
 /**
@@ -870,6 +864,4 @@ exports.analyzeReceipt = onRequest(
         });
       }
     },
-=======
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
 );

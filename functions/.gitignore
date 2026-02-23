@@ -1,7 +1,3 @@
 node_modules/
-<<<<<<< HEAD
 *.local
 .env
-=======
-*.local
->>>>>>> 77b69d7e968b6f45bb6cd561da55df5202057ed1
