@@ -21,7 +21,7 @@
 
 const admin = require("firebase-admin");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onRequest} = require("firebase-functions/v2/https");
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const {Resend} = require("resend");
 const {DateTime} = require("luxon");
@@ -33,6 +33,7 @@ const db = admin.firestore();
 // Definisci i secrets
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const visionApiKey = defineSecret("GOOGLE_VISION_API_KEY");
+const ADMIN_EMAIL = "luca_renna@hotmail.com";
 
 /**
  * Returns a Resend client instance
@@ -48,6 +49,45 @@ function getResendClient() {
   }
 
   return new Resend(apiKey);
+}
+
+/**
+ * Send an email with Resend.
+ * @param {{to: string, subject: string, text: string, html?: string}} payload
+ * @return {Promise<import("resend").CreateEmailResponse>}
+ */
+async function sendEmail(payload) {
+  const resend = getResendClient();
+
+  return resend.emails.send({
+    from: "Aurora 4.0 <onboarding@resend.dev>",
+    to: payload.to,
+    subject: payload.subject,
+    text: payload.text,
+    html: payload.html,
+  });
+}
+
+/**
+ * Checks if the caller is authenticated and (optionally) admin.
+ * @param {import("firebase-functions/v2/https").CallableRequest} request
+ * @param {boolean} requireAdmin
+ */
+async function assertAuth(request, requireAdmin = false) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Unauthorized");
+  }
+
+  if (!requireAdmin) return;
+
+  const userSnap = await db.collection("users").doc(request.auth.uid).get();
+  if (!userSnap.exists) {
+    throw new HttpsError("not-found", "User not found");
+  }
+  const role = userSnap.data()?.role;
+  if (role !== "admin") {
+    throw new HttpsError("permission-denied", "Forbidden");
+  }
 }
 
 /**
@@ -689,6 +729,221 @@ exports.testBirthdayReminder = onRequest(
 );
 
 /**
+ * Callable: invia reminder compleanno singolo (frontend).
+ */
+exports.sendBirthdayReminderBrevo = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request);
+
+      const {
+        toEmail,
+        userName = "Utente",
+        birthdayName,
+        birthdayDate,
+        daysUntil,
+      } = request.data || {};
+
+      if (!toEmail || !birthdayName || !birthdayDate) {
+        throw new HttpsError("invalid-argument", "Missing required fields");
+      }
+
+      const subject = daysUntil != null
+        ? `Promemoria compleanno tra ${daysUntil} giorni 🎂`
+        : "Promemoria compleanno 🎂";
+
+      const text =
+        `Ciao ${userName},\n\n` +
+        `ti ricordiamo che il compleanno di ${birthdayName} è il ${birthdayDate}.\n` +
+        (daysUntil != null ? `Mancano ${daysUntil} giorni.\n\n` : "\n") +
+        "Non dimenticare di fare gli auguri!\n\n" +
+        "A presto,\nAurora 4.0";
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #8b5cf6;">🎂 Promemoria Compleanno</h2>
+          <p>Ciao <strong>${userName}</strong>,</p>
+          <p>Ti ricordiamo che il compleanno di <strong>${birthdayName}</strong> è il <strong>${birthdayDate}</strong>.</p>
+          ${daysUntil != null ? `<p>Mancano <strong>${daysUntil}</strong> giorni.</p>` : ""}
+          <p>Non dimenticare di fare gli auguri!</p>
+          <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">Aurora 4.0</p>
+        </div>
+      `;
+
+      const data = await sendEmail({to: toEmail, subject, text, html});
+
+      return {success: true, emailId: data?.id || null};
+    },
+);
+
+/**
+ * Callable: invia email di test (frontend).
+ */
+exports.sendTestEmailBrevo = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request);
+
+      const {toEmail, userName = "Utente"} = request.data || {};
+      if (!toEmail) {
+        throw new HttpsError("invalid-argument", "Missing toEmail");
+      }
+
+      const subject = "✅ Test Email Aurora 4.0";
+      const text =
+        `Ciao ${userName},\n\n` +
+        "Questa è una email di test da Aurora 4.0.\n\n" +
+        "Se la ricevi, la configurazione funziona correttamente.\n\n" +
+        "A presto,\nAurora 4.0";
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #22c55e;">✅ Test Email Aurora 4.0</h2>
+          <p>Ciao <strong>${userName}</strong>,</p>
+          <p>Questa è una email di test da Aurora 4.0.</p>
+          <p>Se la ricevi, la configurazione funziona correttamente.</p>
+          <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+          <p style="color: #666; font-size: 12px;">Aurora 4.0</p>
+        </div>
+      `;
+
+      const data = await sendEmail({to: toEmail, subject, text, html});
+      return {success: true, emailId: data?.id || null};
+    },
+);
+
+/**
+ * Callable: notifica admin nuovo utente.
+ */
+exports.sendNewUserNotification = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request);
+
+      const {email, displayName} = request.data || {};
+      if (!email) {
+        throw new HttpsError("invalid-argument", "Missing email");
+      }
+
+      const subject = "🆕 Nuovo utente in attesa di approvazione";
+      const text =
+        "È stato registrato un nuovo utente.\n\n" +
+        `Nome: ${displayName || "Nuovo utente"}\n` +
+        `Email: ${email}\n\n` +
+        "Accedi al pannello Admin per approvare o rifiutare.";
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #f97316;">🆕 Nuovo utente in attesa di approvazione</h2>
+          <p>È stato registrato un nuovo utente.</p>
+          <ul>
+            <li><strong>Nome:</strong> ${displayName || "Nuovo utente"}</li>
+            <li><strong>Email:</strong> ${email}</li>
+          </ul>
+          <p>Accedi al pannello Admin per approvare o rifiutare.</p>
+        </div>
+      `;
+
+      const data = await sendEmail({to: ADMIN_EMAIL, subject, text, html});
+      return {success: true, emailId: data?.id || null};
+    },
+);
+
+/**
+ * Callable: notifica utente approvato.
+ */
+exports.sendApprovalNotification = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request, true);
+
+      const {email, displayName} = request.data || {};
+      if (!email) {
+        throw new HttpsError("invalid-argument", "Missing email");
+      }
+
+      const subject = "✅ Account approvato - Aurora 4.0";
+      const text =
+        `Ciao ${displayName || "Utente"},\n\n` +
+        "Il tuo account è stato approvato. Ora puoi accedere ad Aurora 4.0.\n\n" +
+        "A presto,\nAurora 4.0";
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #22c55e;">✅ Account approvato</h2>
+          <p>Ciao <strong>${displayName || "Utente"}</strong>,</p>
+          <p>Il tuo account è stato approvato. Ora puoi accedere ad Aurora 4.0.</p>
+          <p>A presto!</p>
+        </div>
+      `;
+
+      const data = await sendEmail({to: email, subject, text, html});
+      return {success: true, emailId: data?.id || null};
+    },
+);
+
+/**
+ * Callable: notifica utente rifiutato.
+ */
+exports.sendRejectionNotification = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request, true);
+
+      const {email, displayName, reason} = request.data || {};
+      if (!email) {
+        throw new HttpsError("invalid-argument", "Missing email");
+      }
+
+      const subject = "❌ Account non approvato - Aurora 4.0";
+      const text =
+        `Ciao ${displayName || "Utente"},\n\n` +
+        "Il tuo account non è stato approvato.\n" +
+        (reason ? `Motivo: ${reason}\n\n` : "\n") +
+        "Per assistenza, contatta il supporto.";
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h2 style="color: #ef4444;">❌ Account non approvato</h2>
+          <p>Ciao <strong>${displayName || "Utente"}</strong>,</p>
+          <p>Il tuo account non è stato approvato.</p>
+          ${reason ? `<p><strong>Motivo:</strong> ${reason}</p>` : ""}
+          <p>Per assistenza, contatta il supporto.</p>
+        </div>
+      `;
+
+      const data = await sendEmail({to: email, subject, text, html});
+      return {success: true, emailId: data?.id || null};
+    },
+);
+
+/**
  * Parsa il testo OCR di uno scontrino per estrarre importo, esercente e data.
  *
  * @param {string} rawText - Testo estratto dall'OCR
@@ -768,6 +1023,53 @@ function parseReceiptText(rawText) {
 }
 
 /**
+ * Runs OCR + parsing for a receipt image.
+ * @param {string} imageBase64
+ * @return {Promise<{rawText: string, parsed: {amount: number|null, merchant: string|null, date: string|null}}>}
+ */
+async function analyzeReceiptImage(imageBase64) {
+  const base64Clean = imageBase64.replace(
+      /^data:image\/[a-zA-Z+]+;base64,/,
+      "",
+  );
+
+  const apiKey = visionApiKey.value();
+  if (!apiKey) {
+    throw new Error("GOOGLE_VISION_API_KEY non configurata");
+  }
+
+  const visionUrl =
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
+
+  const visionResponse = await fetch(visionUrl, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      requests: [
+        {
+          image: {content: base64Clean},
+          features: [{type: "TEXT_DETECTION", maxResults: 1}],
+        },
+      ],
+    }),
+  });
+
+  if (!visionResponse.ok) {
+    const errorBody = await visionResponse.text();
+    console.error("Vision API error:", errorBody);
+    throw new Error(`Vision API error: ${visionResponse.status}`);
+  }
+
+  const visionData = await visionResponse.json();
+  const annotation =
+    visionData.responses?.[0]?.textAnnotations?.[0];
+  const rawText = annotation?.description || "";
+  const parsed = parseReceiptText(rawText);
+
+  return {rawText, parsed};
+}
+
+/**
  * Cloud Function per analizzare scontrini tramite Google Cloud Vision API.
  * Riceve un'immagine in base64, estrae il testo OCR e parsa importo/esercente/data.
  */
@@ -791,61 +1093,7 @@ exports.analyzeReceipt = onRequest(
           return;
         }
 
-        // Rimuovi eventuale prefisso data URI
-        const base64Clean = imageBase64.replace(
-            /^data:image\/[a-zA-Z+]+;base64,/, "",
-        );
-
-        const apiKey = visionApiKey.value();
-        if (!apiKey) {
-          throw new Error("GOOGLE_VISION_API_KEY non configurata");
-        }
-
-        // Chiama Google Cloud Vision API
-        const visionUrl =
-          `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`;
-
-        const visionResponse = await fetch(visionUrl, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            requests: [
-              {
-                image: {content: base64Clean},
-                features: [{type: "TEXT_DETECTION", maxResults: 1}],
-              },
-            ],
-          }),
-        });
-
-        if (!visionResponse.ok) {
-          const errorBody = await visionResponse.text();
-          console.error("Vision API error:", errorBody);
-          throw new Error(`Vision API error: ${visionResponse.status}`);
-        }
-
-        const visionData = await visionResponse.json();
-
-        const annotation =
-          visionData.responses?.[0]?.textAnnotations?.[0];
-        const rawText = annotation?.description || "";
-
-        if (!rawText) {
-          res.status(200).json({
-            success: true,
-            data: {
-              amount: null,
-              merchant: null,
-              date: null,
-              rawText: "",
-            },
-            message: "Nessun testo rilevato nell'immagine",
-          });
-          return;
-        }
-
-        // Parsa il testo OCR
-        const parsed = parseReceiptText(rawText);
+        const {rawText, parsed} = await analyzeReceiptImage(imageBase64);
 
         res.status(200).json({
           success: true,
@@ -863,5 +1111,37 @@ exports.analyzeReceipt = onRequest(
           error: error.message || "Errore durante l'analisi dello scontrino",
         });
       }
+    },
+);
+
+/**
+ * Callable: analizza scontrino via OCR.
+ */
+exports.analyzeReceiptCallable = onCall(
+    {
+      secrets: [visionApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request);
+
+      const {imageBase64} = request.data || {};
+      if (!imageBase64) {
+        throw new HttpsError("invalid-argument", "Parametro imageBase64 mancante");
+      }
+
+      const {rawText, parsed} = await analyzeReceiptImage(imageBase64);
+
+      return {
+        success: true,
+        data: {
+          amount: parsed.amount,
+          merchant: parsed.merchant,
+          date: parsed.date,
+          rawText: rawText,
+        },
+      };
     },
 );

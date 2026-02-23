@@ -72,6 +72,15 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         .trim(),
     []
   );
+  const normalizeDescKey = useCallback(
+    (value) =>
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim(),
+    []
+  );
 
   // === DATE HELPERS ===
   const parseDate = (date) => {
@@ -105,6 +114,17 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
     });
   };
+
+  const dateKey = useCallback(
+    (value) => {
+      let d = value instanceof Date ? value : null;
+      if (!d && value && typeof value.toDate === 'function') d = value.toDate();
+      if (!d) d = new Date(value);
+      if (Number.isNaN(d.getTime())) d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    []
+  );
 
   // === NORMALIZZAZIONE CAMPI (compatibile tx vecchie/nuove) ===
   const getCategoryId = useCallback((tx) => tx?.categoryId || tx?.category || null, []);
@@ -244,6 +264,113 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     list.sort((a, b) => parseDate(b.date) - parseDate(a.date));
     return list;
   }, [transactions, isTransferTx, accountMap]);
+
+  const [dedupeBusy, setDedupeBusy] = useState(false);
+  const duplicateSummary = useMemo(() => {
+    if (!transactions?.length) return { groups: 0, duplicates: 0 };
+
+    const groups = new Map();
+    for (const tx of transactions) {
+      if (isTransferTx(tx)) continue;
+      const amountRaw = Number(tx?.amount) || 0;
+      const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+      const amountAbs = Math.abs(amountRaw).toFixed(2);
+      const accKey = String(tx?.accountId || tx?.accountName || '').trim().toLowerCase();
+      const key = `${dateKey(tx?.date)}|${type}|${amountAbs}|${normalizeDescKey(tx?.description)}|${accKey}`;
+      if (!groups.has(key)) groups.set(key, 0);
+      groups.set(key, groups.get(key) + 1);
+    }
+
+    let dupGroups = 0;
+    let dupCount = 0;
+    for (const count of groups.values()) {
+      if (count > 1) {
+        dupGroups += 1;
+        dupCount += (count - 1);
+      }
+    }
+
+    return { groups: dupGroups, duplicates: dupCount };
+  }, [transactions, isTransferTx, dateKey, normalizeDescKey]);
+
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (!transactions?.length || dedupeBusy) return;
+
+    setDedupeBusy(true);
+    try {
+      const groups = new Map();
+
+      for (const tx of transactions) {
+        if (isTransferTx(tx)) continue;
+        const amountRaw = Number(tx?.amount) || 0;
+        const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+        const amountAbs = Math.abs(amountRaw).toFixed(2);
+        const accKey = String(tx?.accountId || tx?.accountName || '').trim().toLowerCase();
+        const key = `${dateKey(tx?.date)}|${type}|${amountAbs}|${normalizeDescKey(tx?.description)}|${accKey}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(tx);
+      }
+
+      const duplicateGroups = [...groups.values()].filter((g) => g.length > 1);
+      if (!duplicateGroups.length) {
+        alert('Nessun duplicato trovato.');
+        return;
+      }
+
+      const totalDuplicates = duplicateGroups.reduce((sum, g) => sum + (g.length - 1), 0);
+      const sample = duplicateGroups[0]?.[0];
+      const sampleDate = sample ? dateKey(sample.date) : '';
+      const sampleAmount = sample ? Math.abs(Number(sample.amount) || 0).toFixed(2) : '';
+      const sampleDesc = sample ? (sample.description || '') : '';
+      const sampleAcc = sample ? (accountMap[sample.accountId] || sample.accountName || '') : '';
+      const proceed = window.confirm(
+        `Trovati ${totalDuplicates} duplicati in ${duplicateGroups.length} gruppi.\n` +
+        (sample ? `Esempio:\n${sampleDate} • EUR ${sampleAmount}\n${sampleAcc ? `Conto: ${sampleAcc}\n` : ''}${sampleDesc}\n\n` : '') +
+        `Vuoi rimuovere i duplicati lasciando una sola transazione per gruppo?`
+      );
+      if (!proceed) return;
+
+      const removed = [];
+
+      for (const group of duplicateGroups) {
+        const sorted = [...group].sort((a, b) => parseDate(a.date) - parseDate(b.date));
+        const toDelete = sorted.slice(1);
+        for (const tx of toDelete) {
+          await deleteTransaction(tx.id);
+          removed.push(tx);
+        }
+      }
+
+      const csvRows = [
+        ['date', 'type', 'amount', 'account', 'description', 'id'].join(',')
+      ];
+      for (const tx of removed) {
+        const amountRaw = Number(tx?.amount) || 0;
+        const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+        const amountAbs = Math.abs(amountRaw).toFixed(2);
+        const accountLabel = accountMap[tx.accountId] || tx.accountName || '';
+        const desc = String(tx.description || '').replace(/"/g, '""');
+        csvRows.push(
+          `"${dateKey(tx.date)}","${type}","${amountAbs}","${String(accountLabel).replace(/"/g, '""')}","${desc}","${tx.id}"`
+        );
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `duplicati-rimossi-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      alert(`Duplicati rimossi: ${totalDuplicates}. È stato scaricato un CSV di riepilogo.`);
+    } catch (err) {
+      console.error('Errore rimozione duplicati:', err);
+      alert('Errore durante la rimozione dei duplicati.');
+    } finally {
+      setDedupeBusy(false);
+    }
+  }, [transactions, isTransferTx, deleteTransaction, normalizeDescKey, dateKey, dedupeBusy]);
 
   // === FILTRI + ORDINAMENTO (sui displayTransactions) ===
   const filteredTransactions = useMemo(() => {
@@ -496,6 +623,14 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
             Aggiungi Transazione
+          </button>
+          <button className="secondary-btn" onClick={handleRemoveDuplicates} type="button" disabled={dedupeBusy}>
+            {dedupeBusy ? 'Rimozione...' : 'Rimuovi Duplicati'}
+            {duplicateSummary.duplicates > 0 && !dedupeBusy && (
+              <span style={{ marginLeft: 8, fontWeight: 700 }}>
+                ({duplicateSummary.duplicates})
+              </span>
+            )}
           </button>
           <button className="secondary-btn export-btn" onClick={exportFilteredCsv} type="button">
             Esporta CSV
@@ -834,5 +969,3 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 };
 
 export default Transactions;
-
-

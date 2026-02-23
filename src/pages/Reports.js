@@ -117,6 +117,13 @@ function Reports() {
   // -----------------------------
   const todayISO = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  const parseDateInput = useCallback((value) => {
+    if (!value) return null;
+    const [y, m, d] = String(value).split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, []);
+
   const [dateRange, setDateRange] = useState(() => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -171,18 +178,18 @@ function Reports() {
   // Normalizzazione date
   // -----------------------------
   const normalizedStartDate = useMemo(() => {
-    if (!dateRange.start) return null;
-    const d = new Date(dateRange.start);
+    const d = parseDateInput(dateRange.start);
+    if (!d) return null;
     d.setHours(0, 0, 0, 0);
     return d;
-  }, [dateRange.start]);
+  }, [dateRange.start, parseDateInput]);
 
   const normalizedEndDate = useMemo(() => {
-    if (!dateRange.end) return null;
-    const d = new Date(dateRange.end);
+    const d = parseDateInput(dateRange.end);
+    if (!d) return null;
     d.setHours(23, 59, 59, 999);
     return d;
-  }, [dateRange.end]);
+  }, [dateRange.end, parseDateInput]);
 
   // -----------------------------
   // Subcategories per select
@@ -1020,12 +1027,13 @@ function Reports() {
                   categories={categories}
                 />
                 <InsightsPanel
-                  transactions={transactions}
+                  transactions={filteredTransactions}
+                  comparisonTransactions={transactions}
                   categories={categories}
                   accounts={accounts}
                   formatEUR={formatEUR}
-                  currentMonth={new Date(dateRange.start).getMonth()}
-                  currentYear={new Date(dateRange.start).getFullYear()}
+                  currentMonth={(parseDateInput(dateRange.end) || new Date()).getMonth()}
+                  currentYear={(parseDateInput(dateRange.end) || new Date()).getFullYear()}
                   monthlyIncome={stats.income}
                   monthlyExpenses={stats.expenses}
                 />

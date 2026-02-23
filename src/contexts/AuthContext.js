@@ -229,11 +229,14 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, [setUserFromFirebaseUser, getAuthErrorMessage]);
 
+  const isAdmin = userApprovalStatus?.role === 'admin';
+
   // 📦 VALORE DEL CONTESTO (MEMOIZZATO)
   const value = useMemo(() => ({
     user,
     userData,
     userApprovalStatus,
+    isAdmin,
     userSettings,
     setUserSettings,
     loginWithGoogle,
@@ -249,6 +252,7 @@ export const AuthProvider = ({ children }) => {
     user,
     userData,
     userApprovalStatus,
+    isAdmin,
     userSettings,
     loginWithGoogle,
     login,

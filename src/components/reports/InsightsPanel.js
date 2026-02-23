@@ -19,6 +19,7 @@ const fallbackMoney = (value) => {
 
 const InsightsPanel = ({
   transactions,
+  comparisonTransactions,
   categories,
   accounts,
   currentMonth,
@@ -27,7 +28,8 @@ const InsightsPanel = ({
   monthlyExpenses,
   formatEUR
 }) => {
-  const comp = getMonthComparison(transactions, currentMonth, currentYear);
+  const comparisonSource = comparisonTransactions || transactions;
+  const comp = getMonthComparison(comparisonSource, currentMonth, currentYear);
   const growth = getTopGrowingCategory(transactions, categories, currentMonth, currentYear, accounts);
   const anomalies = getAnomalies(transactions, categories, currentMonth, currentYear);
   const savings = getSavingsRate(monthlyIncome, monthlyExpenses);
@@ -49,13 +51,22 @@ const InsightsPanel = ({
             <span className="insight-title-text">Vs Mese Scorso</span>
             <div className="insight-icon-circle">T</div>
           </div>
-          <div className="insight-value-large" style={{ color: comp.percentChange > 0 ? '#ef4444' : '#10b981' }}>
-            {comp.percentChange > 0 ? '+' : ''}
-            {comp.percentChange.toFixed(1)}%
-          </div>
-          <div className="insight-subtext">
-            Hai speso {comp.percentChange > 0 ? 'più' : 'meno'} rispetto a {money(comp.prevTotal)} precedenti.
-          </div>
+          {comp.percentChange === null ? (
+            <>
+              <div className="insight-value-large">N/D</div>
+              <div className="insight-subtext">Nessuna spesa nel mese precedente.</div>
+            </>
+          ) : (
+            <>
+              <div className="insight-value-large" style={{ color: comp.percentChange > 0 ? '#ef4444' : '#10b981' }}>
+                {comp.percentChange > 0 ? '+' : ''}
+                {comp.percentChange.toFixed(1)}%
+              </div>
+              <div className="insight-subtext">
+                Hai speso {comp.percentChange > 0 ? 'più' : 'meno'} rispetto a {money(comp.prevTotal)} precedenti.
+              </div>
+            </>
+          )}
         </div>
 
         <div className="insight-card">

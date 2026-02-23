@@ -12,7 +12,7 @@ const NF_CATEGORY_MAP_KEY = "aurora_notafacile_category_map_v1";
 const NF_ACCOUNT_MAP_KEY = "aurora_notafacile_account_map_v1";
 
 export default function Importa() {
-  const { accounts = [], categories = [], createTransaction, createTransfer } = useFinancial();
+  const { accounts = [], categories = [], transactions = [], createTransaction, createTransfer } = useFinancial();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -201,6 +201,33 @@ export default function Importa() {
 
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
+  const normalizeDateKey = (value) => {
+    if (!value) return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const makeTxKey = (date, type, amount) => {
+    const dateKey = normalizeDateKey(date);
+    const amt = Math.abs(Number(amount) || 0).toFixed(2);
+    return `${dateKey}|${type || 'unknown'}|${amt}`;
+  };
+
+  const normalizeDescKey = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const makeTxKeyWithDesc = (date, type, amount, description, accountId) => {
+    const base = makeTxKey(date, type, amount);
+    const descKey = normalizeDescKey(description);
+    const accKey = String(accountId || '').trim().toLowerCase();
+    return `${base}|${descKey}|${accKey}`;
+  };
+
   const onConfirmImport = async () => {
     if (!rows.length) return;
 
@@ -233,6 +260,15 @@ export default function Importa() {
     setProgress({ done: 0, total: importableRows.length });
 
     try {
+      const existingKeys = new Set(
+        (transactions || []).map((t) => {
+          const tType = t?.type || (Number(t?.amount) >= 0 ? 'income' : 'expense');
+          return makeTxKeyWithDesc(t?.date, tType, t?.amount, t?.description, t?.accountId || t?.accountName);
+        })
+      );
+
+      const importedKeys = new Set();
+
       for (let i = 0; i < importableRows.length; i++) {
         const r = importableRows[i];
 
@@ -246,25 +282,59 @@ export default function Importa() {
             date: r.date
           });
         } else if (isNotafacile) {
+          const rowType = r.type || (r.amount >= 0 ? "income" : "expense");
+          const duplicateKey = makeTxKeyWithDesc(r.date, rowType, r.amount, r.description, r.accountId || r.accountName);
+          if (duplicateKey && (existingKeys.has(duplicateKey) || importedKeys.has(duplicateKey))) {
+            const proceed = window.confirm(
+              `Attenzione: esiste già una transazione simile (stessa data e importo).\n` +
+              `Vuoi importarla comunque?\n\n` +
+              `Data: ${normalizeDateKey(r.date)}\n` +
+              `Importo: EUR ${Math.abs(Number(r.amount) || 0).toFixed(2)}\n` +
+              `Descrizione: ${r.description || ''}`
+            );
+            if (!proceed) {
+              setProgress({ done: i + 1, total: importableRows.length });
+              continue;
+            }
+          }
+
           await createTransaction({
             accountId: r.accountId || null,
             date: r.date,
             description: r.description,
             amount: Math.abs(r.amount),
-            type: r.type || (r.amount >= 0 ? "income" : "expense"),
+            type: rowType,
             category: r.categoryId || r.category || r.categoryName || null,
             subCategory: r.subCategoryId || r.subCategory || null,
             source: "notafacile_import"
           });
+          if (duplicateKey) importedKeys.add(duplicateKey);
         } else {
+          const rowType = r.amount >= 0 ? "income" : "expense";
+          const duplicateKey = makeTxKeyWithDesc(r.date, rowType, r.amount, r.description, selectedAccountId);
+          if (duplicateKey && (existingKeys.has(duplicateKey) || importedKeys.has(duplicateKey))) {
+            const proceed = window.confirm(
+              `Attenzione: esiste già una transazione simile (stessa data e importo).\n` +
+              `Vuoi importarla comunque?\n\n` +
+              `Data: ${normalizeDateKey(r.date)}\n` +
+              `Importo: EUR ${Math.abs(Number(r.amount) || 0).toFixed(2)}\n` +
+              `Descrizione: ${r.description || ''}`
+            );
+            if (!proceed) {
+              setProgress({ done: i + 1, total: importableRows.length });
+              continue;
+            }
+          }
+
           await createTransaction({
             accountId: selectedAccountId,
             date: r.date,
             description: r.description,
             amount: Math.abs(r.amount),
-            type: r.amount >= 0 ? "income" : "expense",
+            type: rowType,
             category: r.category
           });
+          if (duplicateKey) importedKeys.add(duplicateKey);
         }
 
         if ((i + 1) % 5 === 0 || i === importableRows.length - 1) {

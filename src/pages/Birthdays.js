@@ -104,13 +104,14 @@ function Birthdays() {
     const toNotify = checkUpcomingBirthdays(birthdays);
 
     for (const birthday of toNotify) {
+      const daysUntil = getDaysUntilBirthday(birthday.date);
       // Invia email
       const result = await sendBirthdayReminder(
         {
           email: user.email,
           displayName: user.displayName
         },
-        birthday
+        { ...birthday, daysUntil }
       );
 
       if (result.success) {
@@ -125,7 +126,7 @@ function Birthdays() {
     }
   }, [birthdays, emailConfigured, user?.email, user?.displayName]);
 
-  // All'avvio o cambio utente: carica compleanni e controlla EmailJS
+  // All'avvio o cambio utente: carica compleanni e controlla email/Functions
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -254,7 +255,7 @@ function Birthdays() {
           <div className="header-actions">
             {!emailConfigured && (
               <div className="warning-badge">
-                <FiAlertCircle /> EmailJS non configurato
+                <FiAlertCircle /> Email/Functions non configurato
               </div>
             )}
             <button className="btn-primary" onClick={() => setShowForm(true)}>
@@ -449,25 +450,12 @@ function Birthdays() {
         {!emailConfigured && (
           <div className="config-guide">
             <h3>
-              <FiAlertCircle /> Configura EmailJS per Ricevere Notifiche
+              <FiAlertCircle /> Configura Email/Functions per Ricevere Notifiche
             </h3>
             <ol>
-              <li>
-                Vai su{' '}
-                <a href="https://www.emailjs.com/" target="_blank" rel="noopener noreferrer">
-                  EmailJS.com
-                </a>{' '}
-                e crea un account gratuito
-              </li>
-              <li>Aggiungi un servizio email (Gmail, Outlook, etc.)</li>
-              <li>
-                Crea un template email con queste variabili: <code>{'{{user_name}}'}</code>,{' '}
-                <code>{'{{birthday_name}}'}</code>, <code>{'{{birthday_date}}'}</code>
-              </li>
-              <li>
-                Copia Service ID, Template ID e Public Key nel file <code>src/services/emailService.js</code>
-              </li>
-              <li>Riavvia l'app e testa l'invio!</li>
+              <li>Imposta il secret <code>RESEND_API_KEY</code> nelle Firebase Functions</li>
+              <li>Deploy delle Functions con i nomi configurati in <code>src/services/emailService.js</code></li>
+              <li>Controlla i log delle Functions in caso di errori</li>
             </ol>
           </div>
         )}

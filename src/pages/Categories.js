@@ -1,6 +1,8 @@
 // src/pages/Categories.js
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
+import { db } from '../services/firebase';
+import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import './Categories.css';
 
 
@@ -34,7 +36,7 @@ function useIsMobile(breakpoint = 768) {
 }
 
 const Categories = () => {
-  const { categories, addCategory, updateCategory, deleteCategory } = useFinancial();
+  const { categories, transactions = [], addCategory, updateCategory, deleteCategory } = useFinancial();
   const allCategories = useMemo(() => {
   return Array.isArray(categories) ? categories : [];
 }, [categories]);
@@ -57,6 +59,7 @@ const Categories = () => {
   });
 
   const [newSubcategory, setNewSubcategory] = useState('');
+  const [cleanupBusy, setCleanupBusy] = useState(false);
 
   const defaultIcons = [
     '💰', '🛒', '🚗', '🎬', '🏥', '📋', '🛍️', '🍽️', '🏠', '💼',
@@ -70,6 +73,12 @@ const Categories = () => {
   ];
 
   const makeId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const normalizeKey = (value) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
 
   const normalizeSubCategories = (arr) => {
     const input = Array.isArray(arr) ? arr : [];
@@ -208,6 +217,162 @@ const Categories = () => {
       }
 
       alert(errorMessage);
+    }
+  };
+
+  const handleUppercaseDescriptions = async () => {
+    if (cleanupBusy) return;
+    const toUpdate = (transactions || []).filter((t) => {
+      const current = String(t?.description || '');
+      if (!current.trim()) return false;
+      return current.toLocaleUpperCase('it-IT') !== current;
+    });
+
+    if (!toUpdate.length) {
+      alert('Nessuna descrizione da uniformare.');
+      return;
+    }
+
+    const ok = window.confirm(`Vuoi rendere MAIUSCOLE ${toUpdate.length} descrizioni?`);
+    if (!ok) return;
+
+    setCleanupBusy(true);
+    try {
+      let batch = writeBatch(db);
+      let count = 0;
+      let updated = 0;
+
+      for (const t of toUpdate) {
+        const nextDesc = String(t.description || '').toLocaleUpperCase('it-IT').trim();
+        if (!nextDesc) continue;
+        batch.update(doc(db, 'transactions', t.id), { description: nextDesc });
+        count++;
+        updated++;
+
+        if (count >= 400) {
+          await batch.commit();
+          batch = writeBatch(db);
+          count = 0;
+        }
+      }
+
+      if (count > 0) await batch.commit();
+      alert(`Descrizioni uniformate: ${updated}`);
+    } catch (error) {
+      console.error('Errore uniformazione descrizioni:', error);
+      alert('Errore durante l’uniformazione delle descrizioni.');
+    } finally {
+      setCleanupBusy(false);
+    }
+  };
+
+  const handleMergeDuplicateCategories = async () => {
+    if (cleanupBusy) return;
+    if (!allCategories.length) return;
+
+    const groups = new Map();
+    for (const cat of allCategories) {
+      const key = `${normalizeKey(cat.name)}|${cat.type || 'expense'}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(cat);
+    }
+
+    const duplicateGroups = [...groups.values()].filter((g) => g.length > 1);
+    if (!duplicateGroups.length) {
+      alert('Nessuna categoria duplicata trovata.');
+      return;
+    }
+
+    const totalDuplicates = duplicateGroups.reduce((sum, g) => sum + (g.length - 1), 0);
+    const ok = window.confirm(
+      `Trovate ${totalDuplicates} categorie duplicate in ${duplicateGroups.length} gruppi.\n` +
+      'Vuoi unirle e aggiornare le transazioni collegate?'
+    );
+    if (!ok) return;
+
+    setCleanupBusy(true);
+    try {
+      const txByCategory = new Map();
+      for (const t of transactions || []) {
+        if (!t?.categoryId) continue;
+        const list = txByCategory.get(t.categoryId) || [];
+        list.push(t);
+        txByCategory.set(t.categoryId, list);
+      }
+
+      for (const group of duplicateGroups) {
+        // scegli canonical: quello con più transazioni
+        const sorted = [...group].sort((a, b) => {
+          const ca = (txByCategory.get(a.id) || []).length;
+          const cb = (txByCategory.get(b.id) || []).length;
+          return cb - ca;
+        });
+        const canonical = sorted[0];
+        const duplicates = sorted.slice(1);
+
+        const canonicalSubs = Array.isArray(canonical.subCategories) ? [...canonical.subCategories] : [];
+        const subByName = new Map(
+          canonicalSubs.map((s) => [normalizeKey(s?.name), s])
+        );
+
+        // unisci sottocategorie
+        for (const dup of duplicates) {
+          const dupSubs = Array.isArray(dup.subCategories) ? dup.subCategories : [];
+          for (const sub of dupSubs) {
+            const key = normalizeKey(sub?.name);
+            if (!key || subByName.has(key)) continue;
+            subByName.set(key, sub);
+            canonicalSubs.push(sub);
+          }
+        }
+
+        if (canonicalSubs.length !== canonical.subCategories?.length) {
+          await updateCategory(canonical.id, { subCategories: canonicalSubs });
+        }
+
+        // mappa sottocategorie canonical per nome
+        const canonicalSubMap = new Map(
+          canonicalSubs.map((s) => [normalizeKey(s?.name), s])
+        );
+
+        // aggiorna transazioni dei duplicati
+        let batch = writeBatch(db);
+        let count = 0;
+
+        for (const dup of duplicates) {
+          const txs = txByCategory.get(dup.id) || [];
+          for (const t of txs) {
+            const subKey = normalizeKey(t.subCategoryName || '');
+            const mapped = canonicalSubMap.get(subKey);
+            batch.update(doc(db, 'transactions', t.id), {
+              categoryId: canonical.id,
+              categoryName: canonical.name,
+              subCategoryId: mapped?.id || null,
+              subCategoryName: mapped?.name || (t.subCategoryName || '')
+            });
+            count++;
+            if (count >= 400) {
+              await batch.commit();
+              batch = writeBatch(db);
+              count = 0;
+            }
+          }
+        }
+
+        if (count > 0) await batch.commit();
+
+        // elimina categorie duplicate
+        for (const dup of duplicates) {
+          await deleteCategory(dup.id);
+        }
+      }
+
+      alert('Categorie duplicate unite con successo.');
+    } catch (error) {
+      console.error('Errore unione categorie duplicate:', error);
+      alert('Errore durante l’unione delle categorie duplicate.');
+    } finally {
+      setCleanupBusy(false);
     }
   };
 
@@ -393,6 +558,24 @@ const Categories = () => {
               </button>
             </div>
           )}
+
+          <button
+            className="secondary-btn"
+            onClick={handleUppercaseDescriptions}
+            type="button"
+            disabled={cleanupBusy}
+          >
+            {cleanupBusy ? 'Pulizia...' : 'Uniforma Descrizioni'}
+          </button>
+
+          <button
+            className="secondary-btn"
+            onClick={handleMergeDuplicateCategories}
+            type="button"
+            disabled={cleanupBusy}
+          >
+            {cleanupBusy ? 'Pulizia...' : 'Unisci Categorie Duplicate'}
+          </button>
 
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>

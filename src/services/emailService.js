@@ -3,9 +3,9 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import { getApp } from "firebase/app";
 
 /**
- * Config Brevo via Firebase Functions
+ * Config Resend via Firebase Functions
  * - Il frontend NON invia email direttamente.
- * - Chiama una Cloud Function che usa Brevo e può inviare anche se l'app è offline.
+ * - Chiama una Cloud Function che usa Resend e può inviare anche se l'app è offline.
  *
  * Richiede:
  * 1) Firebase inizializzato (getApp()).
@@ -15,18 +15,19 @@ import { getApp } from "firebase/app";
 // Nomi delle Cloud Functions (callable)
 const FN_SEND_BIRTHDAY_REMINDER = "sendBirthdayReminderBrevo";
 const FN_SEND_TEST_EMAIL = "sendTestEmailBrevo";
+const FUNCTIONS_REGION = "europe-west1";
 
 /**
  * Inizializza (opzionale) - qui serve solo per verificare che Functions siano disponibili
  */
 export function initEmailJS() {
   // Mantengo il nome export per compatibilità col resto dell'app
-  // (ma ora non è EmailJS, è Brevo via Functions).
+  // (ma ora non è EmailJS, è Resend via Functions).
   if (!isEmailJSConfigured()) {
-    console.warn("⚠️ Brevo/Functions non configurate correttamente");
+    console.warn("⚠️ Resend/Functions non configurate correttamente");
     return;
   }
-  console.log("✅ Email service pronto (Brevo via Firebase Functions)");
+  console.log("✅ Email service pronto (Resend via Firebase Functions)");
 }
 
 /**
@@ -43,7 +44,7 @@ export function isEmailJSConfigured() {
 }
 
 /**
- * Invia email reminder compleanno (tramite Cloud Function -> Brevo)
+ * Invia email reminder compleanno (tramite Cloud Function -> Resend)
  */
 export async function sendBirthdayReminder(userData, birthdayData) {
   try {
@@ -56,7 +57,7 @@ export async function sendBirthdayReminder(userData, birthdayData) {
     }
 
     const app = getApp();
-    const functions = getFunctions(app);
+    const functions = getFunctions(app, FUNCTIONS_REGION);
 
     const sendFn = httpsCallable(functions, FN_SEND_BIRTHDAY_REMINDER);
 
@@ -66,8 +67,7 @@ export async function sendBirthdayReminder(userData, birthdayData) {
       userName: userData.displayName || "Utente",
       birthdayName: birthdayData.name,
       birthdayDate: birthdayData.date,
-      // se vuoi puoi calcolare days_until lato backend o passarlo dal frontend
-      // daysUntil: birthdayData.daysUntil
+      daysUntil: birthdayData.daysUntil
     };
 
     const result = await sendFn(payload);
@@ -78,7 +78,7 @@ export async function sendBirthdayReminder(userData, birthdayData) {
       data: result.data
     };
   } catch (error) {
-    console.error("❌ Errore invio email (Brevo):", error);
+    console.error("❌ Errore invio email (Resend):", error);
     return {
       success: false,
       error: error?.message || "Errore invio email"
@@ -87,7 +87,7 @@ export async function sendBirthdayReminder(userData, birthdayData) {
 }
 
 /**
- * Invia email di test (tramite Cloud Function -> Brevo)
+ * Invia email di test (tramite Cloud Function -> Resend)
  */
 export async function sendTestEmail(userEmail, userName) {
   try {
@@ -100,7 +100,7 @@ export async function sendTestEmail(userEmail, userName) {
     }
 
     const app = getApp();
-    const functions = getFunctions(app);
+    const functions = getFunctions(app, FUNCTIONS_REGION);
 
     const sendFn = httpsCallable(functions, FN_SEND_TEST_EMAIL);
 
@@ -117,7 +117,7 @@ export async function sendTestEmail(userEmail, userName) {
       message: "Email di test inviata con successo!"
     };
   } catch (error) {
-    console.error("❌ Errore test email (Brevo):", error);
+    console.error("❌ Errore test email (Resend):", error);
     return {
       success: false,
       error: error?.message || "Errore test email"
