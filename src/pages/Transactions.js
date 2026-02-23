@@ -174,9 +174,20 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
     for (const tx of transactions) {
       if (isTransferTx(tx) && tx.transferId) {
+        // Giroconto a due gambe creato dall'app (con transferId)
         const g = transferGroups.get(tx.transferId) || [];
         g.push(tx);
         transferGroups.set(tx.transferId, g);
+      } else if (tx.type === 'transfer' || (isTransferTx(tx) && !tx.transferId)) {
+        // Giroconto a gamba singola (es. importato da NotaFacile senza transferId)
+        list.push({
+          ...tx,
+          __displayType: 'transfer',
+          __isDisplayTransfer: true,
+          fromAccountName: accountMap[tx.accountId] || tx.accountName || 'Conto',
+          toAccountName: tx.transferPeerAccountName || '—',
+          amount: Math.abs(Number(tx.amount) || 0),
+        });
       } else {
         list.push({ ...tx, __displayType: tx.amount >= 0 ? 'income' : 'expense', __isDisplayTransfer: false });
       }
@@ -683,7 +694,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
             if (isTransfer) {
               const txForEdit = {
-                id: tx.legId, // id reale
+                id: tx.legId || tx.id, // legId per giroconti a 2 gambe, tx.id per giroconti singoli importati
                 isTransfer: true,
                 transferId: tx.transferId,
                 type: 'transfer',
@@ -735,7 +746,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                       ✏️
                     </button>
                     <button
-                      onClick={() => startDeleteTransaction(tx.legId, true)}
+                      onClick={() => startDeleteTransaction(tx.legId || tx.id, true)}
                       className="delete-btn"
                       title="Elimina giroconto"
                     >

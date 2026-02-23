@@ -38,7 +38,6 @@ const Categories = () => {
   const allCategories = useMemo(() => {
   return Array.isArray(categories) ? categories : [];
 }, [categories]);
-  };
 
 
   const isMobile = useIsMobile();

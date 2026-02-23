@@ -305,23 +305,15 @@ const CATEGORIES = [
   }
 ];
 
-async function getAdminUserId() {
-  const usersRef = collection(db, 'users');
-  const q = query(usersRef, where('email', '==', ADMIN_EMAIL));
-  const snapshot = await getDocs(q);
-  
-  if (snapshot.empty) {
-    throw new Error(`Admin user ${ADMIN_EMAIL} non trovato`);
-  }
-  
-  return snapshot.docs[0].id;
-}
-
 async function seedCategories() {
+  const adminUserId = process.argv[2];
+  if (!adminUserId) {
+    console.error('❌ Devi passare il userId come argomento.');
+    console.error('   Uso: node scripts/seedAdminCategories.cjs <userId>');
+    process.exit(1);
+  }
   try {
-    console.log('🔍 Cerco admin user...');
-    const adminUserId = await getAdminUserId();
-    console.log(`✅ Admin trovato: ${adminUserId}`);
+    console.log(`✅ Admin userId: ${adminUserId}`);
 
     console.log(`📦 Caricamento di ${CATEGORIES.length} categorie...`);
 

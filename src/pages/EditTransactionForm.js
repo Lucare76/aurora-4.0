@@ -4,6 +4,7 @@ import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
 import './Transactions.css';
+import './AddTransactionForm.css';
 
 /* Formattazione importo italiano: 1.000,50 */
 function formatInputAmount(value) {
