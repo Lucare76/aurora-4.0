@@ -20,8 +20,19 @@
   gap: 20px;
 }
 
-.dashboard-title { font-size: 2.2rem; font-weight: 800; margin: 0; color: #fff; }
-.dashboard-subtitle { font-size: 0.9rem; color: #94a3b8; margin-top: 4px; }
+.accounts-header-container .app-page-title {
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.2px;
+  margin: 0;
+  color: #f8fafc;
+}
+.accounts-header-container .app-page-subtitle {
+  font-size: 1rem;
+  color: #a8b3c7;
+  margin-top: 6px;
+}
 
 .header-right-actions { display: flex; align-items: center; gap: 16px; }
 
@@ -78,7 +89,23 @@
 .account-main-details { flex: 1; }
 .account-name-text { margin: 0; font-size: 1.1rem; font-weight: 700; color: #f8fafc; }
 .account-type-tag { font-size: 0.8rem; color: #94a3b8; }
-.card-dots-btn { background: none; border: none; color: #64748b; font-size: 1.5rem; cursor: pointer; padding: 0 5px; }
+.card-inline-actions { display: flex; align-items: center; gap: 8px; }
+.card-action-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.75);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.card-action-btn:hover { transform: translateY(-1px); }
+.card-action-btn.edit { border-color: rgba(59, 130, 246, 0.45); }
+.card-action-btn.delete { border-color: rgba(239, 68, 68, 0.45); }
 
 .card-bottom-row {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
@@ -131,15 +158,33 @@
 .edit-panel-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); z-index: 1000; }
 
 @media (max-width: 768px) {
+  .accounts-dashboard { padding: 14px; }
   .accounts-header-container { flex-direction: column; align-items: flex-start; gap: 24px; }
   .header-right-actions { width: 100%; justify-content: space-between; }
   .btn-text-label { display: none; }
   .add-account-btn-new { padding: 0 16px; }
   .edit-panel { width: 100%; }
+  .accounts-grid { grid-template-columns: 1fr; gap: 12px; }
+  .accounts-header-container .app-page-title { font-size: 2rem; }
   
-  /* Layout orizzontale su mobile per le cards */
-  .account-card-modern { flex-direction: row; align-items: center; justify-content: space-between; padding: 15px; }
-  .card-top-row { border-bottom: none; margin-bottom: 0; flex: 1; }
-  .card-bottom-row { border-top: none; padding-top: 0; flex-direction: column; align-items: flex-end; }
-  .card-dots-btn { display: none; }
+  /* Layout mobile: card verticale e leggibile */
+  .account-card-modern { padding: 14px; gap: 12px; border-radius: 16px; }
+  .card-top-row { align-items: flex-start; gap: 10px; }
+  .account-icon-box { width: 42px; height: 42px; border-radius: 12px; font-size: 1rem; }
+  .account-main-details { min-width: 0; }
+  .account-name-text { font-size: 1rem; line-height: 1.25; }
+  .account-type-tag { font-size: 0.75rem; }
+  .card-inline-actions { margin-left: auto; gap: 6px; }
+  .card-action-btn { width: 32px; height: 32px; border-radius: 9px; }
+  .card-bottom-row { padding-top: 10px; align-items: center; }
+  .balance-amount { font-size: 1.2rem; }
+}
+
+@media (max-width: 480px) {
+  .accounts-dashboard { padding: 12px; }
+  .card-top-row { gap: 8px; }
+  .account-name-text { font-size: 0.95rem; }
+  .card-bottom-row { flex-direction: row; }
+  .mini-label-text { font-size: 0.66rem; }
+  .balance-amount { font-size: 1.1rem; }
 }

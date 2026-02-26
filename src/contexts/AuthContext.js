@@ -29,7 +29,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [userApprovalStatus, setUserApprovalStatus] = useState(null);
-  const [userSettings, setUserSettings] = useState({ currency: 'EUR' });
+  const [userSettings, setUserSettings] = useState({
+    currency: 'EUR',
+    savingsTargetType: 'percent',
+    savingsTargetPercent: 20,
+    savingsTargetAmount: 0,
+    dashboardMobileMode: 'normal'
+  });
 
   const setUserFromFirebaseUser = useCallback((firebaseUser) => {
     if (!firebaseUser) {
@@ -207,7 +213,11 @@ export const AuthProvider = ({ children }) => {
             const data = userDoc.data();
             setUserSettings(prev => ({
               ...prev,
-              currency: data.currency || 'EUR'
+              currency: data.currency || 'EUR',
+              savingsTargetType: data.savingsTargetType || 'percent',
+              savingsTargetPercent: data.savingsTargetPercent ?? 20,
+              savingsTargetAmount: data.savingsTargetAmount ?? 0,
+              dashboardMobileMode: data.dashboardMobileMode || 'normal'
             }));
           }
         } catch (e) {
@@ -215,7 +225,13 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         setUserApprovalStatus(null);
-        setUserSettings({ currency: 'EUR' });
+        setUserSettings({
+          currency: 'EUR',
+          savingsTargetType: 'percent',
+          savingsTargetPercent: 20,
+          savingsTargetAmount: 0,
+          dashboardMobileMode: 'normal'
+        });
       }
 
       setUserFromFirebaseUser(firebaseUser);

@@ -1,5 +1,4 @@
 // src/utils/bancopostaExcelParser.js
-import * as XLSX from "xlsx";
 
 /**
  * Parser Excel BancoPosta / Poste / Lista Movimenti
@@ -10,6 +9,8 @@ import * as XLSX from "xlsx";
  * }
  */
 export async function parseBancoPostaExcel(file) {
+  const xlsxModule = await import("xlsx");
+  const XLSX = xlsxModule.default ?? xlsxModule;
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array" });
 

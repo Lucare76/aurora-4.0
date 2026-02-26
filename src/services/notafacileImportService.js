@@ -1,8 +1,6 @@
 // src/services/notafacileImportService.js
 // Importazione file XLS esportati da NotaFacile.net
 
-import * as XLSX from 'xlsx';
-
 /**
  * Mappa categorie NotaFacile → categorie Aurora
  * Personalizza questo oggetto in base alle tue categorie su Aurora
@@ -280,8 +278,10 @@ export async function parseNotafacileFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const xlsxModule = await import('xlsx');
+        const XLSX = xlsxModule.default ?? xlsxModule;
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 

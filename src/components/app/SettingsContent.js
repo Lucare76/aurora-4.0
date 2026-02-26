@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { FiUser, FiMail, FiBell, FiCheck } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import PageHeader from './PageHeader';
 
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
@@ -13,7 +14,11 @@ function SettingsContent() {
     reminderEmail: '',
     reminderDaysBefore: 2,
     weatherCity: 'Roma',
-    currency: userSettings?.currency || 'EUR'
+    currency: userSettings?.currency || 'EUR',
+    savingsTargetType: userSettings?.savingsTargetType || 'percent',
+    savingsTargetPercent: userSettings?.savingsTargetPercent ?? 20,
+    savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
+    dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal'
   });
 
   useEffect(() => {
@@ -33,14 +38,22 @@ function SettingsContent() {
             reminderEmail: data.reminderEmail || user.email,
             reminderDaysBefore: data.reminderDaysBefore || 2,
             weatherCity: data.weatherCity || 'Roma',
-            currency: data.currency || 'EUR'
+            currency: data.currency || 'EUR',
+            savingsTargetType: data.savingsTargetType || 'percent',
+            savingsTargetPercent: data.savingsTargetPercent ?? 20,
+            savingsTargetAmount: data.savingsTargetAmount ?? 0,
+            dashboardMobileMode: data.dashboardMobileMode || 'normal'
           });
         } else {
           setSettings({
             reminderEmail: user.email,
             reminderDaysBefore: 2,
             weatherCity: 'Roma',
-            currency: 'EUR'
+            currency: 'EUR',
+            savingsTargetType: 'percent',
+            savingsTargetPercent: 20,
+            savingsTargetAmount: 0,
+            dashboardMobileMode: 'normal'
           });
         }
       } catch (error) {
@@ -69,21 +82,34 @@ function SettingsContent() {
       const [result, weatherResult] = await Promise.all([
         updateReminderSettings(user.uid, settings.reminderEmail, settings.reminderDaysBefore),
         updateWeatherCity(user.uid, settings.weatherCity),
-        fbUpdate(fbDoc(fbDb, 'users', user.uid), { currency: settings.currency })
+        fbUpdate(fbDoc(fbDb, 'users', user.uid), {
+          currency: settings.currency,
+          savingsTargetType: settings.savingsTargetType,
+          savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
+          savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
+          dashboardMobileMode: settings.dashboardMobileMode || 'normal'
+        })
       ]);
 
       if (setUserSettings) {
-        setUserSettings((prev) => ({ ...prev, currency: settings.currency }));
+        setUserSettings((prev) => ({
+          ...prev,
+          currency: settings.currency,
+          savingsTargetType: settings.savingsTargetType,
+          savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
+          savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
+          dashboardMobileMode: settings.dashboardMobileMode || 'normal'
+        }));
       }
 
       if (result.success && weatherResult.success) {
-        setMessage({ text: '✅ Impostazioni salvate con successo!', type: 'success' });
+        setMessage({ text: 'Impostazioni salvate con successo!', type: 'success' });
       } else {
-        setMessage({ text: '❌ Errore salvataggio impostazioni', type: 'error' });
+        setMessage({ text: 'Errore salvataggio impostazioni', type: 'error' });
       }
     } catch (error) {
       console.error('Errore salvataggio:', error);
-      setMessage({ text: '❌ Errore: ' + error.message, type: 'error' });
+      setMessage({ text: 'Errore: ' + error.message, type: 'error' });
     } finally {
       setSaving(false);
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
@@ -160,7 +186,7 @@ function SettingsContent() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Errore export backup:', error);
-      alert('Errore durante l’esportazione del backup.');
+      alert("Errore durante l'esportazione del backup.");
     } finally {
       setExporting(false);
     }
@@ -193,10 +219,11 @@ function SettingsContent() {
       </div>
 
       <div className="dashboard-content">
-        <div className="page-header">
-          <h1>⚙️ Impostazioni</h1>
-          <p>Personalizza Aurora 4.0 secondo le tue preferenze</p>
-        </div>
+        <PageHeader
+          className="page-header"
+          title="Impostazioni"
+          subtitle="Personalizza Aurora 4.0 secondo le tue preferenze"
+        />
 
         {message.text && (
           <div
@@ -219,7 +246,7 @@ function SettingsContent() {
 
         <div className="settings-grid">
           <div className="setting-section">
-            <h3>👤 Profilo Utente</h3>
+            <h3>Profilo Utente</h3>
             <div className="user-profile-info">
               <div className="profile-avatar">
                 {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser size={40} />}
@@ -238,7 +265,7 @@ function SettingsContent() {
           </div>
 
           <div className="setting-section">
-            <h3>🎂 Notifiche Compleanni</h3>
+            <h3>Notifiche Compleanni</h3>
             <p className="section-description">
               Ricevi promemoria via email per non dimenticare mai un compleanno importante
             </p>
@@ -281,7 +308,7 @@ function SettingsContent() {
               </div>
 
               <div className="reminder-preview">
-                <div className="preview-icon">📧</div>
+                <div className="preview-icon">i</div>
                 <div className="preview-text">
                   <strong>Anteprima:</strong> Riceverai un'email a <strong>{settings.reminderEmail}</strong>{' '}
                   <strong>
@@ -294,11 +321,11 @@ function SettingsContent() {
           </div>
 
           <div className="setting-section">
-            <h3>🌤️ Widget Meteo</h3>
-            <p className="section-description">Scegli la città per il widget meteo nella sidebar</p>
+            <h3>Widget Meteo</h3>
+            <p className="section-description">Scegli la Citta per il widget meteo nella sidebar</p>
             <div className="setting-form">
               <div className="form-group">
-                <label htmlFor="weatherCity">Città per il Meteo</label>
+                <label htmlFor="weatherCity">Citta per il Meteo</label>
                 <input
                   id="weatherCity"
                   type="text"
@@ -307,13 +334,13 @@ function SettingsContent() {
                   placeholder="Es. Roma, Milano, Napoli..."
                   className="settings-input"
                 />
-                <small>Il nome della città di cui visualizzare il meteo nella sidebar</small>
+                <small>Il nome della citta di cui visualizzare il meteo nella sidebar</small>
               </div>
             </div>
           </div>
 
           <div className="setting-section">
-            <h3>💱 Valuta</h3>
+            <h3>Valuta</h3>
             <p className="section-description">Scegli la valuta da visualizzare in tutta l'app</p>
             <div className="setting-form">
               <div className="form-group">
@@ -324,26 +351,97 @@ function SettingsContent() {
                   onChange={(e) => handleChange('currency', e.target.value)}
                   className="settings-select"
                 >
-                  <option value="EUR">EUR (€)</option>
+                  <option value="EUR">EUR (EUR)</option>
                   <option value="USD">USD ($)</option>
-                  <option value="GBP">GBP (£)</option>
+                  <option value="GBP">GBP (GBP)</option>
                   <option value="CHF">CHF (CHF)</option>
-                  <option value="JPY">JPY (¥)</option>
+                  <option value="JPY">JPY (JPY)</option>
                   <option value="CAD">CAD (C$)</option>
                   <option value="AUD">AUD (A$)</option>
                   <option value="SEK">SEK (kr)</option>
                   <option value="NOK">NOK (kr)</option>
-                  <option value="PLN">PLN (zł)</option>
+                  <option value="PLN">PLN (PLN)</option>
                   <option value="BRL">BRL (R$)</option>
-                  <option value="INR">INR (₹)</option>
+                  <option value="INR">INR (INR)</option>
                 </select>
-                <small>Il simbolo verrà usato in tutta l'app</small>
+                <small>Il simbolo verra usato in tutta l'app</small>
               </div>
             </div>
           </div>
 
           <div className="setting-section">
-            <h3>ℹ️ Informazioni Sistema</h3>
+            <h3>Obiettivo Risparmio</h3>
+            <p className="section-description">Imposta un obiettivo che viene mostrato nella Story del mese.</p>
+            <div className="setting-form">
+              <div className="form-group">
+                <label htmlFor="savingsTargetType">Tipo obiettivo</label>
+                <select
+                  id="savingsTargetType"
+                  value={settings.savingsTargetType}
+                  onChange={(e) => handleChange('savingsTargetType', e.target.value)}
+                  className="settings-select"
+                >
+                  <option value="percent">Percentuale delle entrate</option>
+                  <option value="amount">Importo fisso mensile</option>
+                </select>
+                <small>Usato per il progresso risparmio nella dashboard</small>
+              </div>
+
+              {settings.savingsTargetType === 'percent' ? (
+                <div className="form-group">
+                  <label htmlFor="savingsTargetPercent">Percentuale risparmio</label>
+                  <input
+                    id="savingsTargetPercent"
+                    type="number"
+                    min="1"
+                    max="90"
+                    step="1"
+                    value={settings.savingsTargetPercent}
+                    onChange={(e) => handleChange('savingsTargetPercent', e.target.value)}
+                    className="settings-input"
+                  />
+                  <small>Consigliato 10% - 30%</small>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="savingsTargetAmount">Importo obiettivo</label>
+                  <input
+                    id="savingsTargetAmount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={settings.savingsTargetAmount}
+                    onChange={(e) => handleChange('savingsTargetAmount', e.target.value)}
+                    className="settings-input"
+                  />
+                  <small>Importo mensile da raggiungere</small>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="setting-section">
+            <h3>Dashboard Mobile</h3>
+            <p className="section-description">Scegli la Modalita della dashboard su schermi piccoli.</p>
+            <div className="setting-form">
+              <div className="form-group">
+                <label htmlFor="dashboardMobileMode">Modalita mobile</label>
+                <select
+                  id="dashboardMobileMode"
+                  value={settings.dashboardMobileMode}
+                  onChange={(e) => handleChange('dashboardMobileMode', e.target.value)}
+                  className="settings-select"
+                >
+                  <option value="normal">Completa</option>
+                  <option value="compact">Semplificata (solo numeri)</option>
+                </select>
+                <small>La modalita semplificata riduce sezioni e spazio.</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="setting-section">
+            <h3>Informazioni Sistema</h3>
             <div className="system-info">
               <div className="info-row">
                 <span className="info-label">Versione App:</span>
@@ -363,7 +461,7 @@ function SettingsContent() {
           </div>
 
           <div className="setting-section">
-            <h3>💾 Backup Dati</h3>
+            <h3>Backup Dati</h3>
             <p className="section-description">Esporta tutti i tuoi dati in un file JSON.</p>
             <div className="setting-form">
               <button

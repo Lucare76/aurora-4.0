@@ -166,6 +166,11 @@ const EditTransactionForm = ({ transaction, onClose }) => {
       return;
     }
 
+    if (name === 'description') {
+      setFormData((prev) => ({ ...prev, description: String(value || '').toLocaleUpperCase('it-IT') }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -237,7 +242,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
 
         await updateTransaction(transaction.id, {
           type: 'transfer',
-          description: formData.description.trim() || '',
+          description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
           amount: Math.abs(amountNum),
           fromAccountId: formData.fromAccountId,
           toAccountId: formData.toAccountId,
@@ -256,7 +261,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
       }
 
       await updateTransaction(transaction.id, {
-        description: formData.description.trim() || '',
+        description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
         amount: formData.type === 'income' ? amountNum : -amountNum,
         type: formData.type,
         category: formData.category || null,

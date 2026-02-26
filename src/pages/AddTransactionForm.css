@@ -164,6 +164,9 @@
   background: rgba(148, 163, 184, 0.1);
   transition: all 0.3s ease;
   font-family: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 .amount-input:focus {

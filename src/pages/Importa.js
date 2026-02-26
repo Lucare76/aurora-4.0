@@ -6,6 +6,7 @@ import { parseNotafacileFile, autoMapNotafacileTransactions } from "../services/
 import { autoCategorize } from "../utils/autoCategorize";
 import { useFinancial } from "../contexts/FinancialContext";
 import NotafacileCategoryMapper from "../components/import/NotafacileCategoryMapper";
+import PageHeader from "../components/app/PageHeader";
 import "./Importa.css";
 
 const NF_CATEGORY_MAP_KEY = "aurora_notafacile_category_map_v1";
@@ -278,7 +279,7 @@ export default function Importa() {
             amount: Math.abs(r.amount),
             fromAccountId: r.fromAccountId,
             toAccountId: r.toAccountId,
-            description: r.description || '',
+            description: String(r.description || '').toLocaleUpperCase('it-IT'),
             date: r.date
           });
         } else if (isNotafacile) {
@@ -301,7 +302,7 @@ export default function Importa() {
           await createTransaction({
             accountId: r.accountId || null,
             date: r.date,
-            description: r.description,
+            description: String(r.description || '').toLocaleUpperCase('it-IT'),
             amount: Math.abs(r.amount),
             type: rowType,
             category: r.categoryId || r.category || r.categoryName || null,
@@ -329,7 +330,7 @@ export default function Importa() {
           await createTransaction({
             accountId: selectedAccountId,
             date: r.date,
-            description: r.description,
+            description: String(r.description || '').toLocaleUpperCase('it-IT'),
             amount: Math.abs(r.amount),
             type: rowType,
             category: r.category
@@ -429,40 +430,64 @@ export default function Importa() {
   return (
     <div className="importa-page">
       <div className="importa-card">
-        <h2 className="importa-title">Importa Estratto Conto</h2>
+        <PageHeader
+          className="importa-header"
+          title="Importa Estratto Conto"
+          subtitle="Supporta BancoPosta Excel (.xlsx), AMEX CSV (.csv) e NotaFacile (.xls/.xlsx)."
+          titleAs="h2"
+        />
 
-        <p className="importa-subtitle">
-          Supporta <b>BancoPosta Excel (.xlsx)</b>, <b>AMEX CSV (.csv)</b> e <b>NotaFacile (.xls/.xlsx)</b>.
-        </p>
-
-        <div className="importa-badges">
-          {[
-            { label: "BancoPosta", ext: ".xlsx", color: "#6366f1" },
-            { label: "AMEX", ext: ".csv", color: "#f59e0b" },
-            { label: "NotaFacile", ext: ".xls/.xlsx", color: "#22c55e" }
-          ].map((b) => (
-            <span key={b.label} className="importa-badge" style={{ "--badge-color": b.color }}>
-              {b.label} {b.ext}
-            </span>
-          ))}
-        </div>
-
-        <div className="importa-controls">
-          <input className="importa-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={onFile} />
-
-          {!isNotafacile && (
-            <div className="importa-account-group">
-              <span className="importa-account-label">Importa su conto:</span>
-              <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)} className="importa-select">
-                <option value="">- Seleziona conto -</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+        <div className="importa-top-layout">
+          <div className="importa-upload-panel">
+            <div className="importa-badges">
+              {[
+                { label: "BancoPosta", ext: ".xlsx", color: "#6366f1" },
+                { label: "AMEX", ext: ".csv", color: "#f59e0b" },
+                { label: "NotaFacile", ext: ".xls/.xlsx", color: "#22c55e" }
+              ].map((b) => (
+                <span key={b.label} className="importa-badge" style={{ "--badge-color": b.color }}>
+                  {b.label} {b.ext}
+                </span>
+              ))}
             </div>
-          )}
+
+            <div className="importa-controls">
+              <input className="importa-file-input" type="file" accept=".xlsx,.xls,.csv" onChange={onFile} />
+
+              {!isNotafacile && (
+                <div className="importa-account-group">
+                  <span className="importa-account-label">Importa su conto:</span>
+                  <select value={selectedAccountId} onChange={(e) => setSelectedAccountId(e.target.value)} className="importa-select">
+                    <option value="">- Seleziona conto -</option>
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <aside className="importa-kpi-panel">
+            <div className="importa-kpi-item">
+              <span className="importa-kpi-label">Transazioni in coda</span>
+              <b className="importa-kpi-value">{rows.length}</b>
+            </div>
+            <div className="importa-kpi-item">
+              <span className="importa-kpi-label">Conti disponibili</span>
+              <b className="importa-kpi-value">{accounts.length}</b>
+            </div>
+            <div className="importa-kpi-item">
+              <span className="importa-kpi-label">Categorie attive</span>
+              <b className="importa-kpi-value">{categories.length}</b>
+            </div>
+            <div className="importa-kpi-item">
+              <span className="importa-kpi-label">Sorgente rilevata</span>
+              <b className="importa-kpi-value">{meta?.source || "-"}</b>
+            </div>
+          </aside>
         </div>
 
         {loading && <p className="importa-status">Import in corso...</p>}
@@ -470,6 +495,7 @@ export default function Importa() {
 
         {meta && (
           <div className="importa-meta">
+            <h3 className="importa-section-title">Dettagli importazione</h3>
             <div>
               <b>Sorgente:</b> {meta.source}
             </div>
@@ -527,9 +553,9 @@ export default function Importa() {
 
             {isNotafacile && notafacileReviewStats && (
               <div className="importa-meta-stats">
-                <span className="meta-income">✅ AUTO: {notafacileReviewStats.auto}</span>
+                <span className="meta-income">AUTO: {notafacileReviewStats.auto}</span>
                 <span className={notafacileReviewStats.review > 0 ? "meta-expense" : "meta-income"}>
-                  {notafacileReviewStats.review > 0 ? `⚠️ Non mappate: ${notafacileReviewStats.review}` : "✅ Tutte mappate"}
+                  {notafacileReviewStats.review > 0 ? `Attenzione: non mappate ${notafacileReviewStats.review}` : "Tutte mappate"}
                 </span>
               </div>
             )}
@@ -542,9 +568,9 @@ export default function Importa() {
           <>
             <div className="importa-preview-head">
               <h3>Anteprima</h3>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div className="importa-preview-actions">
                 {isNotafacile && (
-                  <div style={{ display: "inline-flex", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, overflow: "hidden" }}>
+                  <div className="importa-filter-tabs">
                     <button
                       type="button"
                       className="importa-confirm-btn"
@@ -613,7 +639,7 @@ export default function Importa() {
                 flexWrap: "wrap"
               }}>
                 <span style={{ color: "#fca5a5", fontWeight: 600 }}>
-                  ⚠️ {notafacileReviewStats.review} transazioni senza categoria — usa il menu a tendina nella colonna "Categoria" per ciascuna.
+                  Attenzione: {notafacileReviewStats.review} transazioni senza categoria. Usa il menu a tendina nella colonna "Categoria" per ciascuna.
                 </span>
                 <button
                   type="button"
@@ -621,7 +647,7 @@ export default function Importa() {
                   onClick={() => setPreviewFilter("review")}
                   style={{ background: "#dc2626", border: "none", fontWeight: 700, color: "#fff", padding: "8px 18px" }}
                 >
-                  Mostra le {notafacileReviewStats.review} da mappare →
+                  Mostra le {notafacileReviewStats.review} da mappare
                 </button>
               </div>
             )}
@@ -638,7 +664,7 @@ export default function Importa() {
                 flexWrap: "wrap"
               }}>
                 <span style={{ color: "#fed7aa", fontWeight: 600 }}>
-                  🔁 {notafacileReviewStats.transferNotReady} giroconti senza conti — seleziona "Da conto" e "A conto" nella colonna Categoria.
+                  Attenzione: {notafacileReviewStats.transferNotReady} giroconti senza conti. Seleziona "Da conto" e "A conto" nella colonna Categoria.
                 </span>
                 <button
                   type="button"
@@ -646,7 +672,7 @@ export default function Importa() {
                   onClick={() => setPreviewFilter("transfer")}
                   style={{ background: "#7c3aed", border: "none", fontWeight: 700, color: "#fff", padding: "8px 18px" }}
                 >
-                  Vai ai giroconti →
+                  Vai ai giroconti
                 </button>
               </div>
             )}
@@ -695,7 +721,7 @@ export default function Importa() {
                                 }}
                                 style={{ background: '#0f172a', color: '#e2e8f0', border: r.fromAccountId ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(239,68,68,0.5)', borderRadius: 6, padding: '2px 6px', fontSize: 12, maxWidth: 170 }}
                               >
-                                <option value="">— Conto origine —</option>
+                                <option value="">- Conto origine -</option>
                                 {accounts.map(a => (
                                   <option key={a.id} value={a.id} disabled={a.id === r.toAccountId}>{a.name}</option>
                                 ))}
@@ -715,7 +741,7 @@ export default function Importa() {
                                 }}
                                 style={{ background: '#0f172a', color: '#e2e8f0', border: r.toAccountId ? '1px solid rgba(99,102,241,0.5)' : '1px solid rgba(239,68,68,0.5)', borderRadius: 6, padding: '2px 6px', fontSize: 12, maxWidth: 170 }}
                               >
-                                <option value="">— Conto destinazione —</option>
+                                <option value="">- Conto destinazione -</option>
                                 {accounts.map(a => (
                                   <option key={a.id} value={a.id} disabled={a.id === r.fromAccountId}>{a.name}</option>
                                 ))}
@@ -744,9 +770,9 @@ export default function Importa() {
                               }}
                               style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 6, padding: '2px 6px', fontSize: 12, maxWidth: 180 }}
                             >
-                              <option value="">— Scegli categoria —</option>
+                              <option value="">- Scegli categoria -</option>
                               {categories.map(c => (
-                                <option key={c.id} value={c.id}>{c.icon || '📁'} {c.name}</option>
+                                <option key={c.id} value={c.id}>{c.icon || "*"} {c.name}</option>
                               ))}
                             </select>
                             {/* Dropdown sottocategoria */}
@@ -768,7 +794,7 @@ export default function Importa() {
                                   }}
                                   style={{ background: '#0f172a', color: '#e2e8f0', border: '1px solid rgba(99,102,241,0.5)', borderRadius: 6, padding: '2px 6px', fontSize: 12, maxWidth: 180 }}
                                 >
-                                  <option value="">— Sottocategoria (opz.) —</option>
+                                  <option value="">- Sottocategoria (opz.) -</option>
                                   {subs.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                   ))}
@@ -807,7 +833,7 @@ export default function Importa() {
                             })()}
                           >
                             {r.type === "transfer"
-                              ? (r.fromAccountId && r.toAccountId && r.fromAccountId !== r.toAccountId ? "PRONTO 🔁" : "CONTI MANCANTI")
+                              ? (r.fromAccountId && r.toAccountId && r.fromAccountId !== r.toAccountId ? "PRONTO" : "CONTI MANCANTI")
                               : (r.autoMappedCategory ? "AUTO" : "DA RIVEDERE")}
                           </span>
                         </td>

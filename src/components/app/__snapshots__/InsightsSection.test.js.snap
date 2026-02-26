@@ -1,0 +1,79 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`InsightsSection renders snapshot with basic data 1`] = `
+<div
+  class="section"
+>
+  <h2
+    class="section-title"
+  >
+    Insights
+  </h2>
+  <div
+    class="insights-grid"
+  >
+    <div
+      class="insight-card"
+    >
+      <div
+        class="insight-label"
+      >
+        Spese vs mese scorso
+      </div>
+      <div
+        class="insight-value"
+      >
+        N/D
+      </div>
+      <div
+        class="insight-detail"
+      >
+        Nessuna spesa nel mese precedente
+      </div>
+    </div>
+    <div
+      class="insight-card"
+    >
+      <div
+        class="insight-label"
+      >
+        Tasso di Risparmio
+      </div>
+      <div
+        class="insight-value positive"
+      >
+        💰 
+        80.0
+        %
+      </div>
+      <div
+        class="insight-detail"
+      >
+        del reddito mensile risparmiato
+      </div>
+    </div>
+    <div
+      class="insight-card"
+    >
+      <div
+        class="insight-label"
+      >
+        Proiezione Fine Mese
+      </div>
+      <div
+        class="insight-value"
+      >
+        🔮 
+        €
+         
+        21,54
+      </div>
+      <div
+        class="insight-detail"
+      >
+        stima spese a fine mese
+      </div>
+    </div>
+  </div>
+</div>
+`;

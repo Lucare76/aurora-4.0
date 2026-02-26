@@ -3,6 +3,8 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { db } from '../services/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { formatEntityLabel } from '../utils/text';
+import PageHeader from '../components/app/PageHeader';
 import './Categories.css';
 
 
@@ -49,6 +51,8 @@ const Categories = () => {
   const [viewMode, setViewMode] = useState('list');
   const [filterType, setFilterType] = useState('all');
   const [expandedCategories, setExpandedCategories] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -73,6 +77,7 @@ const Categories = () => {
   ];
 
   const makeId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const toTitleCase = (value) => formatEntityLabel(value);
   const normalizeKey = (value) =>
     String(value || '')
       .normalize('NFD')
@@ -85,12 +90,12 @@ const Categories = () => {
     return input
       .map((sub) => {
         if (typeof sub === 'string') {
-          const name = sub.trim();
+          const name = toTitleCase(sub);
           if (!name) return null;
           return { id: makeId(), name };
         }
         if (sub && typeof sub === 'object') {
-          const name = (sub.name ?? '').toString().trim();
+          const name = toTitleCase(sub.name ?? '');
           if (!name) return null;
           return { id: sub.id || makeId(), name };
         }
@@ -117,7 +122,7 @@ const Categories = () => {
   );
 
   const handleAddSubcategory = () => {
-    const name = newSubcategory.trim();
+    const name = toTitleCase(newSubcategory);
     if (!name) return;
 
     const exists = (formData.subCategories || []).some(
@@ -160,7 +165,7 @@ const Categories = () => {
 
     try {
       const payload = {
-        name: formData.name.trim(),
+        name: toTitleCase(formData.name),
         icon: formData.icon,
         color: formData.color,
         type: formData.type,
@@ -377,8 +382,16 @@ const Categories = () => {
   };
 
   const filteredCategories = useMemo(() => {
-    return allCategories.filter((cat) => filterType === 'all' || cat.type === filterType);
-  }, [allCategories, filterType]);
+    const q = normalizeKey(searchTerm);
+    return allCategories.filter((cat) => {
+      if (filterType !== 'all' && cat.type !== filterType) return false;
+      if (!q) return true;
+      const name = normalizeKey(cat?.name);
+      if (name.includes(q)) return true;
+      const subs = getSubcategoriesNames(cat).map((s) => normalizeKey(s));
+      return subs.some((s) => s.includes(q));
+    });
+  }, [allCategories, filterType, searchTerm]);
 
   const incomeCategories = useMemo(() => {
     return allCategories.filter((cat) => cat.type === 'income');
@@ -397,6 +410,7 @@ const Categories = () => {
     return (
       <div
         key={category.id}
+        className="category-mobile-card"
         style={{
           background: '#1e293b',
           borderRadius: 14,
@@ -407,8 +421,9 @@ const Categories = () => {
           borderLeft: `4px solid ${borderColor}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="category-mobile-head" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div
+            className="category-mobile-icon"
             style={{
               width: 42,
               height: 42,
@@ -425,8 +440,9 @@ const Categories = () => {
             {category.icon}
           </div>
 
-          <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div className="category-mobile-content" style={{ flex: 1, overflow: 'hidden' }}>
             <div
+              className="category-mobile-title"
               style={{
                 fontSize: 16,
                 fontWeight: 800,
@@ -438,7 +454,7 @@ const Categories = () => {
               {category.name}
             </div>
 
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+            <div className="category-mobile-meta" style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
               {category.type === 'income' ? '📈 Entrata' : '📉 Uscita'}
               {subcats.length > 0 && ` · ${subcats.length} sottocategorie`}
             </div>
@@ -446,9 +462,10 @@ const Categories = () => {
         </div>
 
         {/* Azioni */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+        <div className="category-mobile-actions" style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
           <button
             onClick={() => handleEdit(category)}
+            className="category-mobile-btn edit"
             style={{
               padding: '8px 14px',
               borderRadius: 10,
@@ -465,6 +482,7 @@ const Categories = () => {
 
           <button
             onClick={() => handleDelete(category.id)}
+            className="category-mobile-btn delete"
             style={{
               padding: '8px 14px',
               borderRadius: 10,
@@ -485,6 +503,7 @@ const Categories = () => {
           <>
             <button
               onClick={() => toggleCategory(category.id)}
+              className="category-mobile-toggle"
               style={{
                 width: '100%',
                 padding: 10,
@@ -502,11 +521,12 @@ const Categories = () => {
             </button>
 
             {isOpen && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div className="category-mobile-subcats" style={{ marginTop: 10 }}>
+                <div className="category-mobile-subcats-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {subcats.map((sub, index) => (
                     <span
                       key={index}
+                      className="category-mobile-subcat"
                       style={{
                         padding: '6px 10px',
                         borderRadius: 999,
@@ -533,14 +553,11 @@ const Categories = () => {
   return (
     <div className="categories-page">
       {/* Header */}
-      <div className="page-header">
-        <div className="header-content">
-          <h1>Gestione Categorie</h1>
-          <p className="header-subtitle">
-            Organizza le tue finanze con categorie e sottocategorie personalizzate
-          </p>
-        </div>
-
+      <PageHeader
+        className="page-header"
+        title="Gestione Categorie"
+        subtitle="Organizza le tue finanze con categorie e sottocategorie personalizzate"
+        actions={(
         <div className="header-actions">
           {!isMobile && (
             <div className="view-controls">
@@ -559,66 +576,134 @@ const Categories = () => {
             </div>
           )}
 
-          <button
-            className="secondary-btn"
-            onClick={handleUppercaseDescriptions}
-            type="button"
-            disabled={cleanupBusy}
-          >
-            {cleanupBusy ? 'Pulizia...' : 'Uniforma Descrizioni'}
-          </button>
+          {!isMobile && (
+            <>
+              <button
+                className="secondary-btn"
+                onClick={handleUppercaseDescriptions}
+                type="button"
+                disabled={cleanupBusy}
+              >
+                {cleanupBusy ? 'Pulizia...' : 'Uniforma Descrizioni'}
+              </button>
 
-          <button
-            className="secondary-btn"
-            onClick={handleMergeDuplicateCategories}
-            type="button"
-            disabled={cleanupBusy}
-          >
-            {cleanupBusy ? 'Pulizia...' : 'Unisci Categorie Duplicate'}
-          </button>
+              <button
+                className="secondary-btn"
+                onClick={handleMergeDuplicateCategories}
+                type="button"
+                disabled={cleanupBusy}
+              >
+                {cleanupBusy ? 'Pulizia...' : 'Unisci Categorie Duplicate'}
+              </button>
+            </>
+          )}
 
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
             Nuova Categoria
           </button>
-        </div>
-      </div>
 
-      {/* Statistiche */}
-      <div className="stats-overview">
-        <div
-          className={`stat-card total ${filterType === 'all' ? 'active-filter' : ''}`}
-          onClick={() => setFilterType('all')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="stat-icon">📊</div>
-          <div className="stat-info">
-            <div className="stat-value">{allCategories.length}</div>
-            <div className="stat-label">Tutte</div>
+          {isMobile && (
+            <div className="mobile-actions">
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={() => setShowActionsMenu((prev) => !prev)}
+              >
+                Altro
+              </button>
+              {showActionsMenu && (
+                <div className="mobile-actions-menu">
+                  <button
+                    className="mobile-actions-item"
+                    type="button"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleUppercaseDescriptions();
+                    }}
+                    disabled={cleanupBusy}
+                  >
+                    {cleanupBusy ? 'Pulizia...' : 'Uniforma Descrizioni'}
+                  </button>
+                  <button
+                    className="mobile-actions-item"
+                    type="button"
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleMergeDuplicateCategories();
+                    }}
+                    disabled={cleanupBusy}
+                  >
+                    {cleanupBusy ? 'Pulizia...' : 'Unisci Categorie Duplicate'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        )}
+      />
+
+      <div className="categories-sticky">
+        <div className="categories-toolbar">
+          <div className="categories-search">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Cerca categorie o sottocategorie..."
+              className="categories-search-input"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                className="categories-search-clear"
+                onClick={() => setSearchTerm('')}
+                aria-label="Svuota ricerca"
+                title="Svuota ricerca"
+              >
+                ×
+              </button>
+            )}
           </div>
         </div>
 
-        <div
-          className={`stat-card income ${filterType === 'income' ? 'active-filter' : ''}`}
-          onClick={() => setFilterType('income')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="stat-icon">📈</div>
-          <div className="stat-info">
-            <div className="stat-value">{incomeCategories.length}</div>
-            <div className="stat-label">Entrate</div>
+        {/* Statistiche */}
+        <div className="stats-overview">
+          <div
+            className={`stat-card total ${filterType === 'all' ? 'active-filter' : ''}`}
+            onClick={() => setFilterType('all')}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="stat-icon">📊</div>
+            <div className="stat-info">
+              <div className="stat-value">{allCategories.length}</div>
+              <div className="stat-label">Tutte</div>
+            </div>
           </div>
-        </div>
 
-        <div
-          className={`stat-card expense ${filterType === 'expense' ? 'active-filter' : ''}`}
-          onClick={() => setFilterType('expense')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="stat-icon">📉</div>
-          <div className="stat-info">
-            <div className="stat-value">{expenseCategories.length}</div>
-            <div className="stat-label">Uscite</div>
+          <div
+            className={`stat-card income ${filterType === 'income' ? 'active-filter' : ''}`}
+            onClick={() => setFilterType('income')}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="stat-icon">📈</div>
+            <div className="stat-info">
+              <div className="stat-value">{incomeCategories.length}</div>
+              <div className="stat-label">Entrate</div>
+            </div>
+          </div>
+
+          <div
+            className={`stat-card expense ${filterType === 'expense' ? 'active-filter' : ''}`}
+            onClick={() => setFilterType('expense')}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="stat-icon">📉</div>
+            <div className="stat-info">
+              <div className="stat-value">{expenseCategories.length}</div>
+              <div className="stat-label">Uscite</div>
+            </div>
           </div>
         </div>
       </div>

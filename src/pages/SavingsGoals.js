@@ -1,8 +1,9 @@
-// src/pages/SavingsGoals.js
+﻿// src/pages/SavingsGoals.js
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";
 import { getCurrencySymbol } from "../utils/currency";
+import PageHeader from "../components/app/PageHeader";
 import {
   getSavingsGoals,
   createSavingsGoal,
@@ -14,22 +15,22 @@ import {
 import "./SavingsGoals.css";
 
 const EMOJI_OPTIONS = [
-  "\u{1F3AF}", // 🎯
-  "\u{1F3E0}", // 🏠
-  "\u{2708}\u{FE0F}", // ✈️
-  "\u{1F697}", // 🚗
-  "\u{1F4BB}", // 💻
-  "\u{1F4F1}", // 📱
-  "\u{1F393}", // 🎓
-  "\u{1F48D}", // 💍
-  "\u{1F476}", // 👶
-  "\u{1F3D6}\u{FE0F}", // 🏖️
-  "\u{1F4B0}", // 💰
-  "\u{1F381}", // 🎁
-  "\u{2695}\u{FE0F}", // ⚕️
-  "\u{1F6E1}\u{FE0F}", // 🛡️
-  "\u{1F4C8}", // 📈
-  "\u{1F43E}" // 🐾
+  "\u{1F3AF}", // ðŸŽ¯
+  "\u{1F3E0}", // ðŸ 
+  "\u{2708}\u{FE0F}", // âœˆï¸
+  "\u{1F697}", // ðŸš—
+  "\u{1F4BB}", // ðŸ’»
+  "\u{1F4F1}", // ðŸ“±
+  "\u{1F393}", // ðŸŽ“
+  "\u{1F48D}", // ðŸ’
+  "\u{1F476}", // ðŸ‘¶
+  "\u{1F3D6}\u{FE0F}", // ðŸ–ï¸
+  "\u{1F4B0}", // ðŸ’°
+  "\u{1F381}", // ðŸŽ
+  "\u{2695}\u{FE0F}", // âš•ï¸
+  "\u{1F6E1}\u{FE0F}", // ðŸ›¡ï¸
+  "\u{1F4C8}", // ðŸ“ˆ
+  "\u{1F43E}" // ðŸ¾
 ];
 const COLOR_OPTIONS = ["#4f46e5", "#7c3aed", "#ec4899", "#ef4444", "#f97316", "#f59e0b", "#22c55e", "#10b981", "#06b6d4", "#3b82f6"];
 
@@ -233,10 +234,7 @@ export default function SavingsGoals() {
           <div className="aurora-layer-3"></div>
         </div>
         <div className="dashboard-content">
-          <div className="page-header">
-            <h1>Obiettivi di Risparmio</h1>
-            <p>Caricamento...</p>
-          </div>
+          <PageHeader className="page-header" title="Obiettivi di Risparmio" subtitle="Caricamento..." />
         </div>
       </div>
     );
@@ -246,10 +244,7 @@ export default function SavingsGoals() {
     return (
       <div className="content-page">
         <div className="dashboard-content">
-          <div className="page-header">
-            <h1>Obiettivi di Risparmio</h1>
-            <p>Devi effettuare il login.</p>
-          </div>
+          <PageHeader className="page-header" title="Obiettivi di Risparmio" subtitle="Devi effettuare il login." />
         </div>
       </div>
     );
@@ -265,15 +260,16 @@ export default function SavingsGoals() {
 
       <div className="dashboard-content">
         {/* Header */}
-        <div className="page-header savings-header">
-          <div>
-            <h1>Obiettivi di Risparmio 🎯</h1>
-            <p>Definisci i tuoi obiettivi e monitora i progressi</p>
-          </div>
-          <button type="button" className="btn-new-goal" onClick={openNewForm}>
-            + Nuovo Obiettivo
-          </button>
-        </div>
+        <PageHeader
+          className="page-header savings-header"
+          title="Obiettivi di Risparmio"
+          subtitle="Definisci i tuoi obiettivi e monitora i progressi"
+          actions={(
+            <button type="button" className="btn-new-goal" onClick={openNewForm}>
+              + Nuovo Obiettivo
+            </button>
+          )}
+        />
 
         {/* Riepilogo */}
         <div className="savings-summary">
@@ -298,7 +294,7 @@ export default function SavingsGoals() {
         {/* Griglia obiettivi */}
         {goals.length === 0 ? (
           <div className="savings-empty-state">
-            <div className="empty-icon">🎯</div>
+            <div className="empty-icon">ðŸŽ¯</div>
             <p><strong>Nessun obiettivo di risparmio</strong></p>
             <p>Crea il tuo primo obiettivo per iniziare a risparmiare!</p>
           </div>
@@ -353,7 +349,7 @@ export default function SavingsGoals() {
                       {isExpired
                         ? "Scadenza superata"
                         : monthlyNeeded !== null
-                        ? `Mancano ${monthsLeft} ${monthsLeft === 1 ? "mese" : "mesi"} — Risparmia ${cs} ${fmt(monthlyNeeded)}/mese`
+                        ? `Mancano ${monthsLeft} ${monthsLeft === 1 ? "mese" : "mesi"} â€” Risparmia ${cs} ${fmt(monthlyNeeded)}/mese`
                         : ""}
                     </div>
                   )}
@@ -532,3 +528,4 @@ export default function SavingsGoals() {
     </div>
   );
 }
+

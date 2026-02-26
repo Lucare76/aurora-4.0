@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "aurora-4-0"
-  }
+  },
+  "targets": {
+    "aurora-4-0": {
+      "hosting": {
+        "default": [
+          "aurora-4-0"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

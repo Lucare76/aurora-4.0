@@ -102,13 +102,38 @@ const AddTransactionForm = ({ onClose }) => {
       setScanLoading(true);
       setError('');
 
-      // Converti in base64
-      const base64 = await new Promise((resolve, reject) => {
+      const compressImageToBase64 = (inputFile) => new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const maxSize = 1280;
+            let { width, height } = img;
+            if (width > maxSize || height > maxSize) {
+              const ratio = Math.min(maxSize / width, maxSize / height);
+              width = Math.round(width * ratio);
+              height = Math.round(height * ratio);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(reader.result);
+              return;
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', 0.8);
+            resolve(compressed);
+          };
+          img.onerror = () => resolve(reader.result);
+          img.src = reader.result;
+        };
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(inputFile);
       });
+
+      const base64 = await compressImageToBase64(file);
 
       // Chiama la Cloud Function
       const data = await analyzeReceipt(base64);
@@ -276,6 +301,11 @@ const AddTransactionForm = ({ onClose }) => {
       return;
     }
 
+    if (name === 'description') {
+      setFormData((prev) => ({ ...prev, description: String(value || '').toLocaleUpperCase('it-IT') }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -354,7 +384,7 @@ const AddTransactionForm = ({ onClose }) => {
         }
 
         await createTransfer({
-          description: formData.description.trim() || '',
+          description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
           type: 'transfer',
           amount: Math.abs(amountNum),
           fromAccountId: formData.fromAccountId,
@@ -385,7 +415,7 @@ const AddTransactionForm = ({ onClose }) => {
       }
 
       await createTransaction({
-        description: formData.description.trim() || '',
+        description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
         amount: formData.type === 'income' ? amountNum : -amountNum,
         type: formData.type,
         category: formData.category || null,
@@ -409,7 +439,7 @@ const AddTransactionForm = ({ onClose }) => {
         }
 
         await addRecurring(user.uid, {
-          description: formData.description.trim() || '',
+          description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
           amount: amountNum,
           type: formData.type,
           categoryId: formData.category || null,
@@ -594,6 +624,8 @@ const AddTransactionForm = ({ onClose }) => {
                     fontWeight: 600,
                     color: '#1e293b',
                     fontFamily: 'inherit',
+                    textAlign: 'right',
+                    fontVariantNumeric: 'tabular-nums',
                     boxShadow: 'none',
                     width: '100%'
                   }}

@@ -1,9 +1,10 @@
-// src/pages/Budgets.js
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
+import PageHeader from "../components/app/PageHeader";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";
-import { getCurrencySymbol, formatCurrency } from "../utils/currency";
-import { getBudgetsByMonth, upsertBudget, deleteBudget } from "../services/budgetsService";
+import { formatCurrency, getCurrencySymbol } from "../utils/currency";
+import { formatCategoryLabel } from "../utils/text";
+import { deleteBudget, getBudgetsByMonth, upsertBudget } from "../services/budgetsService";
 import "./Budgets.css";
 
 function ymFromDate(d = new Date()) {
@@ -33,7 +34,6 @@ export default function Budgets() {
 
   useEffect(() => {
     if (!user) return;
-
     (async () => {
       const data = await getBudgetsByMonth(user.uid, year, month);
       setBudgets(Array.isArray(data) ? data : []);
@@ -110,6 +110,8 @@ export default function Budgets() {
     return { totalBudget, totalSpent, totalProjected, riskCount };
   }, [rows]);
 
+  const activeBudgetCount = useMemo(() => rows.filter((r) => r.budget > 0).length, [rows]);
+
   const prevMonth = () => {
     setYM((p) => {
       if (p.month === 1) return { year: p.year - 1, month: 12 };
@@ -156,10 +158,7 @@ export default function Budgets() {
     return (
       <div className="content-page">
         <div className="dashboard-content">
-          <div className="page-header">
-            <h1>Budget</h1>
-            <p>Caricamento...</p>
-          </div>
+          <PageHeader className="page-header" title="Budget" subtitle="Caricamento..." />
         </div>
       </div>
     );
@@ -169,10 +168,7 @@ export default function Budgets() {
     return (
       <div className="content-page">
         <div className="dashboard-content">
-          <div className="page-header">
-            <h1>Budget</h1>
-            <p>Devi effettuare il login.</p>
-          </div>
+          <PageHeader className="page-header" title="Budget" subtitle="Devi effettuare il login." />
         </div>
       </div>
     );
@@ -187,10 +183,11 @@ export default function Budgets() {
       </div>
 
       <div className="dashboard-content budgets-page">
-        <div className="page-header">
-          <h1>Budget Mensili</h1>
-          <p>Imposta un budget per categoria e monitora lo speso del mese.</p>
-        </div>
+        <PageHeader
+          className="page-header"
+          title="Budget Mensili"
+          subtitle="Imposta un budget per categoria e monitora lo speso del mese."
+        />
 
         <div className="budgets-month-nav">
           <button type="button" className="btn-icon" onClick={prevMonth} title="Mese precedente">
@@ -204,6 +201,18 @@ export default function Budgets() {
           <button type="button" className="btn-icon" onClick={nextMonth} title="Mese successivo">
             {">"}
           </button>
+        </div>
+
+        <div className="budgets-quick-stats">
+          <div className="budgets-pill">
+            Budget impostati: <strong>{activeBudgetCount}</strong>
+          </div>
+          <div className={`budgets-pill ${forecastSummary.riskCount > 0 ? "risk" : "ok"}`}>
+            Rischio sforamento: <strong>{forecastSummary.riskCount}</strong>
+          </div>
+          <div className="budgets-pill">
+            Mese: <strong>{formatYM(month, year)}</strong>
+          </div>
         </div>
 
         <div className="budget-forecast-summary">
@@ -235,7 +244,7 @@ export default function Budgets() {
                 <div className="budget-row-main">
                   <div>
                     <div className="budget-row-title">
-                      {r.category.icon} {r.category.name} <span className="budget-row-badge">{badge}</span>
+                      {r.category.icon} {formatCategoryLabel(r.category.name)} <span className="budget-row-badge">{badge}</span>
                     </div>
                     <div className="budget-row-meta">
                       Speso: <strong>{formatCurrency(r.spent, userSettings?.currency || "EUR")}</strong>
@@ -272,12 +281,12 @@ export default function Budgets() {
                 {r.budget > 0 && (
                   <div className="budget-progress-wrap">
                     <div className="budget-progress-track">
-                      <div className="budget-progress-fill" style={{ width: `${pctShown}%` }} />
+                      <div className={`budget-progress-fill ${r.state}`} style={{ width: `${pctShown}%` }} />
                     </div>
                     <div className="budget-progress-label">{Math.min(r.pct, 999).toFixed(0)}% del budget</div>
                     <div className={`budget-forecast-label ${r.forecastState}`}>
-                      Forecast: {formatCurrency(r.projected, userSettings?.currency || "EUR")}{" "}
-                      {r.forecastState === "risk" ? "• rischio sforamento" : r.forecastState === "warn" ? "• vicino al limite" : ""}
+                      Forecast: {formatCurrency(r.projected, userSettings?.currency || "EUR")} {" "}
+                      {r.forecastState === "risk" ? "- rischio sforamento" : r.forecastState === "warn" ? "- vicino al limite" : ""}
                     </div>
                   </div>
                 )}

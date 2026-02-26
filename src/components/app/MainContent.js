@@ -1,9 +1,7 @@
-import React from 'react';
-import Reports from '../../pages/Reports';
+import React, { Suspense, lazy } from 'react';
 import Transactions from '../../pages/Transactions';
 import Accounts from '../../pages/Accounts';
 import Categories from '../../pages/Categories';
-import Importa from '../../pages/Importa';
 import Budgets from '../../pages/Budgets';
 import Birthdays from '../../pages/Birthdays';
 import SavingsGoals from '../../pages/SavingsGoals';
@@ -12,6 +10,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import Header from './Header';
 import DashboardContent from './DashboardContent';
 import SettingsContent from './SettingsContent';
+
+const Reports = lazy(() => import('../../pages/Reports'));
+const Importa = lazy(() => import('../../pages/Importa'));
+
+const LazyFallback = () => (
+  <div className="loading-state">
+    <div className="loading-spinner" />
+  </div>
+);
 
 function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilter, setSidebarOpen }) {
   const { isAdmin } = useAuth();
@@ -27,13 +34,21 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
       case 'categories':
         return <Categories />;
       case 'reports':
-        return <Reports />;
+        return (
+          <Suspense fallback={<LazyFallback />}>
+            <Reports />
+          </Suspense>
+        );
       case 'budgets':
         return <Budgets />;
       case 'savings':
         return <SavingsGoals />;
       case 'import':
-        return <Importa />;
+        return (
+          <Suspense fallback={<LazyFallback />}>
+            <Importa />
+          </Suspense>
+        );
       case 'birthdays':
         return <Birthdays />;
       case 'admin':

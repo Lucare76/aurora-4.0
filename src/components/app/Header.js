@@ -23,12 +23,10 @@ function Header({ setSidebarOpen }) {
       </div>
 
       <div className="header-content">
-        <button className="menu-toggle" onClick={() => setSidebarOpen(true)} type="button">
-          <FiMenu />
-        </button>
-
-        <div className="header-actions">
-          <NotificationBadge />
+        <div className="header-left-controls">
+          <button className="menu-toggle" onClick={() => setSidebarOpen(true)} type="button">
+            <FiMenu />
+          </button>
 
           <button
             className="logout-btn header-logout mobile-only"
@@ -38,6 +36,10 @@ function Header({ setSidebarOpen }) {
           >
             <FiLogOut />
           </button>
+        </div>
+
+        <div className="header-actions">
+          <NotificationBadge />
         </div>
       </div>
     </header>

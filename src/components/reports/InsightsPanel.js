@@ -6,6 +6,7 @@ import {
   getSavingsRate,
   getProjectedExpenses
 } from '../../services/insightsService';
+import { formatEntityLabel } from '../../utils/text';
 
 const fallbackMoney = (value) => {
   const num = Number(value) || 0;
@@ -28,6 +29,8 @@ const InsightsPanel = ({
   monthlyExpenses,
   formatEUR
 }) => {
+  const toTitleCase = (value) => formatEntityLabel(value);
+
   const comparisonSource = comparisonTransactions || transactions;
   const comp = getMonthComparison(comparisonSource, currentMonth, currentYear);
   const growth = getTopGrowingCategory(transactions, categories, currentMonth, currentYear, accounts);
@@ -40,6 +43,10 @@ const InsightsPanel = ({
   const projected = getProjectedExpenses(monthlyExpenses, currentDay, 30);
 
   const money = formatEUR || fallbackMoney;
+  const moneyNoWrap = (value) =>
+    money(value)
+      .replace("ƒ'ª", '€')
+      .replace(/\s+/g, '\u00A0');
 
   return (
     <div className="insights-panel">
@@ -111,12 +118,12 @@ const InsightsPanel = ({
               {anomalies.map((a, i) => (
                 <div key={i} className="anomaly-item">
                   <div className="anomaly-label">
-                    <span className="anomaly-name">{a.description}</span>
+                    <span className="anomaly-name">{toTitleCase(a.description)}</span>
                     <span className="anomaly-details">
-                      Solitamente spendi {money(a.avgAmount)} in {a.categoryName}
+                      Solitamente spendi {money(a.avgAmount)} in {toTitleCase(a.categoryName)}
                     </span>
                   </div>
-                  <div className="anomaly-price">{money(a.amount)}</div>
+                  <div className="anomaly-price">{moneyNoWrap(a.amount)}</div>
                 </div>
               ))}
             </div>

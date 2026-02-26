@@ -8,6 +8,7 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "site": "aurora-4-0",
     "public": "build",
     "ignore": [
       "firebase.json",

@@ -23,12 +23,32 @@ const admin = require("firebase-admin");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
-const {Resend} = require("resend");
-const {DateTime} = require("luxon");
+let ResendLib;
+let DateTimeLib;
 
-// Inizializza Firebase Admin
-admin.initializeApp();
-const db = admin.firestore();
+function getResendLib() {
+  if (!ResendLib) {
+    ({Resend: ResendLib} = require("resend"));
+  }
+  return ResendLib;
+}
+
+function getDateTime() {
+  if (!DateTimeLib) {
+    ({DateTime: DateTimeLib} = require("luxon"));
+  }
+  return DateTimeLib;
+}
+
+// Inizializza Firebase Admin in modo lazy per evitare timeouts in fase di deploy
+let db;
+function getDb() {
+  if (!db) {
+    admin.initializeApp();
+    db = admin.firestore();
+  }
+  return db;
+}
 
 // Definisci i secrets
 const resendApiKey = defineSecret("RESEND_API_KEY");
@@ -48,6 +68,7 @@ function getResendClient() {
     );
   }
 
+  const Resend = getResendLib();
   return new Resend(apiKey);
 }
 
@@ -80,7 +101,7 @@ async function assertAuth(request, requireAdmin = false) {
 
   if (!requireAdmin) return;
 
-  const userSnap = await db.collection("users").doc(request.auth.uid).get();
+  const userSnap = await getDb().collection("users").doc(request.auth.uid).get();
   if (!userSnap.exists) {
     throw new HttpsError("not-found", "User not found");
   }
@@ -100,6 +121,7 @@ async function assertAuth(request, requireAdmin = false) {
  * @return {DateTime|null} Next birthday date or null if invalid input
  */
 function getNextBirthdayDate(dateStr, nowRome) {
+  const DateTime = getDateTime();
   if (!dateStr) return null;
 
   let day, month;
@@ -321,6 +343,7 @@ exports.birthdayReminderDaily = onSchedule(
     async () => {
       console.log("Starting birthday reminder job...");
 
+      const DateTime = getDateTime();
       const nowRome = DateTime.now().setZone("Europe/Rome");
       const defaultDaysBefore = 2;
       const target = nowRome.plus({days: defaultDaysBefore}).startOf("day");
@@ -338,7 +361,7 @@ exports.birthdayReminderDaily = onSchedule(
       // Leggi tutti i compleanni
       let snap;
       try {
-        snap = await db.collection("birthdays").get();
+        snap = await getDb().collection("birthdays").get();
         console.log(`Found ${snap.size} birthday documents`);
       } catch (error) {
         console.error("Failed to fetch birthdays:", error);
@@ -414,7 +437,7 @@ exports.birthdayReminderDaily = onSchedule(
 
       for (const [userId, payload] of byUser.entries()) {
         try {
-          const userSnap = await db.collection("users").doc(userId).get();
+          const userSnap = await getDb().collection("users").doc(userId).get();
           if (!userSnap.exists) {
             console.log(`User ${userId} not found, skipping.`);
             continue;
@@ -444,7 +467,7 @@ exports.birthdayReminderDaily = onSchedule(
           });
 
           // Aggiorna i documenti birthday con lastReminderYear
-          const batch = db.batch();
+          const batch = getDb().batch();
           payload.docsToUpdate.forEach((x) => {
             batch.update(x.ref, {lastReminderYear: x.yearToMark});
           });
@@ -548,6 +571,7 @@ exports.testBirthdayReminder = onRequest(
       try {
         console.log("🧪 Starting MANUAL birthday reminder test...");
 
+        const DateTime = getDateTime();
         const nowRome = DateTime.now().setZone("Europe/Rome");
         
         // Permette di testare con diversi giorni (default 2)
@@ -566,7 +590,7 @@ exports.testBirthdayReminder = onRequest(
         }
 
         // Leggi tutti i compleanni
-        const snap = await db.collection("birthdays").get();
+        const snap = await getDb().collection("birthdays").get();
         console.log(`📚 Found ${snap.size} birthday documents total`);
 
         const byUser = new Map();
@@ -639,7 +663,7 @@ exports.testBirthdayReminder = onRequest(
 
         for (const [userId, payload] of byUser.entries()) {
           try {
-            const userSnap = await db.collection("users").doc(userId).get();
+            const userSnap = await getDb().collection("users").doc(userId).get();
             
             if (!userSnap.exists) {
               console.log(`⚠️ User ${userId} not found, skipping.`);
