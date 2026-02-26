@@ -662,6 +662,58 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     cs
   ]);
 
+  const forecastData = useMemo(() => {
+    const horizons = [30, 60, 90];
+    const now = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - 90);
+    const totalCurrentBalance = accounts.reduce((sum, acc) => sum + (Number(acc?.balance) || 0), 0);
+
+    const recentTx = (transactions || []).filter((t) => {
+      const d = parseDate(t?.date);
+      return d >= start && d <= now;
+    });
+
+    const totalNet90 = recentTx.reduce((sum, t) => sum + (Number(t?.amount) || 0), 0);
+    const totalDailyNet = totalNet90 / 90;
+
+    const cards = horizons.map((days) => {
+      const projected = totalCurrentBalance + totalDailyNet * days;
+      return {
+        days,
+        projected,
+        level: projected < 0 ? 'danger' : projected < totalCurrentBalance * 0.85 ? 'warn' : 'ok'
+      };
+    });
+
+    const riskyAccounts = (accounts || [])
+      .map((acc) => {
+        const current = Number(acc?.balance) || 0;
+        const accNet90 = recentTx
+          .filter((t) => t?.accountId === acc.id)
+          .reduce((sum, t) => sum + (Number(t?.amount) || 0), 0);
+        const daily = accNet90 / 90;
+        const p30 = current + daily * 30;
+        const p60 = current + daily * 60;
+        const p90 = current + daily * 90;
+        const riskHorizon = p30 < 0 ? 30 : p60 < 0 ? 60 : p90 < 0 ? 90 : null;
+        return {
+          id: acc.id,
+          name: acc.name || 'Conto',
+          current,
+          p30,
+          p60,
+          p90,
+          riskHorizon
+        };
+      })
+      .filter((a) => a.riskHorizon !== null)
+      .sort((a, b) => a.riskHorizon - b.riskHorizon)
+      .slice(0, 3);
+
+    return { cards, riskyAccounts };
+  }, [accounts, transactions, parseDate]);
+
   return (
     <div className="content-page">
       <div className="aurora-background">
@@ -829,6 +881,31 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             </div>
           </div>
 
+        </div>
+
+        <div className="section forecast-3090">
+          <h2 className="section-title">Forecast 30/60/90 giorni</h2>
+          <div className="forecast-3090-grid">
+            {forecastData.cards.map((f) => (
+              <div key={f.days} className={`forecast-card ${f.level}`}>
+                <div className="forecast-title">Tra {f.days} giorni</div>
+                <div className="forecast-value">
+                  {f.projected < 0 ? '-' : ''}{cs} {formatNumber(Math.abs(f.projected))}
+                </div>
+                <div className="forecast-sub">
+                  {f.level === 'danger' ? 'Rischio rosso' : f.level === 'warn' ? 'Da monitorare' : 'In sicurezza'}
+                </div>
+              </div>
+            ))}
+          </div>
+          {forecastData.riskyAccounts.length > 0 && (
+            <div className="forecast-risk-list">
+              <strong>Conti a rischio:</strong>{' '}
+              {forecastData.riskyAccounts
+                .map((a) => `${a.name} (rosso entro ${a.riskHorizon}g)`)
+                .join(' - ')}
+            </div>
+          )}
         </div>
 
         {!isCompactMobile && (

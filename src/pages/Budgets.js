@@ -23,6 +23,11 @@ function parseDate(date) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function shiftYearMonth(year, month, deltaMonths) {
+  const d = new Date(year, month - 1 + deltaMonths, 1);
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+}
+
 export default function Budgets() {
   const { user, userSettings } = useAuth();
   const { transactions = [], categories = [], loading } = useFinancial();
@@ -68,6 +73,22 @@ export default function Budgets() {
     return m;
   }, [transactions, year, month]);
 
+  const historicalSpentMap = useMemo(() => {
+    const m = new Map();
+    for (const t of transactions) {
+      const amt = Number(t?.amount) || 0;
+      const type = t?.type || (amt < 0 ? "expense" : "income");
+      if (type !== "expense") continue;
+      const d = parseDate(t?.date);
+      if (!d) continue;
+      const cid = t?.categoryId;
+      if (!cid) continue;
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}-${cid}`;
+      m.set(key, (m.get(key) || 0) + Math.abs(amt));
+    }
+    return m;
+  }, [transactions]);
+
   const rows = useMemo(() => {
     return categories
       .filter((c) => c.type === "expense")
@@ -88,6 +109,21 @@ export default function Budgets() {
         const forecastState =
           budget <= 0 || elapsedDays === 0 ? "none" : projected > budget ? "risk" : projected >= budget * 0.9 ? "warn" : "ok";
 
+        const prev1 = shiftYearMonth(year, month, -1);
+        const prev2 = shiftYearMonth(year, month, -2);
+        const prev3 = shiftYearMonth(year, month, -3);
+        const vals = [
+          historicalSpentMap.get(`${prev1.year}-${prev1.month}-${c.id}`) || 0,
+          historicalSpentMap.get(`${prev2.year}-${prev2.month}-${c.id}`) || 0,
+          historicalSpentMap.get(`${prev3.year}-${prev3.month}-${c.id}`) || 0
+        ];
+        const nonZero = vals.filter((v) => v > 0);
+        const avg3 = nonZero.length ? vals.reduce((s, v) => s + v, 0) / nonZero.length : 0;
+        const sameMonthLastYear = historicalSpentMap.get(`${year - 1}-${month}-${c.id}`) || 0;
+        const trendBoost = vals[0] > avg3 * 1.15 && avg3 > 0 ? 1.08 : 1;
+        const seasonalBase = sameMonthLastYear > 0 ? (avg3 * 0.7 + sameMonthLastYear * 0.3) : avg3;
+        const dynamicSuggested = seasonalBase > 0 ? Number((seasonalBase * 1.1 * trendBoost).toFixed(2)) : 0;
+
         return {
           category: c,
           spent,
@@ -96,11 +132,12 @@ export default function Budgets() {
           state,
           projected,
           forecastState,
-          budgetId: b?.id || null
+          budgetId: b?.id || null,
+          dynamicSuggested
         };
       })
       .sort((a, b) => b.spent - a.spent);
-  }, [categories, spentMap, budgetMap, year, month]);
+  }, [categories, spentMap, budgetMap, year, month, historicalSpentMap]);
 
   const forecastSummary = useMemo(() => {
     const totalBudget = rows.reduce((sum, r) => sum + (r.budget || 0), 0);
@@ -147,6 +184,21 @@ export default function Budgets() {
     setSaving(true);
     try {
       await deleteBudget(budgetId);
+      const fresh = await getBudgetsByMonth(user.uid, year, month);
+      setBudgets(Array.isArray(fresh) ? fresh : []);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyAllDynamicBudgets = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const candidates = rows.filter((r) => r.dynamicSuggested > 0);
+      for (const r of candidates) {
+        await upsertBudget(user.uid, year, month, r.category.id, r.dynamicSuggested, r.category.name || "");
+      }
       const fresh = await getBudgetsByMonth(user.uid, year, month);
       setBudgets(Array.isArray(fresh) ? fresh : []);
     } finally {
@@ -213,6 +265,9 @@ export default function Budgets() {
           <div className="budgets-pill">
             Mese: <strong>{formatYM(month, year)}</strong>
           </div>
+          <button type="button" className="budgets-pill apply-all" onClick={applyAllDynamicBudgets} disabled={saving}>
+            Applica budget dinamici
+          </button>
         </div>
 
         <div className="budget-forecast-summary">
@@ -270,6 +325,15 @@ export default function Budgets() {
                       onBlur={(e) => handleSave(r.category.id, e.target.value, r.category.name)}
                       className="budget-input"
                     />
+                    {r.dynamicSuggested > 0 && (
+                      <button
+                        type="button"
+                        className="budget-suggest-btn"
+                        onClick={() => handleSave(r.category.id, r.dynamicSuggested, r.category.name)}
+                      >
+                        Usa suggerito ({formatCurrency(r.dynamicSuggested, userSettings?.currency || "EUR")})
+                      </button>
+                    )}
                     {r.budgetId && (
                       <button type="button" onClick={() => handleRemove(r.budgetId)} className="budget-remove-btn">
                         Rimuovi
@@ -288,6 +352,11 @@ export default function Budgets() {
                       Forecast: {formatCurrency(r.projected, userSettings?.currency || "EUR")} {" "}
                       {r.forecastState === "risk" ? "- rischio sforamento" : r.forecastState === "warn" ? "- vicino al limite" : ""}
                     </div>
+                    {r.dynamicSuggested > 0 && (
+                      <div className="budget-dynamic-label">
+                        Budget dinamico consigliato: <strong>{formatCurrency(r.dynamicSuggested, userSettings?.currency || "EUR")}</strong>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

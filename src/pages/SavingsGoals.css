@@ -49,6 +49,89 @@
   gap: 12px;
 }
 
+.autopilot-panel {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.autopilot-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.autopilot-panel-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.autopilot-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.autopilot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.autopilot-preview {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.autopilot-pill {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.autopilot-pill.ok {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.autopilot-pill.danger {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+}
+
+.autopilot-actions {
+  margin-top: 14px;
+}
+
+.autopilot-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+
+.autopilot-status.success {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.autopilot-status.error {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
 /* Griglia obiettivi */
 .savings-goals-grid {
   display: grid;
@@ -457,5 +540,13 @@
 @media (max-width: 700px) {
   .savings-header {
     align-items: flex-start;
+  }
+
+  .autopilot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .autopilot-panel {
+    padding: 14px;
   }
 }

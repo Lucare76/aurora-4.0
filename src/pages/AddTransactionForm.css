@@ -748,6 +748,32 @@
   margin-top: 8px;
 }
 
+.apply-top-suggestion-btn {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.apply-top-suggestion-btn:hover {
+  background: rgba(37, 99, 235, 0.28);
+}
+
+.assistant-anomaly-hint {
+  margin-top: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.14);
+  color: #fde68a;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .suggestion-hint {
   font-weight: 400;
   opacity: 0.7;

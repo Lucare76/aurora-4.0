@@ -68,6 +68,18 @@
   color: #bbf7d0;
 }
 
+.budgets-pill.apply-all {
+  cursor: pointer;
+  font-weight: 700;
+  color: #bfdbfe;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(37, 99, 235, 0.2);
+}
+
+.budgets-pill.apply-all:hover {
+  background: rgba(37, 99, 235, 0.3);
+}
+
 .budget-forecast-summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -193,6 +205,21 @@
   background: rgba(239, 68, 68, 0.22);
 }
 
+.budget-suggest-btn {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.18);
+  color: #bfdbfe;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.budget-suggest-btn:hover {
+  background: rgba(59, 130, 246, 0.28);
+}
+
 .budget-progress-wrap {
   margin-top: 12px;
 }
@@ -244,6 +271,12 @@
 
 .budget-forecast-label.ok {
   color: #86efac;
+}
+
+.budget-dynamic-label {
+  margin-top: 4px;
+  color: #bfdbfe;
+  font-size: 12px;
 }
 
 .budgets-hint {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrencySymbol, formatCurrency } from '../utils/currency';
+import { formatEntityLabel } from '../utils/text';
 import {
   suggestTopCategories,
   suggestTopCategoriesFromReceipt
@@ -60,6 +61,10 @@ function parseAmountFromInput(value) {
   if (!value) return 0;
   const cleaned = value.replace(/\./g, '').replace(',', '.');
   return parseFloat(cleaned) || 0;
+}
+
+function normalizeDescription(value) {
+  return formatEntityLabel(value || '').trim();
 }
 
 const AddTransactionForm = ({ onClose }) => {
@@ -302,7 +307,7 @@ const AddTransactionForm = ({ onClose }) => {
     }
 
     if (name === 'description') {
-      setFormData((prev) => ({ ...prev, description: String(value || '').toLocaleUpperCase('it-IT') }));
+      setFormData((prev) => ({ ...prev, description: String(value || '') }));
       return;
     }
 
@@ -348,12 +353,45 @@ const AddTransactionForm = ({ onClose }) => {
   const selectedAccount = accounts?.find((a) => a.id === formData.accountId);
   const fromAccount = accounts?.find((a) => a.id === formData.fromAccountId);
   const toAccount = accounts?.find((a) => a.id === formData.toAccountId);
+  const amountNum = useMemo(() => parseAmountFromInput(formData.amount), [formData.amount]);
+
+  const anomalyInsight = useMemo(() => {
+    if (formData.type !== 'expense' || amountNum <= 0) return null;
+
+    const currentCategoryId = formData.category || null;
+    const currentDesc = String(formData.description || '').trim().toLocaleLowerCase('it-IT');
+    const sameBucket = (transactions || []).filter((t) => {
+      if ((t?.type || '') !== 'expense') return false;
+      const historicalAmount = Math.abs(Number(t?.amount) || 0);
+      if (historicalAmount <= 0) return false;
+
+      const byCategory = currentCategoryId && t?.categoryId === currentCategoryId;
+      const byDescription =
+        currentDesc.length >= 4 &&
+        String(t?.description || '').toLocaleLowerCase('it-IT').includes(currentDesc);
+      return byCategory || byDescription;
+    });
+
+    if (sameBucket.length < 3) return null;
+
+    const average = sameBucket.reduce((sum, t) => sum + Math.abs(Number(t.amount) || 0), 0) / sameBucket.length;
+    if (!Number.isFinite(average) || average <= 0) return null;
+
+    const ratio = amountNum / average;
+    if (ratio < 1.8 || amountNum - average < 15) return null;
+
+    return {
+      average,
+      ratio,
+      sampleSize: sameBucket.length
+    };
+  }, [formData.type, formData.category, formData.description, amountNum, transactions]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const amountNum = parseAmountFromInput(formData.amount);
-    if (!amountNum || amountNum <= 0) {
+    const amountToSubmit = amountNum;
+    if (!amountToSubmit || amountToSubmit <= 0) {
       setError('Inserisci un importo valido');
       return;
     }
@@ -367,8 +405,7 @@ const AddTransactionForm = ({ onClose }) => {
     try {
       setLoading(true);
       setError('');
-
-      // ✅ GIROCONTO
+                  Giroconto
       if (formData.type === 'transfer') {
         if (!accounts || accounts.length < 2) {
           setError('Per un giroconto servono almeno 2 conti');
@@ -384,9 +421,9 @@ const AddTransactionForm = ({ onClose }) => {
         }
 
         await createTransfer({
-          description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
+          description: normalizeDescription(formData.description) || '',
           type: 'transfer',
-          amount: Math.abs(amountNum),
+          amount: Math.abs(amountToSubmit),
           fromAccountId: formData.fromAccountId,
           toAccountId: formData.toAccountId,
           date: transactionDate,
@@ -415,8 +452,8 @@ const AddTransactionForm = ({ onClose }) => {
       }
 
       await createTransaction({
-        description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
-        amount: formData.type === 'income' ? amountNum : -amountNum,
+        description: normalizeDescription(formData.description) || '',
+        amount: formData.type === 'income' ? amountToSubmit : -amountToSubmit,
         type: formData.type,
         category: formData.category || null,
         subCategory: formData.subCategory || null,
@@ -439,8 +476,8 @@ const AddTransactionForm = ({ onClose }) => {
         }
 
         await addRecurring(user.uid, {
-          description: formData.description.toLocaleUpperCase('it-IT').trim() || '',
-          amount: amountNum,
+          description: normalizeDescription(formData.description) || '',
+          amount: amountToSubmit,
           type: formData.type,
           categoryId: formData.category || null,
           categoryName: selCat?.name || '',
@@ -524,7 +561,7 @@ const AddTransactionForm = ({ onClose }) => {
               </>
             ) : (
               <>
-                📷 Scansiona Scontrino
+                Scansiona Scontrino
               </>
             )}
           </button>
@@ -562,6 +599,13 @@ const AddTransactionForm = ({ onClose }) => {
               />
               {suggestions.length > 0 && (
                 <div className="suggestion-list">
+                  <button
+                    type="button"
+                    className="apply-top-suggestion-btn"
+                    onClick={() => applySuggestion(suggestions[0])}
+                  >
+                    Applica suggerimento migliore
+                  </button>
                   {suggestions.map((item, index) => (
                     <div
                       key={`${item.categoryId}-${item.subCategoryId || 'none'}-${index}`}
@@ -582,7 +626,7 @@ const AddTransactionForm = ({ onClose }) => {
                 </div>
               )}
               <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                Facoltativo — puoi lasciare vuoto.
+                Facoltativo, puoi lasciare vuoto.
               </small>
             </div>
 
@@ -632,6 +676,13 @@ const AddTransactionForm = ({ onClose }) => {
                   required
                 />
               </div>
+              {anomalyInsight && (
+                <div className="assistant-anomaly-hint">
+                  Importo sopra media: simili a {cs}{' '}
+                  {formatInputAmount(anomalyInsight.average.toFixed(2).replace('.', ','))}
+                  {' '}({anomalyInsight.sampleSize} movimenti, {anomalyInsight.ratio.toFixed(1)}x)
+                </div>
+              )}
             </div>
           </div>
 
@@ -645,7 +696,7 @@ const AddTransactionForm = ({ onClose }) => {
                   className={`type-button ${formData.type === 'income' ? 'active income' : ''}`}
                   onClick={() => handleTypeChange('income')}
                 >
-                  📈 Entrata
+                  Entrata
                 </button>
 
                 <button
@@ -653,7 +704,7 @@ const AddTransactionForm = ({ onClose }) => {
                   className={`type-button ${formData.type === 'expense' ? 'active expense' : ''}`}
                   onClick={() => handleTypeChange('expense')}
                 >
-                  📉 Uscita
+                  Uscita
                 </button>
 
                 <button
@@ -663,7 +714,7 @@ const AddTransactionForm = ({ onClose }) => {
                   disabled={!accounts || accounts.length < 2}
                   title={!accounts || accounts.length < 2 ? 'Servono almeno 2 conti' : ''}
                 >
-                  🔁 Giroconto
+                  Giroconto
                 </button>
               </div>
             </div>
@@ -801,7 +852,7 @@ const AddTransactionForm = ({ onClose }) => {
                     <option value="">Nessuna sottocategoria</option>
                     {subCategories.map((sub) => (
                       <option key={sub.id} value={sub.id}>
-                        {sub.icon || '📋'} {sub.name}
+                        {sub.icon || '*'} {sub.name}
                       </option>
                     ))}
                   </select>
@@ -819,7 +870,7 @@ const AddTransactionForm = ({ onClose }) => {
                   checked={isRecurring}
                   onChange={(e) => setIsRecurring(e.target.checked)}
                 />
-                <span className="recurring-text">🔄 Transazione Ricorrente</span>
+                <span className="recurring-text">Transazione Ricorrente</span>
               </label>
               {isRecurring && (
                 <select
@@ -840,10 +891,10 @@ const AddTransactionForm = ({ onClose }) => {
               Annulla
             </button>
             <button type="button" className="template-save-button" onClick={saveTemplate}>
-              ⭐ Salva template
+              Salva template
             </button>
             <button type="submit" className="submit-button" disabled={loading}>
-              {loading ? 'Creazione…' : '➕ Crea Transazione'}
+              {loading ? 'Creazione...' : 'Crea Transazione'}
             </button>
           </div>
         </form>
@@ -853,3 +904,5 @@ const AddTransactionForm = ({ onClose }) => {
 };
 
 export default AddTransactionForm;
+
+

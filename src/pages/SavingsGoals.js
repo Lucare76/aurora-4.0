@@ -1,5 +1,5 @@
 ﻿// src/pages/SavingsGoals.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";
 import { getCurrencySymbol } from "../utils/currency";
@@ -59,7 +59,7 @@ function getMonthsRemaining(deadline) {
 
 export default function SavingsGoals() {
   const { user, userSettings } = useAuth();
-  const { accounts = [] } = useFinancial();
+  const { accounts = [], transactions = [], createTransaction, createTransfer } = useFinancial();
   const cs = getCurrencySymbol(userSettings?.currency);
 
   const [goals, setGoals] = useState([]);
@@ -69,6 +69,13 @@ export default function SavingsGoals() {
   const [depositModal, setDepositModal] = useState({ goalId: null, open: false, mode: "deposit" });
   const [depositAmount, setDepositAmount] = useState("");
   const [saving, setSaving] = useState(false);
+  const [autopilotStatus, setAutopilotStatus] = useState({ text: "", type: "" });
+  const [autopilot, setAutopilot] = useState({
+    enabled: false,
+    percent: 10,
+    goalId: "",
+    sourceAccountId: ""
+  });
 
   // Form state
   const [formData, setFormData] = useState({
@@ -109,6 +116,69 @@ export default function SavingsGoals() {
     loadGoals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, accounts]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const key = `aurora_autopilot_${user.uid}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      setAutopilot((prev) => ({
+        ...prev,
+        enabled: Boolean(parsed?.enabled),
+        percent: Number(parsed?.percent) > 0 ? Number(parsed.percent) : prev.percent,
+        goalId: parsed?.goalId || "",
+        sourceAccountId: parsed?.sourceAccountId || ""
+      }));
+    } catch {
+      // ignore invalid local settings
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const key = `aurora_autopilot_${user.uid}`;
+    localStorage.setItem(key, JSON.stringify(autopilot));
+  }, [user?.uid, autopilot]);
+
+  const currentMonthKey = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }, []);
+
+  const monthlyIncome = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    return (transactions || [])
+      .filter((t) => {
+        if ((t?.type || "") !== "income") return false;
+        const d = t?.date && typeof t.date.toDate === "function" ? t.date.toDate() : new Date(t?.date);
+        if (Number.isNaN(d.getTime())) return false;
+        return d.getFullYear() === y && d.getMonth() === m;
+      })
+      .reduce((sum, t) => sum + Math.abs(Number(t?.amount) || 0), 0);
+  }, [transactions]);
+
+  const selectedAutopilotGoal = useMemo(
+    () => goals.find((g) => g.id === autopilot.goalId) || null,
+    [goals, autopilot.goalId]
+  );
+
+  const projectedAutopilotAmount = useMemo(() => {
+    const p = Number(autopilot.percent) || 0;
+    if (p <= 0 || monthlyIncome <= 0) return 0;
+    return Number(((monthlyIncome * p) / 100).toFixed(2));
+  }, [monthlyIncome, autopilot.percent]);
+
+  const alreadyAppliedThisMonth = useMemo(() => {
+    if (!autopilot.goalId) return false;
+    const marker = `AUTOPILOT-${currentMonthKey}-${autopilot.goalId}`;
+    return (transactions || []).some((t) => String(t?.description || "").includes(marker));
+  }, [transactions, autopilot.goalId, currentMonthKey]);
 
   const resetForm = () => {
     setFormData({
@@ -219,6 +289,75 @@ export default function SavingsGoals() {
     }
   };
 
+  const handleRunAutopilot = async () => {
+    if (!autopilot.enabled) {
+      setAutopilotStatus({ text: "Attiva prima il pilota automatico.", type: "error" });
+      return;
+    }
+    if (!selectedAutopilotGoal) {
+      setAutopilotStatus({ text: "Seleziona un obiettivo target.", type: "error" });
+      return;
+    }
+    if (!autopilot.sourceAccountId) {
+      setAutopilotStatus({ text: "Seleziona il conto sorgente.", type: "error" });
+      return;
+    }
+    if (selectedAutopilotGoal.accountId && selectedAutopilotGoal.accountId === autopilot.sourceAccountId) {
+      setAutopilotStatus({ text: "Per obiettivi collegati scegli un conto sorgente diverso dal conto obiettivo.", type: "error" });
+      return;
+    }
+    if (projectedAutopilotAmount <= 0) {
+      setAutopilotStatus({ text: "Entrate mese insufficienti per calcolare il versamento.", type: "error" });
+      return;
+    }
+    if (alreadyAppliedThisMonth) {
+      setAutopilotStatus({ text: "Autopilota gia' applicato in questo mese.", type: "error" });
+      return;
+    }
+
+    const marker = `AUTOPILOT-${currentMonthKey}-${selectedAutopilotGoal.id}`;
+    const description = `${marker} ${selectedAutopilotGoal.name}`;
+
+    setSaving(true);
+    try {
+      if (
+        selectedAutopilotGoal.accountId &&
+        selectedAutopilotGoal.accountId !== autopilot.sourceAccountId &&
+        typeof createTransfer === "function"
+      ) {
+        await createTransfer({
+          amount: projectedAutopilotAmount,
+          fromAccountId: autopilot.sourceAccountId,
+          toAccountId: selectedAutopilotGoal.accountId,
+          description,
+          date: new Date()
+        });
+      } else {
+        await createTransaction({
+          description,
+          amount: -projectedAutopilotAmount,
+          type: "expense",
+          category: null,
+          subCategory: null,
+          accountId: autopilot.sourceAccountId,
+          date: new Date(),
+          timestamp: Date.now()
+        });
+        await depositToGoal(selectedAutopilotGoal.id, projectedAutopilotAmount);
+      }
+
+      await loadGoals();
+      setAutopilotStatus({
+        text: `Autopilota applicato: ${cs} ${fmt(projectedAutopilotAmount)} su ${selectedAutopilotGoal.name}.`,
+        type: "success"
+      });
+    } catch (e) {
+      setAutopilotStatus({ text: e?.message || "Errore durante applicazione autopilota.", type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Summary calculations
   const activeGoals = goals.filter((g) => !g.completed);
   const completedGoals = goals.filter((g) => g.completed);
@@ -289,6 +428,84 @@ export default function SavingsGoals() {
             <div className="summary-value summary-value-completed">{completedGoals.length}</div>
             <div className="summary-label">Completati</div>
           </div>
+        </div>
+
+        <div className="autopilot-panel">
+          <div className="autopilot-panel-header">
+            <h3>Pilota Automatico Risparmio</h3>
+            <label className="autopilot-switch">
+              <input
+                type="checkbox"
+                checked={autopilot.enabled}
+                onChange={(e) => setAutopilot((prev) => ({ ...prev, enabled: e.target.checked }))}
+              />
+              <span>Attivo</span>
+            </label>
+          </div>
+
+          <div className="autopilot-grid">
+            <div className="form-group">
+              <label>Percentuale entrate mese</label>
+              <input
+                type="number"
+                min="1"
+                max="80"
+                step="1"
+                value={autopilot.percent}
+                onChange={(e) => setAutopilot((prev) => ({ ...prev, percent: Number(e.target.value) || 0 }))}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Obiettivo target</label>
+              <select
+                value={autopilot.goalId}
+                onChange={(e) => setAutopilot((prev) => ({ ...prev, goalId: e.target.value }))}
+              >
+                <option value="">Seleziona obiettivo</option>
+                {goals.map((goal) => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>Conto sorgente</label>
+              <select
+                value={autopilot.sourceAccountId}
+                onChange={(e) => setAutopilot((prev) => ({ ...prev, sourceAccountId: e.target.value }))}
+              >
+                <option value="">Seleziona conto</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="autopilot-preview">
+            <div>Entrate mese: <strong>{cs} {fmt(monthlyIncome)}</strong></div>
+            <div>Proiezione versamento: <strong>{cs} {fmt(projectedAutopilotAmount)}</strong></div>
+            <div className={alreadyAppliedThisMonth ? "autopilot-pill danger" : "autopilot-pill ok"}>
+              {alreadyAppliedThisMonth ? "Gia' applicato questo mese" : "Pronto per questo mese"}
+            </div>
+          </div>
+
+          <div className="autopilot-actions">
+            <button type="button" className="btn-save" onClick={handleRunAutopilot} disabled={saving}>
+              {saving ? "Elaborazione..." : "Applica adesso"}
+            </button>
+          </div>
+
+          {autopilotStatus.text && (
+            <div className={`autopilot-status ${autopilotStatus.type}`}>
+              {autopilotStatus.text}
+            </div>
+          )}
         </div>
 
         {/* Griglia obiettivi */}

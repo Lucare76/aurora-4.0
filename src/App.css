@@ -4076,7 +4076,7 @@ html, body, #root {
 
   .main-content .financial-overview {
     width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     align-items: stretch;
     gap: 16px;
     margin-bottom: 0;
@@ -4555,6 +4555,62 @@ html, body, #root {
   background: rgba(30,41,59,0.8);
 }
 
+.forecast-3090 {
+  background: rgba(15,23,42,0.4);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.forecast-3090-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.forecast-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(148,163,184,0.22);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.forecast-card.ok {
+  border-color: rgba(34,197,94,0.35);
+}
+
+.forecast-card.warn {
+  border-color: rgba(245,158,11,0.4);
+}
+
+.forecast-card.danger {
+  border-color: rgba(239,68,68,0.5);
+}
+
+.forecast-title {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.forecast-value {
+  margin-top: 4px;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.forecast-sub {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: rgba(226,232,240,0.78);
+}
+
+.forecast-risk-list {
+  margin-top: 10px;
+  color: #fecaca;
+  font-size: 0.82rem;
+}
+
 @media (max-width: 768px) {
   .hero-story {
     flex-direction: column;
@@ -4575,6 +4631,10 @@ html, body, #root {
 
   .smart-detail {
     font-size: 0.85rem;
+  }
+
+  .forecast-3090-grid {
+    grid-template-columns: 1fr;
   }
 
   .compact-mobile .financial-overview {
