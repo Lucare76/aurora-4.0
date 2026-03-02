@@ -5,6 +5,7 @@ import { getCurrencySymbol } from '../../utils/currency';
 import { getBudgetsByMonth } from '../../services/budgetsService';
 import { getBirthdays, getDaysUntilBirthday, calculateAge } from '../../services/birthdaysService';
 import { processRecurring } from '../../services/recurringService';
+import { getSubscriptions } from '../../services/subscriptionsService';
 import LiveClock from './LiveClock';
 import { formatNumber } from '../../utils/format';
 import { formatEntityLabel } from '../../utils/text';
@@ -51,6 +52,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const [now, setNow] = useState(() => new Date());
 
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -78,6 +80,23 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
       }
     }
     loadBirthdays();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadSubscriptions() {
+      if (!user?.uid) return;
+      try {
+        const data = await getSubscriptions(user.uid);
+        if (mounted) setSubscriptions(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Errore caricamento abbonamenti dashboard:', e);
+      }
+    }
+    loadSubscriptions();
     return () => {
       mounted = false;
     };
@@ -595,6 +614,45 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const todayActions = useMemo(() => {
     const items = [];
 
+    const reminderDays = Number(userSettings?.subscriptionsNotificationsDays) || 7;
+    const notifySubs = userSettings?.subscriptionsNotificationsEnabled === true;
+    const includeRecurring = userSettings?.subscriptionsRecurringEnabled !== false;
+    const includeFixed = userSettings?.subscriptionsFixedEnabled !== false;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const dueSubs = (subscriptions || [])
+      .filter((s) => s?.active !== false)
+      .filter((s) => {
+        if (s?.kind === 'fixed' && !includeFixed) return false;
+        if (s?.kind !== 'fixed' && !includeRecurring) return false;
+        return true;
+      })
+      .map((s) => {
+        const d = s?.nextDueDate ? new Date(s.nextDueDate) : null;
+        if (!d || Number.isNaN(d.getTime())) return null;
+        d.setHours(0, 0, 0, 0);
+        const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
+        return { ...s, daysTo: diff };
+      })
+      .filter(Boolean)
+      .filter((s) => s.daysTo <= reminderDays)
+      .sort((a, b) => a.daysTo - b.daysTo);
+
+    if (notifySubs && dueSubs.length > 0) {
+      const s = dueSubs[0];
+      const dueLabel =
+        s.daysTo < 0 ? `${Math.abs(s.daysTo)} gg fa` : s.daysTo === 0 ? 'oggi' : s.daysTo === 1 ? 'domani' : `tra ${s.daysTo} gg`;
+      items.push({
+        id: 'subscription-due',
+        title: 'Abbonamento in scadenza',
+        detail: `${s.name} (${s.ownerName || 'tu'}) ${dueLabel}`,
+        cta: 'Apri Abbonamenti',
+        menu: 'subscriptions',
+        level: s.daysTo < 0 ? 'danger' : s.daysTo <= 2 ? 'warn' : 'info'
+      });
+    }
+
     if (monthlyIncome > 0 && monthlyExpenses > monthlyIncome) {
       items.push({
         id: 'cashflow',
@@ -660,7 +718,12 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     monthlyUncategorizedCount,
     budgetAlerts,
     upcomingBirthdays,
-    cs
+    cs,
+    subscriptions,
+    userSettings?.subscriptionsFixedEnabled,
+    userSettings?.subscriptionsNotificationsDays,
+    userSettings?.subscriptionsNotificationsEnabled,
+    userSettings?.subscriptionsRecurringEnabled
   ]);
 
   const forecastData = useMemo(() => {
