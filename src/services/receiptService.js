@@ -1,7 +1,9 @@
 // src/services/receiptService.js
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { getApp } from "firebase/app";
 
-const CLOUD_FUNCTION_URL =
-  'https://analyzereceipt-nvhh2a2tka-ew.a.run.app';
+const FUNCTIONS_REGION = "europe-west1";
+const FN_ANALYZE_RECEIPT = "analyzeReceiptCallable";
 
 /**
  * Analizza un'immagine di scontrino tramite la Cloud Function OCR.
@@ -10,22 +12,16 @@ const CLOUD_FUNCTION_URL =
  * @returns {Promise<{amount: number|null, merchant: string|null, date: string|null, rawText: string}>}
  */
 export async function analyzeReceipt(imageBase64) {
-  const response = await fetch(CLOUD_FUNCTION_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64 }),
-  });
+  const app = getApp();
+  const functions = getFunctions(app, FUNCTIONS_REGION);
+  const analyzeFn = httpsCallable(functions, FN_ANALYZE_RECEIPT);
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Errore server: ${response.status}`);
+  const result = await analyzeFn({ imageBase64 });
+  const payload = result?.data;
+
+  if (!payload?.success) {
+    throw new Error(payload?.error || "Errore durante l'analisi dello scontrino");
   }
 
-  const result = await response.json();
-
-  if (!result.success) {
-    throw new Error(result.error || 'Errore durante l\'analisi dello scontrino');
-  }
-
-  return result.data;
+  return payload.data;
 }

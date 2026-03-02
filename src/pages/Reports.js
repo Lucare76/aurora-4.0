@@ -1,4 +1,4 @@
-// src/pages/Reports.js
+﻿// src/pages/Reports.js
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +21,8 @@ import ExpenseDonutChart from '../components/reports/ExpenseDonutChart';
 import YearOverYearChart from '../components/reports/YearOverYearChart';
 import SpendingHeatmap from '../components/reports/SpendingHeatmap';
 import InsightsPanel from '../components/reports/InsightsPanel';
+import PageHeader from '../components/app/PageHeader';
+import { formatEntityLabel } from '../utils/text';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
@@ -117,6 +119,13 @@ function Reports() {
   // -----------------------------
   const todayISO = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+  const parseDateInput = useCallback((value) => {
+    if (!value) return null;
+    const [y, m, d] = String(value).split('-').map(Number);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }, []);
+
   const [dateRange, setDateRange] = useState(() => {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -155,6 +164,10 @@ function Reports() {
         .trim(),
     []
   );
+  const toTitleCase = useCallback(
+    (value) => formatEntityLabel(value),
+    []
+  );
   const formatEUR = useCallback((n) => {
     return formatCurrency(n, currencyCode, { decimals: 2 });
   }, [currencyCode]);
@@ -171,18 +184,18 @@ function Reports() {
   // Normalizzazione date
   // -----------------------------
   const normalizedStartDate = useMemo(() => {
-    if (!dateRange.start) return null;
-    const d = new Date(dateRange.start);
+    const d = parseDateInput(dateRange.start);
+    if (!d) return null;
     d.setHours(0, 0, 0, 0);
     return d;
-  }, [dateRange.start]);
+  }, [dateRange.start, parseDateInput]);
 
   const normalizedEndDate = useMemo(() => {
-    if (!dateRange.end) return null;
-    const d = new Date(dateRange.end);
+    const d = parseDateInput(dateRange.end);
+    if (!d) return null;
     d.setHours(23, 59, 59, 999);
     return d;
-  }, [dateRange.end]);
+  }, [dateRange.end, parseDateInput]);
 
   // -----------------------------
   // Subcategories per select
@@ -297,7 +310,7 @@ function Reports() {
 
         // account (transfer: matcha accountId di una delle gambe, quindi va bene)
         if (filterAccount !== 'all' && t.accountId !== filterAccount) {
-          // se è transfer e ho peer id salvato, prova a matchare anche quello
+          // se e transfer e ho peer id salvato, prova a matchare anche quello
           if (t.__type === 'transfer') {
             const peer = t.transferPeerAccountId;
             if (peer !== filterAccount) return false;
@@ -450,6 +463,32 @@ function Reports() {
     };
   }, [normalizedStartDate, normalizedEndDate, transactions, parseDate, getType, getAmountSigned]);
 
+  const setPeriodPreset = useCallback(
+    (preset) => {
+      const now = new Date();
+      const toISO = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().split('T')[0];
+
+      if (preset === 'thisMonth') {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        setDateRange({ start: toISO(start), end: toISO(now) });
+        return;
+      }
+
+      if (preset === 'lastMonth') {
+        const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const end = new Date(now.getFullYear(), now.getMonth(), 0);
+        setDateRange({ start: toISO(start), end: toISO(end) });
+        return;
+      }
+
+      if (preset === 'thisYear') {
+        const start = new Date(now.getFullYear(), 0, 1);
+        setDateRange({ start: toISO(start), end: toISO(now) });
+      }
+    },
+    []
+  );
+
   // -----------------------------
   // Aggregazioni (categorie/sottocategorie/conti) (escludi transfer)
   // -----------------------------
@@ -479,7 +518,7 @@ function Reports() {
       .filter((t) => t.__type === 'expense')
       .forEach((t) => {
         const catName = getCategoryNameFromTx(t);
-        const subName = getSubCategoryNameFromTx(t) || '—';
+        const subName = getSubCategoryNameFromTx(t) || 'Senza sottocategoria';
         const catId = t.categoryId || 'no-cat';
         const subId = t.subCategoryId || 'no-sub';
 
@@ -549,6 +588,39 @@ function Reports() {
     return { data: arr, max };
   }, [filteredTransactions]);
 
+  const overviewSignals = useMemo(() => {
+    const savingsRate = stats.income > 0 ? (stats.net / stats.income) * 100 : 0;
+    const topCategory = expensesByCategory[0] || null;
+
+    const expenseList = filteredTransactions
+      .filter((t) => t.__type === 'expense')
+      .map((t) => Math.abs(t.__amountSigned))
+      .sort((a, b) => b - a);
+    const biggestExpense = expenseList[0] || 0;
+    const avgExpense = expenseList.length ? expenseList.reduce((s, n) => s + n, 0) / expenseList.length : 0;
+    const anomaly = biggestExpense > 0 && avgExpense > 0 ? biggestExpense / avgExpense : 0;
+
+    const endRef = parseDateInput(dateRange.end) || new Date();
+    const month = endRef.getMonth();
+    const year = endRef.getFullYear();
+    const inCurrentMonth = month === new Date().getMonth() && year === new Date().getFullYear();
+    const monthDays = new Date(year, month + 1, 0).getDate();
+    const elapsed = Math.max(1, endRef.getDate());
+    const projectedExpenses = inCurrentMonth ? (stats.expenses / elapsed) * monthDays : stats.expenses;
+    const projectedIncome = inCurrentMonth ? (stats.income / elapsed) * monthDays : stats.income;
+
+    return {
+      savingsRate,
+      topCategory,
+      anomaly,
+      biggestExpense,
+      projectedExpenses,
+      projectedIncome,
+      projectedNet: projectedIncome - projectedExpenses,
+      inCurrentMonth
+    };
+  }, [stats, expensesByCategory, filteredTransactions, parseDateInput, dateRange.end]);
+
   // -----------------------------
   // Actions: export CSV / print
   // -----------------------------
@@ -612,7 +684,7 @@ function Reports() {
             <td>${t.__date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
             <td>${(t.description || (isTransfer ? 'Giroconto' : 'Nessuna descrizione')).toLocaleUpperCase('it-IT')}</td>
             <td>${getCategoryNameFromTx(t)}</td>
-            <td>${getSubCategoryNameFromTx(t) || '—'}</td>
+            <td></td>
             <td>${accountLabel}</td>
             <td style="text-align:right;">${formatEUR(amount)}</td>
           </tr>
@@ -747,9 +819,39 @@ function Reports() {
   // -----------------------------
   return (
     <div className="reports-container">
-      <div className="reports-header">
-        <h1>📊 Reports</h1>
-        <p className="reports-subtitle">Grafici, filtri e riepiloghi per categoria, sottocategoria, conto e periodo</p>
+      <PageHeader
+        className="reports-header"
+        title="Report"
+        subtitle="Grafici, filtri e riepiloghi per categoria, sottocategoria, conto e periodo"
+      />
+
+      <div className="reports-hero-grid">
+        <div className="reports-hero-card net">
+          <div className="label">Saldo Netto</div>
+          <div className={`value ${stats.net >= 0 ? 'positive' : 'negative'}`}>{formatEUR(stats.net)}</div>
+          <div className="meta">{stats.count} movimenti analizzati</div>
+        </div>
+        <div className="reports-hero-card income">
+          <div className="label">Entrate</div>
+          <div className="value positive">{formatEUR(stats.income)}</div>
+          <div className="meta">Tasso risparmio: {overviewSignals.savingsRate.toFixed(1)}%</div>
+        </div>
+        <div className="reports-hero-card expense">
+          <div className="label">Uscite</div>
+          <div className="value negative">{formatEUR(stats.expenses)}</div>
+          <div className="meta">
+            Top categoria: {toTitleCase(overviewSignals.topCategory?.categoryName || 'n/d')}
+          </div>
+        </div>
+        <div className="reports-hero-card projection">
+          <div className="label">Proiezione Fine Mese</div>
+          <div className={`value ${overviewSignals.projectedNet >= 0 ? 'positive' : 'negative'}`}>
+            {formatEUR(overviewSignals.projectedNet)}
+          </div>
+          <div className="meta">
+            {overviewSignals.inCurrentMonth ? 'Stimata su mese corrente' : 'Periodo non corrente'}
+          </div>
+        </div>
       </div>
 
       <div className="reports-controls">
@@ -772,6 +874,17 @@ function Reports() {
                 onChange={(e) => setDateRange((p) => ({ ...p, end: e.target.value }))}
                 className="date-input"
               />
+            </div>
+            <div className="period-presets">
+              <button type="button" className="period-chip" onClick={() => setPeriodPreset('thisMonth')}>
+                Questo mese
+              </button>
+              <button type="button" className="period-chip" onClick={() => setPeriodPreset('lastMonth')}>
+                Mese scorso
+              </button>
+              <button type="button" className="period-chip" onClick={() => setPeriodPreset('thisYear')}>
+                Quest'anno
+              </button>
             </div>
           </div>
         </div>
@@ -880,7 +993,7 @@ function Reports() {
               <FiRefreshCw /> Reset Filtri
             </button>
             <div className="filter-results">
-              {stats.count} transazioni trovate {stats.transferCount ? `• ${stats.transferCount} giroconti` : ''}
+              {stats.count} transazioni trovate {stats.transferCount ? `- ${stats.transferCount} giroconti` : ''}
             </div>
           </div>
           <div className="report-presets-row">
@@ -904,7 +1017,7 @@ function Reports() {
                       {p.name}
                     </button>
                     <button type="button" className="report-preset-delete" onClick={() => removePreset(p.id)}>
-                      ×
+                      X
                     </button>
                   </div>
                 ))}
@@ -933,26 +1046,6 @@ function Reports() {
           <button className={`tab-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
             <FiBarChart2 /> Transazioni
           </button>
-        </div>
-      </div>
-
-      {/* Stats cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3>Saldo Netto</h3>
-          <p className={`amount-stat ${stats.net >= 0 ? 'positive' : 'negative'}`}>{formatEUR(stats.net)}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Totale Entrate</h3>
-          <p className="amount-stat positive">{formatEUR(stats.income)}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Totale Uscite</h3>
-          <p className="amount-stat negative">{formatEUR(stats.expenses)}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Transazioni</h3>
-          <p>{stats.count}</p>
         </div>
       </div>
 
@@ -1002,15 +1095,33 @@ function Reports() {
       {/* Tab content */}
       {stats.count === 0 ? (
         <div className="empty-state">
-          <div className="empty-icon">🧾</div>
+          <div className="empty-icon">[ ]</div>
           <h3>Nessuna transazione nel periodo/filtri</h3>
-          <p>Controlla le date (soprattutto il giorno finale) oppure premi “Reset Filtri”.</p>
+          <p>Controlla le date (soprattutto il giorno finale) oppure premi "Reset Filtri".</p>
           <button className="empty-action-btn" onClick={resetFilters}>Reset Filtri</button>
         </div>
       ) : (
         <>
           {activeTab === 'overview' && (
             <>
+              <div className="reports-spotlight">
+                <div className="spotlight-card">
+                  <div className="spotlight-title">Categoria Più Costosa</div>
+                  <div className="spotlight-value">
+                    {overviewSignals.topCategory
+                      ? `${toTitleCase(overviewSignals.topCategory.categoryName)} - ${formatEUR(overviewSignals.topCategory.amount)}`
+                      : 'Nessun dato'}
+                  </div>
+                </div>
+                <div className="spotlight-card">
+                  <div className="spotlight-title">Anomalia Spesa</div>
+                  <div className="spotlight-value">
+                    {overviewSignals.anomaly >= 2
+                      ? `Picco ${overviewSignals.anomaly.toFixed(1)}x (${formatEUR(overviewSignals.biggestExpense)})`
+                      : 'Nessuna anomalia rilevante'}
+                  </div>
+                </div>
+              </div>
               <MonthlyTrendChart data={monthlyChart.data} formatEUR={formatEUR} />
               <div className="charts-row">
                 <ExpenseDonutChart
@@ -1020,18 +1131,19 @@ function Reports() {
                   categories={categories}
                 />
                 <InsightsPanel
-                  transactions={transactions}
+                  transactions={filteredTransactions}
+                  comparisonTransactions={transactions}
                   categories={categories}
                   accounts={accounts}
                   formatEUR={formatEUR}
-                  currentMonth={new Date(dateRange.start).getMonth()}
-                  currentYear={new Date(dateRange.start).getFullYear()}
+                  currentMonth={(parseDateInput(dateRange.end) || new Date()).getMonth()}
+                  currentYear={(parseDateInput(dateRange.end) || new Date()).getFullYear()}
                   monthlyIncome={stats.income}
                   monthlyExpenses={stats.expenses}
                 />
               </div>
               <div className="top-categories-section">
-                <h4>🏷️ Top Spese per Categoria</h4>
+                <h4>Top Spese per Categoria</h4>
                 <div className="top-categories-list">
                   {expensesByCategory.slice(0, 5).map((c, idx) => {
                     const perc = stats.expenses > 0 ? (c.amount / stats.expenses) * 100 : 0;
@@ -1039,7 +1151,7 @@ function Reports() {
                       <div key={c.categoryId + c.categoryName} className="top-category-item">
                         <div className="rank">{idx + 1}</div>
                         <div className="category-details">
-                          <div className="category-name">{c.categoryName}</div>
+                          <div className="category-name">{toTitleCase(c.categoryName)}</div>
                           <div className="category-stats">{c.count} transazioni</div>
                         </div>
                         <div className="category-amount">
@@ -1090,7 +1202,7 @@ function Reports() {
                     const perc = stats.expenses > 0 ? (c.amount / stats.expenses) * 100 : 0;
                     return (
                       <tr key={c.categoryId + c.categoryName}>
-                        <td>{c.categoryName}</td>
+                        <td>{toTitleCase(c.categoryName)}</td>
                         <td>{c.count}</td>
                         <td className="negative amount-col">{formatEUR(c.amount)}</td>
                         <td>{perc.toFixed(1)}%</td>
@@ -1126,8 +1238,8 @@ function Reports() {
                 <tbody>
                   {expensesBySubCategory.map((x) => (
                     <tr key={`${x.categoryId}-${x.subCategoryId}`}>
-                      <td>{x.categoryName}</td>
-                      <td>{x.subCategoryName || '—'}</td>
+                      <td>{toTitleCase(x.categoryName)}</td>
+                      <td>{toTitleCase(x.subCategoryName || 'Senza sottocategoria')}</td>
                       <td>{x.count}</td>
                       <td className="negative amount-col">{formatEUR(x.amount)}</td>
                     </tr>
@@ -1147,9 +1259,9 @@ function Reports() {
                   return (
                     <div key={a.accountId + a.accountName} className="account-detail-card">
                       <div className="account-header">
-                        <div className="account-icon-large">🏦</div>
+                        <div className="account-icon-large">CC</div>
                         <div className="account-info">
-                          <h4>{a.accountName}</h4>
+                          <h4>{toTitleCase(a.accountName)}</h4>
                           <p className="account-type">{a.count} transazioni</p>
                         </div>
                       </div>
@@ -1195,16 +1307,16 @@ function Reports() {
                   {filteredTransactions.map((t) => {
                     const isTransfer = t.__type === 'transfer';
                     const accountLabel = isTransfer
-                      ? `Da ${t.__fromAccountName || 'Conto'} → A ${t.__toAccountName || 'Conto'}`
+                      ? `Da ${t.__fromAccountName || 'Conto'} -> A ${t.__toAccountName || 'Conto'}`
                       : getAccountNameFromTx(t);
 
                     return (
                       <tr key={t.id}>
                         <td>{formatDateIT(t.__date)}</td>
                         <td>{t.description || (isTransfer ? 'Giroconto' : 'Nessuna descrizione')}</td>
-                        <td>{getCategoryNameFromTx(t)}</td>
-                        <td>{getSubCategoryNameFromTx(t) || '—'}</td>
-                        <td>{accountLabel}</td>
+                        <td>{toTitleCase(getCategoryNameFromTx(t))}</td>
+                        <td>{toTitleCase(getSubCategoryNameFromTx(t) || 'Senza sottocategoria')}</td>
+                        <td>{toTitleCase(accountLabel)}</td>
                         <td>
                           <span className={`type-badge ${t.__type}`}>
                             {t.__type === 'income' ? 'Entrata' : t.__type === 'expense' ? 'Uscita' : 'Trasferimento'}

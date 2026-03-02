@@ -1,0 +1,31 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`PageHeader matches snapshot 1`] = `
+<div
+  class="app-page-header page-header"
+>
+  <div
+    class="app-page-header-main"
+  >
+    <h1
+      class="app-page-title"
+    >
+      Report
+    </h1>
+    <p
+      class="app-page-subtitle"
+    >
+      Grafici e riepiloghi
+    </p>
+  </div>
+  <div
+    class="app-page-header-actions"
+  >
+    <button
+      type="button"
+    >
+      Azione
+    </button>
+  </div>
+</div>
+`;

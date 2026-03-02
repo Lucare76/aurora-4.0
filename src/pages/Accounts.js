@@ -1,9 +1,11 @@
-// src/pages/Accounts.js
+﻿// src/pages/Accounts.js
 import React, { useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrencySymbol } from '../utils/currency';
+import { formatEntityLabel } from '../utils/text';
 import CreateFirstAccount from '../components/CreateFirstAccount';
+import PageHeader from '../components/app/PageHeader';
 import './Accounts.css';
 
 const Accounts = () => {
@@ -15,7 +17,7 @@ const Accounts = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
-  // ✅ balance come STRINGA per non mostrare "0" fisso nel campo
+  // balance come STRINGA per non mostrare "0" fisso nel campo
   const [newAccount, setNewAccount] = useState({
     name: '',
     type: 'bank',
@@ -25,14 +27,14 @@ const Accounts = () => {
 
   // Tipologie di conti (in italiano)
   const accountTypes = {
-    bank: { label: 'Conto Bancario', icon: '🏦', color: '#4f46e5' },
-    savings: { label: 'Risparmi', icon: '💰', color: '#065f46' },
-    cash: { label: 'Contanti', icon: '💵', color: '#92400e' },
-    credit: { label: 'Carta di Credito', icon: '💳', color: '#7f1d1d' },
-    investment: { label: 'Investimenti', icon: '📈', color: '#3730a3' },
-    crypto: { label: 'Criptovalute', icon: '₿', color: '#f59e0b' },
-    pension: { label: 'Fondo Pensione', icon: '🏛️', color: '#0f766e' },
-    bets: { label: 'Scommesse', icon: '🎰', color: '#b91c1c' }
+    bank: { label: 'Conto Bancario', icon: 'BK', color: '#4f46e5' },
+    savings: { label: 'Risparmi', icon: 'SV', color: '#065f46' },
+    cash: { label: 'Contanti', icon: 'CA', color: '#92400e' },
+    credit: { label: 'Carta di Credito', icon: 'CR', color: '#7f1d1d' },
+    investment: { label: 'Investimenti', icon: 'IV', color: '#3730a3' },
+    crypto: { label: 'Criptovalute', icon: 'CC', color: '#f59e0b' },
+    pension: { label: 'Fondo Pensione', icon: 'PN', color: '#0f766e' },
+    bets: { label: 'Scommesse', icon: 'BT', color: '#b91c1c' }
   };
 
   // Palette colori rapida per il pannello di modifica
@@ -61,7 +63,7 @@ const Accounts = () => {
     const typeInfo = accountTypes[account.type] || accountTypes.bank;
     setEditingAccount({
       id: account.id,
-      name: account.name,
+      name: formatEntityLabel(account.name),
       type: account.type,
       balance: account.balance,
       color: account.color || typeInfo.color || '#4f46e5'
@@ -77,7 +79,7 @@ const Accounts = () => {
     }
     try {
       await updateAccount(editingAccount.id, {
-        name: editingAccount.name.trim(),
+        name: formatEntityLabel(editingAccount.name),
         type: editingAccount.type,
         balance: parseFloat(editingAccount.balance) || 0,
         color: editingAccount.color
@@ -104,7 +106,7 @@ const Accounts = () => {
 
     try {
       await createAccount({
-        name: newAccount.name.trim(),
+        name: formatEntityLabel(newAccount.name),
         type: newAccount.type,
         balance: safeBalance,
         color: newAccount.color || accountTypes[newAccount.type]?.color || '#4f46e5'
@@ -128,7 +130,7 @@ const Accounts = () => {
     const [intPart, decPart] = fixed.split('.');
     const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     const formatted = `${cs} ${withSep},${decPart}`;
-    return amount < 0 ? `−${formatted}` : formatted;
+    return amount < 0 ? `-${formatted}` : formatted;
   };
 
   const isHighValue = (amount) => Math.abs(amount) > 5000;
@@ -145,7 +147,7 @@ const Accounts = () => {
     return (
       <div className="accounts-auth-message">
         <div className="auth-card">
-          <div className="auth-icon">🔐</div>
+          <div className="auth-icon">ðŸ”</div>
           <h2>Accesso Richiesto</h2>
           <p>Accedi per gestire i tuoi conti</p>
         </div>
@@ -155,36 +157,37 @@ const Accounts = () => {
 
   return (
     <div className="accounts-dashboard">
-      {/* 🚀 HEADER BAR MIGLIORATA */}
-      <div className="accounts-header-container">
-        <div className="header-left">
-          <h1 className="dashboard-title">Conti</h1>
-          <p className="dashboard-subtitle">Gestisci tutti i tuoi conti finanziari ({totalAccounts} totali)</p>
-        </div>
-        <div className="header-right-actions">
-          <div className="total-balance-pill">
-            <span className="pill-label">SALDO TOTALE</span>
-            <span className={`pill-amount ${isHighValue(totalBalance) ? 'high-value-text' : ''}`}>
-              {formatCurrency(totalBalance)}
-            </span>
+      {/* ðŸš€ HEADER BAR MIGLIORATA */}
+      <PageHeader
+        className="accounts-header-container"
+        title="Conti"
+        subtitle={`Gestisci tutti i tuoi conti finanziari (${totalAccounts} totali)`}
+        actions={(
+          <div className="header-right-actions">
+            <div className="total-balance-pill">
+              <span className="pill-label">SALDO TOTALE</span>
+              <span className={`pill-amount ${isHighValue(totalBalance) ? 'high-value-text' : ''}`}>
+                {formatCurrency(totalBalance)}
+              </span>
+            </div>
+            <button
+              className="add-account-btn-new"
+              onClick={() => {
+                setEditingAccount(null);
+                setShowAddForm(true);
+              }}
+              type="button"
+            >
+              <span className="btn-plus-icon">+</span>
+              <span className="btn-text-label">Nuovo Conto</span>
+            </button>
           </div>
-          <button
-            className="add-account-btn-new"
-            onClick={() => {
-              setEditingAccount(null);
-              setShowAddForm(true);
-            }}
-            type="button"
-          >
-            <span className="btn-plus-icon">+</span>
-            <span className="btn-text-label">Nuovo Conto</span>
-          </button>
-        </div>
-      </div>
+        )}
+      />
 
       <CreateFirstAccount />
 
-      {/* 📱 GRIGLIA CONTI OTTIMIZZATA */}
+      {/* ðŸ“± GRIGLIA CONTI OTTIMIZZATA */}
       <div className="accounts-grid">
         {accounts.map((account) => {
           const typeInfo = accountTypes[account.type] || accountTypes.bank;
@@ -195,10 +198,35 @@ const Accounts = () => {
                   {typeInfo.icon}
                 </div>
                 <div className="account-main-details">
-                  <h3 className="account-name-text">{account.name}</h3>
+                  <h3 className="account-name-text">{formatEntityLabel(account.name)}</h3>
                   <span className="account-type-tag">{typeInfo.label}</span>
                 </div>
-                <button className="card-dots-btn" onClick={(e) => { e.stopPropagation(); startEdit(account); }}>⋮</button>
+                <div className="card-inline-actions">
+                  <button
+                    type="button"
+                    className="card-action-btn edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEdit(account);
+                    }}
+                    title="Modifica conto"
+                    aria-label="Modifica conto"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    className="card-action-btn delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(account.id, account.name);
+                    }}
+                    title="Elimina conto"
+                    aria-label="Elimina conto"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
 
               <div className="card-bottom-row">
@@ -214,7 +242,7 @@ const Accounts = () => {
       {accounts.length === 0 && !showAddForm && (
         <div className="empty-state">
           <div className="empty-illustration">
-            <div className="empty-icon">💼</div>
+            <div className="empty-icon">[ ]</div>
             <h3>Nessun Conto</h3>
             <p>Crea il tuo primo conto per iniziare a gestire le finanze</p>
             <button className="empty-action-btn" onClick={() => setShowAddForm(true)}>Crea Conto</button>
@@ -228,7 +256,7 @@ const Accounts = () => {
           <div className="nc-modal" onClick={(e) => e.stopPropagation()}>
             <div className="nc-header">
               <h3>Nuovo Conto</h3>
-              <button className="nc-close" onClick={() => setShowAddForm(false)}>×</button>
+              <button className="nc-close" onClick={() => setShowAddForm(false)}>X</button>
             </div>
             <form onSubmit={handleCreateAccount}>
               <div className="nc-field">
@@ -272,12 +300,12 @@ const Accounts = () => {
       )}
 
       {/* PANNELLO MODIFICA (EDIT) */}
-      {editingAccount && <div className="edit-panel-backdrop" onClick={() => setEditingAccount(null)} />}
+      {editingAccount && <div className="edit-panel-backdrop" />}
       {editingAccount && (
         <div className="edit-panel">
           <div className="panel-header">
             <h3>Modifica Conto</h3>
-            <button className="close-panel" onClick={() => setEditingAccount(null)}>×</button>
+            <button className="close-panel" onClick={() => setEditingAccount(null)}>X</button>
           </div>
           <form onSubmit={handleEditSubmit}>
             <div className="panel-form">

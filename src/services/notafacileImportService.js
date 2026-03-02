@@ -1,8 +1,6 @@
 // src/services/notafacileImportService.js
 // Importazione file XLS esportati da NotaFacile.net
 
-import * as XLSX from 'xlsx';
-
 /**
  * Mappa categorie NotaFacile → categorie Aurora
  * Personalizza questo oggetto in base alle tue categorie su Aurora
@@ -231,10 +229,25 @@ function mapSingleTransactionToAurora(tx, auroraCategories = [], auroraAccounts 
 function determineType(row) {
   const entrata = parseFloat(row['Entrata'] || row['entrata'] || 0);
   const uscita = parseFloat(row['Uscita'] || row['uscita'] || 0);
-  const giroconto = row['Giroconto'] || row['giroconto'];
-  const tipo = row['Tipo'] || row['tipo'] || '';
 
-  if (giroconto || tipo.toLowerCase().includes('giroconto')) return 'transfer';
+  // Controlla colonna Giroconto con vari nomi possibili
+  const girocontoCol =
+    row['Giroconto'] || row['giroconto'] || row['GIROCONTO'] ||
+    row['Giroconto destinazione'] || row['Conto destinazione'];
+
+  // Controlla colonna Tipo con vari nomi possibili
+  const tipo = (
+    row['Tipo'] || row['tipo'] || row['TIPO'] ||
+    row['Tipo operazione'] || row['Tipo Operazione'] || ''
+  ).toLowerCase();
+
+  if (
+    girocontoCol ||
+    tipo.includes('giroconto') ||
+    tipo.includes('trasferimento') ||
+    tipo.includes('transfer')
+  ) return 'transfer';
+
   if (entrata > 0) return 'income';
   if (uscita > 0) return 'expense';
 
@@ -265,8 +278,10 @@ export async function parseNotafacileFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const xlsxModule = await import('xlsx');
+        const XLSX = xlsxModule.default ?? xlsxModule;
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 

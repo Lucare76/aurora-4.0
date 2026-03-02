@@ -1,4 +1,4 @@
-// src/pages/Birthdays.js
+﻿// src/pages/Birthdays.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -11,6 +11,7 @@ import {
   calculateAge
 } from '../services/birthdaysService';
 import { sendBirthdayReminder, isEmailJSConfigured } from '../services/emailService';
+import PageHeader from '../components/app/PageHeader';
 import {
   FiPlus,
   FiEdit2,
@@ -104,13 +105,14 @@ function Birthdays() {
     const toNotify = checkUpcomingBirthdays(birthdays);
 
     for (const birthday of toNotify) {
+      const daysUntil = getDaysUntilBirthday(birthday.date);
       // Invia email
       const result = await sendBirthdayReminder(
         {
           email: user.email,
           displayName: user.displayName
         },
-        birthday
+        { ...birthday, daysUntil }
       );
 
       if (result.success) {
@@ -120,12 +122,12 @@ function Birthdays() {
           notificationSent: true
         });
 
-        console.log(`✅ Notifica inviata per: ${birthday.name}`);
+        console.log(`âœ… Notifica inviata per: ${birthday.name}`);
       }
     }
   }, [birthdays, emailConfigured, user?.email, user?.displayName]);
 
-  // All'avvio o cambio utente: carica compleanni e controlla EmailJS
+  // All'avvio o cambio utente: carica compleanni e controlla email/Functions
   useEffect(() => {
     if (!user?.uid) return;
 
@@ -214,7 +216,7 @@ function Birthdays() {
   const getBirthdayStatus = (birthday) => {
     const days = getDaysUntilBirthday(birthday.date);
 
-    if (days === 0) return { text: 'Oggi! 🎉', class: 'today' };
+    if (days === 0) return { text: 'Oggi!', class: 'today' };
     if (days === 1) return { text: 'Domani', class: 'tomorrow' };
     if (days === 2) return { text: 'Tra 2 giorni', class: 'upcoming' };
     if (days <= 7) return { text: `Tra ${days} giorni`, class: 'soon' };
@@ -246,22 +248,23 @@ function Birthdays() {
       </div>
 
       <div className="dashboard-content birthdays-page">
-        <div className="page-header">
-          <div>
-            <h1>Compleanni e Promemoria 🎁</h1>
-            <p>Non dimenticare mai più un compleanno importante</p>
-          </div>
-          <div className="header-actions">
-            {!emailConfigured && (
-              <div className="warning-badge">
-                <FiAlertCircle /> EmailJS non configurato
-              </div>
-            )}
-            <button className="btn-primary" onClick={() => setShowForm(true)}>
-              <FiPlus /> Aggiungi Compleanno
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          className="page-header"
+          title="Compleanni e Promemoria"
+          subtitle="Non dimenticare mai piu' un compleanno importante"
+          actions={(
+            <div className="header-actions">
+              {!emailConfigured && (
+                <div className="warning-badge">
+                  <FiAlertCircle /> Email/Functions non configurato
+                </div>
+              )}
+              <button className="btn-primary" onClick={() => setShowForm(true)}>
+                <FiPlus /> Aggiungi Compleanno
+              </button>
+            </div>
+          )}
+        />
 
         {/* Alert compleanni imminenti */}
         {upcomingBirthdays.length > 0 && (
@@ -272,7 +275,7 @@ function Birthdays() {
             <div className="alerts-grid">
               {upcomingBirthdays.map((birthday) => (
                 <div key={birthday.id} className="alert-card urgent">
-                  <div className="alert-icon">🎂</div>
+                  <div className="alert-icon"><FiGift /></div>
                   <div className="alert-content">
                     <strong>{birthday.name}</strong>
                     <span>Compleanno tra 2 giorni ({birthday.date})</span>
@@ -289,9 +292,7 @@ function Birthdays() {
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h2>{editingBirthday ? 'Modifica Compleanno' : 'Nuovo Compleanno'}</h2>
-                <button className="close-btn" onClick={resetForm}>
-                  ×
-                </button>
+                <button className="close-btn" onClick={resetForm}>x</button>
               </div>
 
               <form onSubmit={handleSubmit} className="birthday-form">
@@ -396,12 +397,12 @@ function Birthdays() {
               return (
                 <div key={birthday.id} className={`birthday-card ${status.class}`}>
                   <div className="card-header">
-                    <div className="birthday-icon">🎂</div>
+                    <div className="birthday-icon"><FiGift /></div>
                     <div className="birthday-info">
                       <h3>{birthday.name}</h3>
                       <div className="birthday-date">
                         <FiCalendar /> {birthday.date}
-                        {age && <span className="age"> • {age} anni</span>}
+                        {age && <span className="age"> - {age} anni</span>}
                       </div>
                     </div>
                     <div className="card-actions">
@@ -449,25 +450,12 @@ function Birthdays() {
         {!emailConfigured && (
           <div className="config-guide">
             <h3>
-              <FiAlertCircle /> Configura EmailJS per Ricevere Notifiche
+              <FiAlertCircle /> Configura Email/Functions per Ricevere Notifiche
             </h3>
             <ol>
-              <li>
-                Vai su{' '}
-                <a href="https://www.emailjs.com/" target="_blank" rel="noopener noreferrer">
-                  EmailJS.com
-                </a>{' '}
-                e crea un account gratuito
-              </li>
-              <li>Aggiungi un servizio email (Gmail, Outlook, etc.)</li>
-              <li>
-                Crea un template email con queste variabili: <code>{'{{user_name}}'}</code>,{' '}
-                <code>{'{{birthday_name}}'}</code>, <code>{'{{birthday_date}}'}</code>
-              </li>
-              <li>
-                Copia Service ID, Template ID e Public Key nel file <code>src/services/emailService.js</code>
-              </li>
-              <li>Riavvia l'app e testa l'invio!</li>
+              <li>Imposta il secret <code>RESEND_API_KEY</code> nelle Firebase Functions</li>
+              <li>Deploy delle Functions con i nomi configurati in <code>src/services/emailService.js</code></li>
+              <li>Controlla i log delle Functions in caso di errori</li>
             </ol>
           </div>
         )}
@@ -477,3 +465,7 @@ function Birthdays() {
 }
 
 export default Birthdays;
+
+
+
+

@@ -1,5 +1,18 @@
 /* src/App.css */
 /* ==================== RESET & BASE STYLES ==================== */
+:root {
+  --app-text-primary: #f8fafc;
+  --app-text-secondary: #a8b3c7;
+  --app-border-soft: rgba(148, 163, 184, 0.2);
+  --app-radius-md: 12px;
+  --app-radius-lg: 16px;
+  --app-shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.35);
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 20px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -545,6 +558,34 @@ body {
   margin: 0 auto;
 }
 
+/* ==================== UNIFIED PAGE HEADERS (NON-DASHBOARD-HOME) ==================== */
+.main-content .dashboard-content:not(.dashboard-content-home) .page-header h1,
+.main-content .dashboard-content:not(.dashboard-content-home) .page-header .header-content h1,
+.main-content .dashboard-content:not(.dashboard-content-home) .reports-header h1 {
+  margin: 0 0 8px 0;
+  font-size: clamp(2rem, 3vw, 2.45rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #f1f5f9;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-transform: none;
+}
+
+.main-content .dashboard-content:not(.dashboard-content-home) .page-header p,
+.main-content .dashboard-content:not(.dashboard-content-home) .page-header .header-subtitle,
+.main-content .dashboard-content:not(.dashboard-content-home) .reports-header p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 1.03rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-transform: none;
+}
+
 /* ==================== DASHBOARD STYLES ==================== */
 .dashboard-header {
   display: flex;
@@ -636,6 +677,51 @@ body {
 /* Entrate/Uscite mese: nascoste su desktop, visibili solo su mobile */
 .mobile-only-stats {
   display: none;
+}
+
+.mobile-monthly-stats-section {
+  display: none;
+}
+
+/* Ordine baseline dashboard (desktop/tablet) */
+.dashboard-content-home .dashboard-header {
+  order: 0;
+}
+
+.dashboard-content-home .financial-overview {
+  order: 1;
+}
+
+.dashboard-content-home .hero-story {
+  order: 2;
+}
+
+.dashboard-content-home .forecast-3090 {
+  order: 3;
+}
+
+.dashboard-content-home .smart-insights {
+  order: 4;
+}
+
+.dashboard-content-home .section-actions {
+  order: 5;
+}
+
+.dashboard-content-home .section-budget-alerts {
+  order: 6;
+}
+
+.dashboard-content-home .section-birthdays {
+  order: 7;
+}
+
+.dashboard-content-home .section-insights {
+  order: 8;
+}
+
+.dashboard-content-home .section-top5 {
+  order: 9;
 }
 
 /* Dettaglio entrate/uscite dentro la card Cash Flow (desktop) */
@@ -734,6 +820,10 @@ body {
 
 .section {
   margin-bottom: 40px;
+}
+
+.hide-mobile {
+  display: block;
 }
 
 .section-title {
@@ -957,6 +1047,10 @@ body {
 }
 
 @media (max-width: 768px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
   .section-head-with-search {
     flex-direction: column;
     align-items: stretch;
@@ -2023,33 +2117,199 @@ body {
   }
 
   .dashboard-content {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .main-content .dashboard-content:not(.dashboard-content-home) .page-header h1,
+  .main-content .dashboard-content:not(.dashboard-content-home) .page-header .header-content h1,
+  .main-content .dashboard-content:not(.dashboard-content-home) .reports-header h1 {
+    font-size: clamp(1.9rem, 7.2vw, 2.35rem);
+    margin-bottom: 8px;
+  }
+
+  .main-content .dashboard-content:not(.dashboard-content-home) .page-header p,
+  .main-content .dashboard-content:not(.dashboard-content-home) .page-header .header-subtitle,
+  .main-content .dashboard-content:not(.dashboard-content-home) .reports-header p {
+    font-size: 1rem;
   }
 
   .dashboard-header {
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .header-main h1 {
+    font-size: 24px;
+  }
+
+  .dashboard-content-home {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dashboard-content-home .quick-add-btn {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .dashboard-content-home .section-actions {
+    order: 1;
+  }
+
+  .dashboard-content-home .section-budget-alerts {
+    order: 2;
+  }
+
+  .dashboard-content-home .section-birthdays {
+    order: 3;
+  }
+
+  .dashboard-content-home .section-insights {
+    order: 4;
   }
 
   .mobile-only-stats {
     display: flex;
     width: 100%;
     justify-content: space-between;
+    gap: 10px;
+  }
+
+  .mobile-monthly-stats-section {
+    display: block;
+    margin-bottom: 0;
   }
 
   .mini-stat {
     flex: 1;
     min-width: auto;
-    padding: 15px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .mini-value {
+    font-size: 18px;
+    width: 100%;
+  }
+
+  .mini-label {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    width: 100%;
+    text-align: left;
   }
 
   .cashflow-detail {
     display: none;
   }
 
-  .financial-overview,
+  .financial-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
   .accounts-grid {
     grid-template-columns: 1fr;
+  }
+
+  .finance-card {
+    padding: 12px;
+  }
+
+  .finance-card .amount {
+    font-size: 1.15rem;
+  }
+
+  .hero-story {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .hero-story-title {
+    font-size: 1.25rem;
+  }
+
+  .hero-story-subtitle {
+    font-size: 0.9rem;
+  }
+
+  .hero-mini-chart {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .hero-mini-bar {
+    height: 56px;
+  }
+
+  .hero-story-actions {
+    flex-direction: column;
+  }
+
+  .smart-insights {
+    padding: 14px;
+  }
+
+  .smart-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .today-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .today-action-card {
+    padding: 12px;
+  }
+
+  .dashboard-content-home .dashboard-header {
+    order: 0;
+  }
+
+  .dashboard-content-home .financial-overview {
+    order: 1;
+  }
+
+  .dashboard-content-home .mobile-monthly-stats-section {
+    order: 2;
+  }
+
+  .dashboard-content-home .hero-story {
+    order: 3;
+  }
+
+  .dashboard-content-home .forecast-3090 {
+    order: 4;
+  }
+
+  .dashboard-content-home .smart-insights {
+    order: 5;
+  }
+
+  .dashboard-content-home .section-actions {
+    order: 6;
+  }
+
+  .dashboard-content-home .section-budget-alerts {
+    order: 7;
+  }
+
+  .dashboard-content-home .section-birthdays {
+    order: 8;
+  }
+
+  .dashboard-content-home .section-insights {
+    order: 9;
+  }
+
+  .dashboard-content-home .section-top5 {
+    order: 10;
   }
 
   .reports-main-stats,
@@ -2102,6 +2362,24 @@ body {
 }
 
 @media (max-width: 480px) {
+  .financial-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .finance-card {
+    padding: 10px;
+  }
+
+  .finance-card .amount {
+    font-size: 1.02rem;
+  }
+
+  .card-content h3 {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+
   .main-stat {
     flex-direction: column;
     text-align: center;
@@ -2750,25 +3028,6 @@ body {
   z-index: 2;
 }
 
-.header-logout-btn {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  width: 45px;
-  height: 45px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.header-logout-btn:hover {
-  background: rgba(239, 68, 68, 0.22);
-  border-color: rgba(239, 68, 68, 0.35);
-}
-
 /* === FIX LOGO LOGIN (premium) === */
 .logo-icon-premium {
   width: 28px !important;
@@ -2829,61 +3088,6 @@ body {
   font-size: 22px;
 }
 
-/* Logout in header: di default NASCOSTO (desktop) */
-.header-logout-btn {
-  display: none;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  align-items: center;
-  justify-content: center;
-  color: #ef4444;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.header-logout-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.35);
-}
-
-/* ✅ Mobile: mostra logout header e nascondi logout nella sidebar */
-@media (max-width: 768px) {
-  .header-logout-btn {
-    display: inline-flex;
-  }
-
-  .sidebar-footer .logout-btn {
-    display: none;
-  }
-}
-
-/* ==================== DESKTOP: SIDEBAR SEMPRE VISIBILE ==================== */
-@media (min-width: 1024px) {
-  .sidebar {
-    transform: translateX(0) !important;
-  }
-
-  .sidebar-overlay {
-    display: none !important;
-  }
-
-  .menu-toggle {
-    display: none !important;
-  }
-
-  .close-sidebar {
-    display: none !important;
-  }
-
-  .main-content {
-    margin-left: 280px !important;
-    width: calc(100% - 280px) !important;
-  }
-}
-
 /* ==================== SIDEBAR: MENU SCROLL, FOOTER SEMPRE VISIBILE ==================== */
 .sidebar-content{
   height: 100%;
@@ -2916,193 +3120,11 @@ body {
   padding-top: 20px;
 }
 
-.desktop-only { display: inline-flex; }
-
-@media (max-width: 768px) {
-  .desktop-only { display: none; }
-}
-
-/* Aggiungi queste regole al tuo App.css */
-
-/* Mostra solo su desktop (nasconde su mobile) */
-.desktop-only {
-  display: block;
-}
-
-@media (max-width: 768px) {
-  .desktop-only {
-    display: none !important;
-  }
-}
-
-/* Mostra solo su mobile (nasconde su desktop) */
-.mobile-only {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .mobile-only {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-  }
-}
-
-/* Stile per il pulsante logout nell'header */
-.header-logout {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 8px;
-  padding: 8px 12px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 18px;
-}
-
-.header-logout:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.header-logout:active {
-  transform: translateY(0);
-}
-
-/* SIDEBAR A SCOMPARSA - Aggiungi o modifica queste regole nel tuo App.css */
-
-/* Sidebar nascosta di default su TUTTI i dispositivi */
+/* RESET COMPLETO SIDEBAR - Rimuove tutte le regole precedenti */
 .sidebar {
   position: fixed;
   top: 0;
-  left: -280px; /* Nascosta fuori schermo */
-  width: 280px;
-  height: 100vh;
-  z-index: 1000;
-  transition: left 0.3s ease;
-}
-
-/* Sidebar aperta (quando ha la classe sidebar-open) */
-.sidebar.sidebar-open {
-  left: 0;
-}
-
-/* Overlay scuro quando la sidebar è aperta */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 999;
-  animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* Il contenuto principale deve occupare tutta la larghezza */
-.main-content {
-  margin-left: 0 !important; /* Rimuove qualsiasi margine sinistro */
-  width: 100%;
-}
-
-/* Assicurati che su desktop la sidebar sia comunque a scomparsa */
-@media (min-width: 769px) {
-  .sidebar {
-    left: -280px; /* Nascosta anche su desktop */
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0;
-  }
-  
-  .main-content {
-    margin-left: 0 !important;
-    width: 100%;
-  }
-}
-
-/* Mobile - comportamento uguale */
-@media (max-width: 768px) {
-  .sidebar {
-    left: -280px;
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0;
-  }
-}
-
-/* STILE LOGOUT HEADER - Aggiungi al tuo App.css */
-
-.header-logout {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 10px 14px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-}
-
-.header-logout:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.header-logout:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-/* Animazione icona */
-.header-logout svg {
-  transition: transform 0.3s ease;
-}
-
-.header-logout:hover svg {
-  transform: rotate(-15deg);
-}
-
-/* Responsive - più piccolo su mobile */
-@media (max-width: 768px) {
-  .header-logout {
-    padding: 8px 10px;
-    font-size: 16px;
-  }
-}
-
-/* =====================================================
-   SIDEBAR A SCOMPARSA - COPY PASTE NEL TUO App.css
-   ===================================================== */
-
-/* IMPORTANTE: Rimuovi o commenta eventuali regole esistenti per .sidebar che hanno:
-   - position: fixed con left: 0
-   - display: block fisso
-   - margin-left sul .main-content
-*/
-
-/* ====================
-   SIDEBAR BASE
-   ==================== */
-.sidebar {
-  position: fixed;
-  top: 0;
-  left: -280px; /* Nascosta di default */
+  left: -280px; /* FORZA NASCOSTA */
   width: 280px;
   height: 100vh;
   z-index: 1000;
@@ -3110,14 +3132,13 @@ body {
   overflow-y: auto;
 }
 
-/* Sidebar aperta */
+/* SIDEBAR APERTA - Solo con questa classe */
 .sidebar.sidebar-open {
-  left: 0 !important;
+  left: 0;
+  transform: none;
 }
 
-/* ====================
-   OVERLAY
-   ==================== */
+/* OVERLAY */
 .sidebar-overlay {
   position: fixed;
   top: 0;
@@ -3127,28 +3148,39 @@ body {
   background: rgba(0, 0, 0, 0.6);
   z-index: 999;
   opacity: 1;
-  animation: fadeIn 0.3s ease;
+  cursor: pointer;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ====================
-   MAIN CONTENT
-   ==================== */
+/* MAIN CONTENT - Sempre piena larghezza */
 .main-content {
-  margin-left: 0 !important;
-  width: 100% !important;
-  transition: margin-left 0.3s ease;
+  margin-left: 0;
+  width: 100%;
+  transition: none;
 }
 
-/* ====================
-   MENU TOGGLE BUTTON
-   ==================== */
+/* PULSANTE CHIUSURA SIDEBAR */
+.close-sidebar {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 8px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.close-sidebar:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+/* MENU TOGGLE */
 .menu-toggle {
-  display: flex !important; /* Sempre visibile */
+  display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.1);
@@ -3159,7 +3191,6 @@ body {
   cursor: pointer;
   font-size: 20px;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
 }
 
 .menu-toggle:hover {
@@ -3167,13 +3198,7 @@ body {
   transform: scale(1.05);
 }
 
-.menu-toggle:active {
-  transform: scale(0.95);
-}
-
-/* ====================
-   LOGOUT BUTTON HEADER
-   ==================== */
+/* LOGOUT HEADER */
 .header-logout {
   display: flex;
   align-items: center;
@@ -3186,268 +3211,23 @@ body {
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 18px;
-  backdrop-filter: blur(10px);
 }
 
 .header-logout:hover {
   background: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
-
-.header-logout:active {
-  transform: translateY(0);
-}
-
-.header-logout svg {
-  transition: transform 0.3s ease;
-}
-
-.header-logout:hover svg {
-  transform: rotate(-15deg);
-}
-
-/* ====================
-   RESPONSIVE
-   ==================== */
-
-/* Desktop - sidebar sempre a scomparsa */
-@media (min-width: 769px) {
-  .sidebar {
-    left: -280px;
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0 !important;
-  }
-  
-  .main-content {
-    margin-left: 0 !important;
-    width: 100% !important;
-  }
-}
-
-/* Mobile - stesso comportamento */
-@media (max-width: 768px) {
-  .sidebar {
-    left: -280px;
-    width: 280px;
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0 !important;
-  }
-  
-  .menu-toggle {
-    padding: 8px;
-    font-size: 18px;
-  }
-  
-  .header-logout {
-    padding: 8px 10px;
-    font-size: 16px;
-  }
-}
-
-/* ====================
-   DEBUG (rimuovi dopo)
-   ==================== */
-/* Decommentare per vedere lo stato della sidebar */
-/*
-.sidebar {
-  border: 3px solid red !important;
-}
-
-.sidebar.sidebar-open {
-  border: 3px solid green !important;
-}
-*/
-
-/* =====================================================
-   SIDEBAR A SCOMPARSA - VERSIONE FORZATA
-   Copia questo nel tuo App.css SOVRASCRIVENDO le regole esistenti
-   ===================================================== */
-
-/* RESET COMPLETO SIDEBAR - Rimuove tutte le regole precedenti */
-.sidebar {
-  position: fixed !important;
-  top: 0 !important;
-  left: -280px !important; /* FORZA NASCOSTA */
-  width: 280px !important;
-  height: 100vh !important;
-  z-index: 1000 !important;
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  overflow-y: auto !important;
-}
-
-/* SIDEBAR APERTA - Solo con questa classe */
-.sidebar.sidebar-open {
-  left: 0 !important;
-  transform: none !important;
-}
-
-/* OVERLAY */
-.sidebar-overlay {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: rgba(0, 0, 0, 0.6) !important;
-  z-index: 999 !important;
-  opacity: 1 !important;
-  cursor: pointer !important;
-}
-
-/* MAIN CONTENT - Sempre piena larghezza */
-.main-content {
-  margin-left: 0 !important;
-  width: 100% !important;
-  transition: none !important;
-}
-
-/* PULSANTE CHIUSURA SIDEBAR */
-.close-sidebar {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 8px !important;
-  padding: 8px !important;
-  color: #fff !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 20px !important;
-}
-
-.close-sidebar:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  transform: rotate(90deg) !important;
-}
-
-/* MENU TOGGLE */
-.menu-toggle {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px !important;
-  padding: 10px !important;
-  color: #fff !important;
-  cursor: pointer !important;
-  font-size: 20px !important;
-  transition: all 0.3s ease !important;
-}
-
-.menu-toggle:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  transform: scale(1.05) !important;
-}
-
-/* LOGOUT HEADER */
-.header-logout {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px !important;
-  padding: 10px 14px !important;
-  color: #fff !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease !important;
-  font-size: 18px !important;
-}
-
-.header-logout:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-  transform: translateY(-2px) !important;
-}
-
-/* RESPONSIVE */
-@media (min-width: 769px) {
-  .sidebar {
-    left: -280px !important;
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0 !important;
-  }
-  
-  .main-content {
-    margin-left: 0 !important;
-    width: 100% !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    left: -280px !important;
-    width: 280px !important;
-  }
-  
-  .sidebar.sidebar-open {
-    left: 0 !important;
-  }
-  
-  .menu-toggle {
-    padding: 8px !important;
-    font-size: 18px !important;
-  }
-  
-  .header-logout {
-    padding: 8px 10px !important;
-    font-size: 16px !important;
-  }
-}
-
-/* =====================================================
-   DEBUG - Mostra bordi colorati
-   Rimuovi dopo aver verificato che funziona
-   ===================================================== */
-/*
-.sidebar {
-  border: 5px solid red !important;
-}
-
-.sidebar.sidebar-open {
-  border: 5px solid green !important;
-}
-
-.sidebar-overlay {
-  border: 5px solid yellow !important;
-}
-*/
-
-/* =====================================================
-   RESPONSIVE CLASSES - Aggiungi al tuo App.css
-   ===================================================== */
 
 /* DESKTOP-ONLY - Visibile solo su desktop */
 .desktop-only {
-  display: flex !important;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
 
 @media (max-width: 768px) {
   .desktop-only {
-    display: none !important;
-  }
-}
-
-/* MOBILE-ONLY - Visibile solo su mobile */
-.mobile-only {
-  display: none !important;
-}
-
-@media (max-width: 768px) {
-  .mobile-only {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
+    display: none;
   }
 }
 
@@ -3487,133 +3267,6 @@ body {
 .user-card .logout-btn:hover svg {
   transform: rotate(-15deg);
 }
-
-/* =====================================================
-   COMPORTAMENTO:
-   
-   Desktop (>768px):
-   - Logout nella sidebar: VISIBILE (desktop-only)
-   - Logout nell'header: NASCOSTO (mobile-only)
-   
-   Mobile (≤768px):
-   - Logout nella sidebar: NASCOSTO (desktop-only)
-   - Logout nell'header: VISIBILE (mobile-only)
-   ===================================================== */
-
-   /* =====================================================
-   HEADER LAYOUT - Aggiungi al tuo App.css
-   ===================================================== */
-
-/* Header principale */
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  width: 100%;
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between; /* Menu a sinistra, azioni a destra */
-  padding: 1rem 1.5rem;
-  gap: 1rem;
-}
-
-/* Menu toggle (hamburger) a sinistra */
-.menu-toggle {
-  margin-right: auto; /* Spinge tutto il resto a destra */
-}
-
-/* Header actions container - tutto a destra */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-left: auto; /* Assicura che stia a destra */
-}
-
-/* Notification button */
-.notification-btn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 10px;
-  color: #fff;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 20px;
-}
-
-.notification-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-/* Badge rosso delle notifiche */
-.notification-badge {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  background: #ef4444;
-  color: white;
-  font-size: 10px;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-/* Animazione campanella */
-@keyframes ringBell {
-  0%, 100% { transform: rotate(0deg); }
-  10%, 30% { transform: rotate(-10deg); }
-  20%, 40% { transform: rotate(10deg); }
-}
-
-.notification-btn:hover svg {
-  animation: ringBell 0.5s ease-in-out;
-}
-
-/* =====================================================
-   RESPONSIVE
-   ===================================================== */
-
-@media (max-width: 768px) {
-  .header-content {
-    padding: 0.75rem 1rem;
-  }
-  
-  .header-actions {
-    gap: 0.5rem;
-  }
-  
-  .notification-btn {
-    padding: 8px;
-    font-size: 18px;
-  }
-}
-
-/* =====================================================
-   LAYOUT FINALE:
-   
-   Desktop e Mobile:
-   [☰ Menu] ...................... [🔔 Notifiche] [🚪 Logout]
-   
-   - Menu (hamburger) a sinistra
-   - Notifiche e Logout a destra
-   ===================================================== */
-
-   /* =====================================================
-   CSS DA AGGIUNGERE AL TUO App.css
-   Copia tutto questo contenuto alla fine del tuo App.css
-   ===================================================== */
 
 /* =====================================================
    PENDING APPROVAL PAGE
@@ -3974,62 +3627,64 @@ body {
   }
 }
 
-/* =====================================================
-   🔧 FIX HEADER MOBILE - INCOLLA ALLA FINE DI App.css
-   Questo blocco sovrascrive TUTTE le regole duplicate
-   ===================================================== */
-
 /* Header content - layout flex orizzontale */
 .header-content {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 1rem 1.5rem !important;
-  gap: 1rem !important;
-  flex-wrap: nowrap !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+.header-left-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 /* Menu hamburger a sinistra */
 .menu-toggle {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px !important;
-  padding: 10px !important;
-  color: #fff !important;
-  cursor: pointer !important;
-  font-size: 20px !important;
-  margin-right: auto !important;
-  flex-shrink: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 20px;
+  margin-right: auto;
+  flex-shrink: 0;
 }
 
 /* Container campanella + logout - SEMPRE in riga */
 .header-actions {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  gap: 0.75rem !important;
-  margin-left: auto !important;
-  flex-wrap: nowrap !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+  flex-wrap: nowrap;
 }
 
 /* Campanella */
 .notification-btn {
-  position: relative !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 10px !important;
-  padding: 10px !important;
-  color: #fff !important;
-  cursor: pointer !important;
-  font-size: 20px !important;
-  flex-shrink: 0 !important;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 /* =====================================================
@@ -4042,7 +3697,7 @@ body {
 .logout-btn.header-logout.mobile-only,
 .header-logout.mobile-only,
 .mobile-only {
-  display: none !important;
+  display: none;
 }
 
 /* Mobile: mostra il logout header IN RIGA con la campanella */
@@ -4050,52 +3705,124 @@ body {
   .logout-btn.header-logout.mobile-only,
   .header-logout.mobile-only,
   .mobile-only {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .header-content {
-    padding: 0.75rem 1rem !important;
+    padding: 0.75rem 1rem;
   }
 
   .header-actions {
-    gap: 0.5rem !important;
+    gap: 0.5rem;
   }
 
   /* Stile logout button nell'header mobile */
   .logout-btn.header-logout,
   .header-logout {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    border-radius: 10px !important;
-    padding: 8px !important;
-    color: #fff !important;
-    cursor: pointer !important;
-    font-size: 18px !important;
-    flex-shrink: 0 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 8px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 18px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .notification-btn {
-    padding: 8px !important;
-    font-size: 18px !important;
+    padding: 8px;
+    font-size: 18px;
   }
 
   /* Nascondi logout dalla sidebar su mobile */
   .sidebar-footer .logout-btn {
-    display: none !important;
+    display: none;
   }
 }
 
-/* =====================================================
-   RISULTATO ATTESO:
-   
-   Mobile:  [☰] ............... [🔔] [🚪]
-   Desktop: [☰] ............... [🔔]
-   ===================================================== */
+/* FIX esplicito header mobile: menu+logout a sinistra, campanella a destra */
+@media (max-width: 768px) {
+  .header .header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .header .header-left-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header .header-actions {
+    flex: 0 0 auto;
+    margin-left: 0;
+    margin-right: 0;
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  .header .header-actions .notification-btn {
+    display: inline-flex !important;
+    margin-left: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-content .amount,
+  .dashboard-content .mini-value,
+  .dashboard-content .stat-value,
+  .dashboard-content .pill-amount,
+  .dashboard-content .balance-amount {
+    text-align: right;
+    margin-left: auto;
+  }
+
+  .dashboard-content .mobile-only-stats .mini-value,
+  .dashboard-content .mobile-only-stats .mini-label {
+    text-align: left;
+    margin-left: 0;
+  }
+
+  .dashboard-content-home .amount,
+  .dashboard-content-home .trend,
+  .dashboard-content-home .card-content h3,
+  .dashboard-content-home .section-title,
+  .dashboard-content-home .insight-value,
+  .dashboard-content-home .insight-detail {
+    text-align: left;
+    margin-left: 0;
+  }
+
+  .dashboard-content-home .card-content,
+  .dashboard-content-home .smart-card,
+  .dashboard-content-home .today-action-card,
+  .dashboard-content-home .insight-card {
+    text-align: left;
+  }
+
+  .dashboard-content-home .today-action-card,
+  .dashboard-content-home .smart-card {
+    align-items: flex-start;
+  }
+
+  .dashboard-content-home .today-action-btn,
+  .dashboard-content-home .smart-cta {
+    align-self: flex-start;
+  }
+
+  .dashboard-content-home .section-title {
+    justify-content: flex-start;
+  }
+}
 
    /* ==================== SETTINGS PAGE ==================== */
 .settings-grid {
@@ -4310,6 +4037,117 @@ body {
   to { transform: rotate(360deg); }
 }
 
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  padding: 8px 0;
+}
+
+.settings-toggle input[type="checkbox"] {
+  accent-color: #6366f1;
+  width: 16px;
+  height: 16px;
+}
+
+.dashboard-order {
+  margin-top: 0.25rem;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.45));
+}
+
+.dashboard-order-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #e0e7ff;
+  margin-bottom: 10px;
+}
+
+.dashboard-order-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-order-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  color: #f8fafc;
+  cursor: grab;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.dashboard-order-item:hover {
+  border-color: rgba(99, 102, 241, 0.65);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.28);
+}
+
+.dashboard-order-item:active {
+  cursor: grabbing;
+}
+
+.dashboard-order-item.dragging {
+  opacity: 0.62;
+  transform: scale(0.992);
+  border-style: dashed;
+}
+
+.dashboard-order-item[data-drag-over='true'] {
+  border-color: rgba(99, 102, 241, 0.95);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+}
+
+.dashboard-order-item.locked {
+  border-color: rgba(59, 130, 246, 0.42);
+}
+
+.drag-handle {
+  color: #a5b4fc;
+  font-size: 0.95rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.order-label {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+@media (max-width: 768px) {
+  .dashboard-order-item {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+
+  .order-badge {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 2px;
+  }
+}
+
 html, body, #root {
   width: 100%;
   overflow-x: hidden;
@@ -4437,7 +4275,7 @@ html, body, #root {
 
   .main-content .financial-overview {
     width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     align-items: stretch;
     gap: 16px;
     margin-bottom: 0;
@@ -4649,4 +4487,389 @@ html, body, #root {
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+}
+
+/* =========================
+   DASHBOARD WOW: HERO + INSIGHTS
+   ========================= */
+
+.hero-story {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(14,165,233,0.12));
+  border: 1px solid rgba(148,163,184,0.25);
+  box-shadow: 0 10px 30px rgba(15,23,42,0.35);
+}
+
+.hero-story-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-story-badge {
+  display: inline-flex;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(99,102,241,0.2);
+  color: #c7d2fe;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  margin-bottom: 10px;
+}
+
+.hero-story-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hero-story-toggle {
+  border: 1px solid rgba(148,163,184,0.3);
+  background: rgba(15,23,42,0.5);
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.hero-story-toggle:hover {
+  background: rgba(30,41,59,0.8);
+}
+
+@media (min-width: 769px) {
+  .hero-story-toggle {
+    display: none;
+  }
+}
+
+.hero-story-title {
+  font-size: 1.6rem;
+  margin: 0 0 6px 0;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.hero-story-subtitle {
+  margin: 0 0 16px 0;
+  color: rgba(226,232,240,0.85);
+  font-size: 0.95rem;
+}
+
+.hero-mini-chart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.hero-mini-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: rgba(226,232,240,0.75);
+}
+
+.hero-mini-bar {
+  width: 100%;
+  height: 70px;
+  background: rgba(148,163,184,0.12);
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.hero-mini-fill {
+  width: 100%;
+  border-radius: 8px;
+  transition: height 0.3s ease;
+}
+
+.hero-mini-fill.positive {
+  background: linear-gradient(180deg, rgba(34,197,94,0.9), rgba(16,185,129,0.9));
+}
+
+.hero-mini-fill.negative {
+  background: linear-gradient(180deg, rgba(249,115,22,0.9), rgba(239,68,68,0.9));
+}
+
+.hero-story-progress {
+  background: rgba(15,23,42,0.45);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.hero-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  color: rgba(226,232,240,0.85);
+}
+
+.hero-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148,163,184,0.2);
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.hero-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.hero-progress-fill.positive {
+  background: linear-gradient(90deg, #22c55e, #10b981);
+}
+
+.hero-progress-fill.negative {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.hero-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: rgba(226,232,240,0.75);
+}
+
+.hero-story-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.hero-action {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hero-action.primary {
+  background: linear-gradient(135deg, #6366f1, #0ea5e9);
+  color: white;
+  box-shadow: 0 6px 20px rgba(59,130,246,0.35);
+}
+
+.hero-action.ghost {
+  background: rgba(15,23,42,0.6);
+  color: #e2e8f0;
+  border: 1px solid rgba(148,163,184,0.3);
+}
+
+.hero-action:hover {
+  transform: translateY(-1px);
+}
+
+.smart-insights {
+  background: rgba(15,23,42,0.4);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.smart-insights-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.smart-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 110px;
+}
+
+.smart-card > div {
+  min-width: 0;
+}
+
+.smart-card.info {
+  border-color: rgba(59,130,246,0.4);
+}
+
+.smart-card.warn {
+  border-color: rgba(249,115,22,0.4);
+}
+
+.smart-card.danger {
+  border-color: rgba(239,68,68,0.4);
+}
+
+.smart-card.ok {
+  border-color: rgba(34,197,94,0.4);
+}
+
+.smart-title {
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.smart-detail {
+  color: rgba(226,232,240,0.8);
+  font-size: 0.9rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.smart-cta {
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.3);
+  background: rgba(15,23,42,0.6);
+  color: #e2e8f0;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.smart-cta:hover {
+  background: rgba(30,41,59,0.8);
+}
+
+.forecast-3090 {
+  background: rgba(15,23,42,0.4);
+  border: 1px solid rgba(148,163,184,0.2);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.forecast-3090-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.forecast-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(148,163,184,0.22);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.forecast-card.ok {
+  border-color: rgba(34,197,94,0.35);
+}
+
+.forecast-card.warn {
+  border-color: rgba(245,158,11,0.4);
+}
+
+.forecast-card.danger {
+  border-color: rgba(239,68,68,0.5);
+}
+
+.forecast-title {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.forecast-value {
+  margin-top: 4px;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.forecast-sub {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: rgba(226,232,240,0.78);
+}
+
+.forecast-risk-list {
+  margin-top: 10px;
+  color: #fecaca;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+  .hero-story {
+    flex-direction: column;
+  }
+
+  .hero-story-actions {
+    flex-direction: row;
+    min-width: 0;
+  }
+
+  .hero-action {
+    flex: 1;
+  }
+
+  .smart-card {
+    min-height: auto;
+  }
+
+  .smart-detail {
+    font-size: 0.85rem;
+  }
+
+  .forecast-3090-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-mobile .financial-overview {
+    margin-bottom: 0;
+  }
+
+  .compact-mobile .finance-card {
+    padding: 12px;
+  }
+
+  .compact-mobile .finance-card .amount {
+    font-size: 1.2rem;
+  }
+
+  .compact-mobile .finance-card .trend {
+    font-size: 0.8rem;
+  }
+
+  .compact-mobile .hero-story {
+    padding: 14px;
+  }
+
+  .compact-mobile .hero-story-title {
+    font-size: 1.1rem;
+  }
+
+  .compact-mobile .hero-mini-bar {
+    height: 48px;
+  }
+
+  .compact-mobile .hero-progress-meta {
+    font-size: 0.75rem;
+  }
+
+  .compact-mobile .hero-action {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
 }

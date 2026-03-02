@@ -1,0 +1,26 @@
+.section-card {
+  background: rgba(30, 41, 59, 0.92);
+  border: 1px solid var(--app-border-soft);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.stat-card-shared {
+  padding: var(--app-space-4);
+  border-radius: var(--app-radius-md);
+  border: 1px solid var(--app-border-soft);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.stat-card-shared .label {
+  color: var(--app-text-secondary);
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.stat-card-shared .value {
+  color: var(--app-text-primary);
+  font-weight: 800;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}

@@ -1,24 +1,43 @@
-// src/pages/Transactions.js
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+﻿// src/pages/Transactions.js
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
+import { formatEntityLabel } from '../utils/text';
+import PageHeader from '../components/app/PageHeader';
 import AddTransactionForm from './AddTransactionForm';
 import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
 const Transactions = ({ initialFilter, onFilterConsumed }) => {
-  const { transactions = [], accounts = [], categories = [], loading, deleteTransaction } = useFinancial();
+  const { transactions = [], accounts = [], categories = [], loading, deleteTransaction, updateTransaction } = useFinancial();
   const { user, userSettings } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(null);
+  const [showMoreActions, setShowMoreActions] = useState(false);
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedMonth, setSelectedMonth] = useState('all');
+  const getCurrentMonthKey = useCallback(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const currentMonthKey = getCurrentMonthKey();
+  const currentMonthLabel = new Date().toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  const prevMonthDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d;
+  }, []);
+  const previousMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  const previousMonthLabel = prevMonthDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState(() => {
     try {
@@ -32,19 +51,40 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [repairingCategories, setRepairingCategories] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(60);
+  const loadMoreRef = useRef(null);
   const hasActiveFilters =
     !!searchTerm ||
     filterType !== 'all' ||
     selectedAccount !== 'all' ||
-    selectedCategory !== 'all' ||
-    selectedMonth !== 'all';
+    selectedCategory !== 'all';
 
   useEffect(() => {
-    if (initialFilter === 'uncategorized') {
-      setSelectedCategory('uncategorized');
+    if (!initialFilter) return;
+
+    if (typeof initialFilter === 'string') {
+      if (initialFilter === 'uncategorized') {
+        setSelectedCategory('uncategorized');
+      }
+      if (onFilterConsumed) onFilterConsumed();
+      return;
+    }
+
+    if (typeof initialFilter === 'object') {
+      const { type, value } = initialFilter;
+      if (type === 'category') setSelectedCategory(value || 'all');
+      if (type === 'type') setFilterType(value || 'all');
+      if (type === 'account') setSelectedAccount(value || 'all');
+      if (type === 'month') setSelectedMonth(value || currentMonthKey);
+      if (type === 'search') setSearchTerm(value || '');
       if (onFilterConsumed) onFilterConsumed();
     }
-  }, [initialFilter, onFilterConsumed]);
+  }, [initialFilter, onFilterConsumed, currentMonthKey]);
+
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [filterType, selectedAccount, selectedCategory, searchTerm, selectedMonth]);
 
   useEffect(() => {
     try {
@@ -53,6 +93,13 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       // ignore localStorage errors
     }
   }, [savedPresets]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
   const formatMoney = useCallback(
     (value) => {
       return formatCurrency(value, userSettings?.currency || 'EUR', { decimals: 2 });
@@ -72,6 +119,26 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         .trim(),
     []
   );
+  const normalizeDescKey = useCallback(
+    (value) =>
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim(),
+    []
+  );
+  const toTitleCase = useCallback(
+    (value) => formatEntityLabel(value),
+    []
+  );
+  const looksLikeInternalId = useCallback((value) => {
+    const v = String(value || '').trim();
+    if (!v) return false;
+    if (v.includes('_') && /\d/.test(v)) return true;
+    if (!v.includes(' ') && /^[A-Za-z0-9_-]{16,}$/.test(v)) return true;
+    return false;
+  }, []);
 
   // === DATE HELPERS ===
   const parseDate = (date) => {
@@ -106,6 +173,17 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     });
   };
 
+  const dateKey = useCallback(
+    (value) => {
+      let d = value instanceof Date ? value : null;
+      if (!d && value && typeof value.toDate === 'function') d = value.toDate();
+      if (!d) d = new Date(value);
+      if (Number.isNaN(d.getTime())) d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+    []
+  );
+
   // === NORMALIZZAZIONE CAMPI (compatibile tx vecchie/nuove) ===
   const getCategoryId = useCallback((tx) => tx?.categoryId || tx?.category || null, []);
   const getSubCategoryId = useCallback((tx) => tx?.subCategoryId || tx?.subCategory || null, []);
@@ -132,9 +210,9 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const getCategoryIcon = useCallback(
     (txOrCategoryId) => {
       const categoryId = typeof txOrCategoryId === 'string' ? txOrCategoryId : getCategoryId(txOrCategoryId);
-      if (!categoryId) return '💰';
+      if (!categoryId) return 'ðŸ’°';
       const category = categories.find((cat) => cat.id === categoryId);
-      return category?.icon || '💰';
+      return category?.icon || 'ðŸ’°';
     },
     [categories, getCategoryId]
   );
@@ -174,9 +252,20 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
     for (const tx of transactions) {
       if (isTransferTx(tx) && tx.transferId) {
+        // Giroconto a due gambe creato dall'app (con transferId)
         const g = transferGroups.get(tx.transferId) || [];
         g.push(tx);
         transferGroups.set(tx.transferId, g);
+      } else if (tx.type === 'transfer' || (isTransferTx(tx) && !tx.transferId)) {
+        // Giroconto a gamba singola (es. importato da NotaFacile senza transferId)
+        list.push({
+          ...tx,
+          __displayType: 'transfer',
+          __isDisplayTransfer: true,
+          fromAccountName: accountMap[tx.accountId] || tx.accountName || 'Conto',
+          toAccountName: tx.transferPeerAccountName || 'Conto destinazione',
+          amount: Math.abs(Number(tx.amount) || 0),
+        });
       } else {
         list.push({ ...tx, __displayType: tx.amount >= 0 ? 'income' : 'expense', __isDisplayTransfer: false });
       }
@@ -223,7 +312,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         fromAccountName: fromName,
         toAccountName: toName,
 
-        // per compatibilità UI
+        // per compatibilita UI
         categoryId: null,
         categoryName: 'Giroconto'
       });
@@ -234,9 +323,116 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     return list;
   }, [transactions, isTransferTx, accountMap]);
 
+  const [dedupeBusy, setDedupeBusy] = useState(false);
+  const duplicateSummary = useMemo(() => {
+    if (!transactions?.length) return { groups: 0, duplicates: 0 };
+
+    const groups = new Map();
+    for (const tx of transactions) {
+      if (isTransferTx(tx)) continue;
+      const amountRaw = Number(tx?.amount) || 0;
+      const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+      const amountAbs = Math.abs(amountRaw).toFixed(2);
+      const accKey = String(tx?.accountId || tx?.accountName || '').trim().toLowerCase();
+      const key = `${dateKey(tx?.date)}|${type}|${amountAbs}|${normalizeDescKey(tx?.description)}|${accKey}`;
+      if (!groups.has(key)) groups.set(key, 0);
+      groups.set(key, groups.get(key) + 1);
+    }
+
+    let dupGroups = 0;
+    let dupCount = 0;
+    for (const count of groups.values()) {
+      if (count > 1) {
+        dupGroups += 1;
+        dupCount += (count - 1);
+      }
+    }
+
+    return { groups: dupGroups, duplicates: dupCount };
+  }, [transactions, isTransferTx, dateKey, normalizeDescKey]);
+
+  const handleRemoveDuplicates = useCallback(async () => {
+    if (!transactions?.length || dedupeBusy) return;
+
+    setDedupeBusy(true);
+    try {
+      const groups = new Map();
+
+      for (const tx of transactions) {
+        if (isTransferTx(tx)) continue;
+        const amountRaw = Number(tx?.amount) || 0;
+        const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+        const amountAbs = Math.abs(amountRaw).toFixed(2);
+        const accKey = String(tx?.accountId || tx?.accountName || '').trim().toLowerCase();
+        const key = `${dateKey(tx?.date)}|${type}|${amountAbs}|${normalizeDescKey(tx?.description)}|${accKey}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(tx);
+      }
+
+      const duplicateGroups = [...groups.values()].filter((g) => g.length > 1);
+      if (!duplicateGroups.length) {
+        alert('Nessun duplicato trovato.');
+        return;
+      }
+
+      const totalDuplicates = duplicateGroups.reduce((sum, g) => sum + (g.length - 1), 0);
+      const sample = duplicateGroups[0]?.[0];
+      const sampleDate = sample ? dateKey(sample.date) : '';
+      const sampleAmount = sample ? Math.abs(Number(sample.amount) || 0).toFixed(2) : '';
+      const sampleDesc = sample ? (sample.description || '') : '';
+      const sampleAcc = sample ? (accountMap[sample.accountId] || sample.accountName || '') : '';
+      const proceed = window.confirm(
+        `Trovati ${totalDuplicates} duplicati in ${duplicateGroups.length} gruppi.\n` +
+        (sample ? `Esempio:\n${sampleDate} - EUR ${sampleAmount}\n${sampleAcc ? `Conto: ${sampleAcc}\n` : ''}${sampleDesc}\n\n` : '') +
+        `Vuoi rimuovere i duplicati lasciando una sola transazione per gruppo?`
+      );
+      if (!proceed) return;
+
+      const removed = [];
+
+      for (const group of duplicateGroups) {
+        const sorted = [...group].sort((a, b) => parseDate(a.date) - parseDate(b.date));
+        const toDelete = sorted.slice(1);
+        for (const tx of toDelete) {
+          await deleteTransaction(tx.id);
+          removed.push(tx);
+        }
+      }
+
+      const csvRows = [
+        ['date', 'type', 'amount', 'account', 'description', 'id'].join(',')
+      ];
+      for (const tx of removed) {
+        const amountRaw = Number(tx?.amount) || 0;
+        const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
+        const amountAbs = Math.abs(amountRaw).toFixed(2);
+        const accountLabel = accountMap[tx.accountId] || tx.accountName || '';
+        const desc = String(tx.description || '').replace(/"/g, '""');
+        csvRows.push(
+          `"${dateKey(tx.date)}","${type}","${amountAbs}","${String(accountLabel).replace(/"/g, '""')}","${desc}","${tx.id}"`
+        );
+      }
+
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `duplicati-rimossi-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      alert(`Duplicati rimossi: ${totalDuplicates}. E stato scaricato un CSV di riepilogo.`);
+    } catch (err) {
+      console.error('Errore rimozione duplicati:', err);
+      alert('Errore durante la rimozione dei duplicati.');
+    } finally {
+      setDedupeBusy(false);
+    }
+  }, [transactions, isTransferTx, deleteTransaction, normalizeDescKey, dateKey, dedupeBusy]);
+
   // === FILTRI + ORDINAMENTO (sui displayTransactions) ===
   const filteredTransactions = useMemo(() => {
-    const q = normalizeForSearch(searchTerm);
+    const q = normalizeForSearch(debouncedSearchTerm);
 
     let filtered = displayTransactions.filter((tx) => {
       const txType = tx.__displayType;
@@ -258,7 +454,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       const matchesCategory = selectedCategory === 'all' || (selectedCategory === 'uncategorized' ? (!tx.__isDisplayTransfer && !catId) : (!tx.__isDisplayTransfer && catId === selectedCategory));
       const txDate = parseDate(tx.date);
       const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-      const matchesMonth = selectedMonth === 'all' || txMonth === selectedMonth;
+      const matchesMonth = txMonth === selectedMonth;
 
       // ricerca
       const subLabel = !tx.__isDisplayTransfer ? getSubCategoryLabel(tx) : '';
@@ -287,7 +483,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       return matchesType && matchesAccount && matchesCategory && matchesMonth && matchesSearch;
     });
 
-    // sort (già ordinato, ma teniamolo stabile)
+    // sort (gia ordinato, ma teniamolo stabile)
     filtered.sort((a, b) => parseDate(b.date) - parseDate(a.date));
     return filtered;
   }, [
@@ -296,7 +492,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     selectedAccount,
     selectedCategory,
     selectedMonth,
-    searchTerm,
+    debouncedSearchTerm,
     accountMap,
     categoryMap,
     formatMoney,
@@ -304,6 +500,34 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     getSubCategoryLabel,
     normalizeForSearch
   ]);
+
+  const visibleTransactions = useMemo(() => {
+    return filteredTransactions.slice(0, visibleCount);
+  }, [filteredTransactions, visibleCount]);
+
+  const canLoadMore = visibleCount < filteredTransactions.length;
+  const handleLoadMore = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 60, filteredTransactions.length));
+  }, [filteredTransactions.length]);
+
+  useEffect(() => {
+    if (!canLoadMore) return;
+    const target = loadMoreRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { rootMargin: '200px 0px', threshold: 0.1 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [canLoadMore, handleLoadMore]);
 
   const monthOptions = useMemo(() => {
     const seen = new Set();
@@ -358,7 +582,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     setFilterType(preset.filterType || 'all');
     setSelectedAccount(preset.selectedAccount || 'all');
     setSelectedCategory(preset.selectedCategory || 'all');
-    setSelectedMonth(preset.selectedMonth || 'all');
+    setSelectedMonth(preset.selectedMonth || currentMonthKey);
   }, []);
 
   const saveCurrentPreset = useCallback(() => {
@@ -383,11 +607,11 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     setSavedPresets((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
-  const exportFilteredCsv = useCallback(() => {
-    const rows = filteredTransactions.map((tx) => {
+  const buildCsvRows = useCallback((list) => {
+    return list.map((tx) => {
       const isTransfer = !!tx.__isDisplayTransfer;
       const type = isTransfer ? 'giroconto' : tx.amount >= 0 ? 'entrata' : 'uscita';
-      const amount = isTransfer ? Math.abs(Number(tx.amount) || 0) : Math.abs(Number(tx.amount) || 0);
+      const amount = Math.abs(Number(tx.amount) || 0);
       const catId = getCategoryId(tx);
       const sub = isTransfer ? '' : getSubCategoryLabel(tx);
       const category = isTransfer ? 'Giroconto' : categoryMap[catId] || tx.categoryName || 'Senza categoria';
@@ -405,7 +629,9 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       ];
     });
+  }, [accountMap, categoryMap, formatDescription, getCategoryId, getSubCategoryLabel]);
 
+  const exportCsv = useCallback((rows, suffix) => {
     const header = ['Data', 'Tipo', 'Descrizione', 'Categoria', 'Sottocategoria', 'Conto', 'Importo'];
     const csv = [header, ...rows]
       .map((cols) =>
@@ -419,12 +645,28 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transazioni-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `transazioni-${suffix}-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [filteredTransactions, getCategoryId, getSubCategoryLabel, categoryMap, accountMap, formatDescription]);
+  }, []);
+
+  const exportFilteredCsv = useCallback(() => {
+    exportCsv(
+      buildCsvRows(filteredTransactions),
+      selectedMonth === currentMonthKey ? 'mese-corrente' : 'mese-precedente'
+    );
+  }, [buildCsvRows, exportCsv, filteredTransactions, selectedMonth, currentMonthKey]);
+
+  const exportCurrentMonthCsv = useCallback(() => {
+    const currentRows = displayTransactions.filter((tx) => {
+      const txDate = parseDate(tx.date);
+      const txMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+      return txMonth === currentMonthKey;
+    });
+    exportCsv(buildCsvRows(currentRows), 'mese-corrente');
+  }, [buildCsvRows, displayTransactions, currentMonthKey, exportCsv]);
 
   // === DELETE ===
   const startDeleteTransaction = (transactionIdOrLegId, isTransfer) => {
@@ -436,15 +678,109 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
     try {
       setDeleting(true);
-      await deleteTransaction(transactionToDelete.id); // FinancialContext elimina anche la peer se è giroconto
+      await deleteTransaction(transactionToDelete.id); // FinancialContext elimina anche la peer se e giroconto
       setTransactionToDelete(null);
     } catch (error) {
-      console.error("❌ Errore nell'eliminazione:", error);
+      console.error("Errore nell'eliminazione:", error);
       alert(`Errore: ${error.message}`);
     } finally {
       setDeleting(false);
     }
   };
+
+  const handleRepairCategories = useCallback(async () => {
+    if (repairingCategories) return;
+    setRepairingCategories(true);
+    try {
+      let fixed = 0;
+
+      for (const tx of transactions) {
+        if (tx?.isTransfer || tx?.transferId || tx?.type === 'transfer') continue;
+
+        const categoryCandidates = [tx?.categoryId, tx?.category, tx?.categoryName]
+          .map((v) => String(v || '').trim())
+          .filter(Boolean);
+
+        let matchedCategory = null;
+        for (const raw of categoryCandidates) {
+          matchedCategory =
+            categories.find((c) => c.id === raw) ||
+            categories.find((c) => String(c?.name || '').trim().toLowerCase() === raw.toLowerCase()) ||
+            null;
+          if (matchedCategory) break;
+        }
+
+        const desiredCategoryId = matchedCategory?.id || null;
+        const desiredCategoryName = matchedCategory?.name || '';
+
+        let desiredSubCategoryId = null;
+        let desiredSubCategoryName = '';
+
+        const subCandidates = [tx?.subCategoryId, tx?.subCategory, tx?.subcategory, tx?.subCategoryName]
+          .map((v) => String(v || '').trim())
+          .filter(Boolean);
+
+        if (subCandidates.length) {
+          const catSubs = matchedCategory ? (matchedCategory.subCategories || matchedCategory.subcategories || matchedCategory.children || []) : [];
+
+          for (const raw of subCandidates) {
+            let foundSub =
+              catSubs.find((s) => s?.id === raw) ||
+              catSubs.find((s) => String(s?.name || '').trim().toLowerCase() === raw.toLowerCase());
+
+            if (!foundSub) {
+              for (const c of categories) {
+                const subs = c?.subCategories || c?.subcategories || c?.children || [];
+                foundSub =
+                  subs.find((s) => s?.id === raw) ||
+                  subs.find((s) => String(s?.name || '').trim().toLowerCase() === raw.toLowerCase());
+                if (foundSub) break;
+              }
+            }
+
+            if (foundSub) {
+              desiredSubCategoryId = foundSub.id || null;
+              desiredSubCategoryName = foundSub.name || '';
+              break;
+            }
+          }
+        }
+
+        const hasDirtyCategoryName = looksLikeInternalId(tx?.categoryName) || !String(tx?.categoryName || '').trim();
+        const hasDirtySubName = looksLikeInternalId(tx?.subCategoryName);
+        const shouldFix =
+          (!!desiredCategoryId && (
+            tx?.categoryId !== desiredCategoryId ||
+            hasDirtyCategoryName ||
+            String(tx?.categoryName || '').trim().toLowerCase() !== String(desiredCategoryName || '').trim().toLowerCase()
+          )) ||
+          (!!desiredSubCategoryId && (
+            tx?.subCategoryId !== desiredSubCategoryId ||
+            hasDirtySubName ||
+            String(tx?.subCategoryName || '').trim().toLowerCase() !== String(desiredSubCategoryName || '').trim().toLowerCase()
+          ));
+
+        if (!shouldFix) continue;
+
+        await updateTransaction(tx.id, {
+          categoryId: desiredCategoryId,
+          category: desiredCategoryId,
+          categoryName: desiredCategoryName || tx?.categoryName || '',
+          subCategoryId: desiredSubCategoryId || null,
+          subCategory: desiredSubCategoryId || null,
+          subCategoryName: desiredSubCategoryName || ''
+        });
+        fixed += 1;
+      }
+
+      alert(fixed > 0 ? `Categorie riparate su ${fixed} transazioni.` : 'Nessuna transazione da riparare.');
+    } catch (err) {
+      console.error('Errore riparazione categorie:', err);
+      alert('Errore durante la riparazione categorie.');
+    } finally {
+      setRepairingCategories(false);
+    }
+  }, [transactions, categories, looksLikeInternalId, updateTransaction, repairingCategories]);
 
   // === STATES ===
   if (loading) {
@@ -462,7 +798,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     return (
       <div className="transactions-page">
         <div className="empty-state">
-          <div className="empty-icon">🔒</div>
+          <div className="empty-icon">ðŸ”’</div>
           <h3>Accesso Richiesto</h3>
           <p>Devi effettuare il login per visualizzare le tue transazioni.</p>
         </div>
@@ -473,24 +809,57 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   return (
     <div className="transactions-page">
       {/* Header */}
-      <div className="page-header">
-        <div className="header-content">
-          <h1>Transazioni</h1>
-          <p className="header-subtitle">
-            {filteredTransactions.length} di {displayTransactions.length} transazioni
-          </p>
-        </div>
-
+      <PageHeader
+        className="page-header"
+        title="Transazioni"
+        subtitle={`${filteredTransactions.length} transazioni - ${selectedMonth === currentMonthKey ? 'mese corrente' : 'mese precedente'}`}
+        actions={(
         <div className="header-actions">
           <button className="primary-btn" onClick={() => setShowForm(true)}>
             <span className="btn-icon">+</span>
             Aggiungi Transazione
           </button>
+          <button className="secondary-btn hide-mobile" onClick={handleRemoveDuplicates} type="button" disabled={dedupeBusy}>
+            {dedupeBusy ? 'Rimozione...' : 'Rimuovi Duplicati'}
+            {duplicateSummary.duplicates > 0 && !dedupeBusy && (
+              <span style={{ marginLeft: 8, fontWeight: 700 }}>
+                ({duplicateSummary.duplicates})
+              </span>
+            )}
+          </button>
+          <button className="secondary-btn hide-mobile" onClick={handleRepairCategories} type="button" disabled={repairingCategories}>
+            {repairingCategories ? 'Riparazione...' : 'Ripara Categorie'}
+          </button>
           <button className="secondary-btn export-btn" onClick={exportFilteredCsv} type="button">
             Esporta CSV
           </button>
+          <div className="more-actions mobile-only">
+            <button
+              type="button"
+              className="more-actions-btn"
+              onClick={() => setShowMoreActions((v) => !v)}
+              aria-expanded={showMoreActions}
+              aria-haspopup="menu"
+            >
+              Altro
+            </button>
+            {showMoreActions && (
+              <div className="more-actions-menu" role="menu">
+                <button type="button" className="more-actions-item" onClick={() => { setShowMoreActions(false); exportCurrentMonthCsv(); }}>
+                  Esporta mese corrente
+                </button>
+                <button type="button" className="more-actions-item" onClick={() => { setShowMoreActions(false); handleRemoveDuplicates(); }} disabled={dedupeBusy}>
+                  {dedupeBusy ? 'Rimozione...' : 'Rimuovi duplicati'}
+                </button>
+                <button type="button" className="more-actions-item" onClick={() => { setShowMoreActions(false); handleRepairCategories(); }} disabled={repairingCategories}>
+                  {repairingCategories ? 'Riparazione...' : 'Ripara categorie'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+        )}
+      />
 
       {/* Statistiche Rapide */}
       <div className="quick-stats">
@@ -549,12 +918,63 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                 setFilterType('all');
                 setSelectedAccount('all');
                 setSelectedCategory('all');
-                setSelectedMonth('all');
+                setSelectedMonth(currentMonthKey);
               }}
             >
               Reset filtri
             </button>
           )}
+        </div>
+
+        <div className="month-quick-toggle">
+          <button
+            type="button"
+            className={`month-toggle-btn ${selectedMonth === currentMonthKey ? 'active' : ''}`}
+            onClick={() => setSelectedMonth(currentMonthKey)}
+          >
+            {currentMonthLabel}
+          </button>
+          <button
+            type="button"
+            className={`month-toggle-btn ${selectedMonth === previousMonthKey ? 'active' : ''}`}
+            onClick={() => setSelectedMonth(previousMonthKey)}
+          >
+            {previousMonthLabel}
+          </button>
+        </div>
+        <button type="button" className="month-export-btn" onClick={exportCurrentMonthCsv}>
+          Esporta mese corrente
+        </button>
+
+        <div className="type-quick-toggle">
+          <button
+            type="button"
+            className={`type-toggle-btn ${filterType === 'all' ? 'active' : ''}`}
+            onClick={() => setFilterType('all')}
+          >
+            Tutti
+          </button>
+          <button
+            type="button"
+            className={`type-toggle-btn ${filterType === 'income' ? 'active' : ''}`}
+            onClick={() => setFilterType('income')}
+          >
+            Entrate
+          </button>
+          <button
+            type="button"
+            className={`type-toggle-btn ${filterType === 'expense' ? 'active' : ''}`}
+            onClick={() => setFilterType('expense')}
+          >
+            Uscite
+          </button>
+          <button
+            type="button"
+            className={`type-toggle-btn ${filterType === 'transfer' ? 'active' : ''}`}
+            onClick={() => setFilterType('transfer')}
+          >
+            Giroconti
+          </button>
         </div>
 
         <div className="filter-controls">
@@ -584,13 +1004,9 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
             ))}
           </select>
 
-          <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
-            <option value="all">Tutti i mesi</option>
-            {monthOptions.map((month) => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
+          <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select" disabled>
+            <option value={currentMonthKey}>Mese corrente - {currentMonthLabel}</option>
+            <option value={previousMonthKey}>Mese precedente - {previousMonthLabel}</option>
           </select>
         </div>
 
@@ -620,7 +1036,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                     onClick={() => removePreset(preset.id)}
                     title="Elimina preset"
                   >
-                    ×
+                    &times;
                   </button>
                 </div>
               ))}
@@ -641,7 +1057,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
       {/* Modal Modifica */}
       {showEditForm && (
-        <div className="modal-backdrop" onClick={() => setShowEditForm(null)}>
+        <div className="modal-backdrop">
           <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
             <EditTransactionForm transaction={showEditForm} onClose={() => setShowEditForm(null)} />
           </div>
@@ -653,7 +1069,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         <div className="modal-backdrop">
           <div className="confirm-modal">
             <h3>Conferma Eliminazione</h3>
-            <p>Sei sicuro di voler eliminare questa transazione? Questa azione non può essere annullata.</p>
+            <p>Sei sicuro di voler eliminare questa transazione? Questa azione non puo essere annullata.</p>
             <div className="modal-actions">
               <button onClick={() => setTransactionToDelete(null)} className="secondary-btn" disabled={deleting}>
                 Annulla
@@ -668,10 +1084,10 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
       {/* Lista */}
       <div className="transactions-list">
-          {filteredTransactions.map((tx, index) => {
+          {visibleTransactions.map((tx, index) => {
             const txDate = parseDate(tx.date);
             const txMonthKey = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
-            const prevTx = index > 0 ? filteredTransactions[index - 1] : null;
+            const prevTx = index > 0 ? visibleTransactions[index - 1] : null;
             const prevDate = prevTx ? parseDate(prevTx.date) : null;
             const prevMonthKey = prevDate
               ? `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`
@@ -683,7 +1099,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
             if (isTransfer) {
               const txForEdit = {
-                id: tx.legId, // id reale
+                id: tx.legId || tx.id, // legId per giroconti a 2 gambe, tx.id per giroconti singoli importati
                 isTransfer: true,
                 transferId: tx.transferId,
                 type: 'transfer',
@@ -703,7 +1119,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                   )}
                   <div className="transaction-icon-wrapper">
                     <div className="transaction-icon" style={{ backgroundColor: '#6b728020', color: '#6b7280' }}>
-                      🔁
+                      TR
                     </div>
                   </div>
 
@@ -712,13 +1128,13 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
                     <div className="transaction-secondary">
                       <span className="transaction-account">
-                        Da <strong>{tx.fromAccountName || 'Conto'}</strong> → A <strong>{tx.toAccountName || 'Conto'}</strong>
+                        Da <strong>{toTitleCase(tx.fromAccountName || 'Conto')}</strong> -> A <strong>{toTitleCase(tx.toAccountName || 'Conto')}</strong>
                       </span>
 
                       <span className="transaction-category">Giroconto</span>
 
                       <span className="transaction-date">
-                        {formatDate(tx.date)} • {formatTime(tx.date)}
+                        {formatDate(tx.date)} - {formatTime(tx.date)}
                       </span>
                     </div>
                   </div>
@@ -731,13 +1147,15 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                       onClick={() => setShowEditForm(txForEdit)}
                       className="edit-btn"
                       title="Modifica giroconto"
+                      aria-label="Modifica giroconto"
                     >
                       ✏️
                     </button>
                     <button
-                      onClick={() => startDeleteTransaction(tx.legId, true)}
+                      onClick={() => startDeleteTransaction(tx.legId || tx.id, true)}
                       className="delete-btn"
                       title="Elimina giroconto"
+                      aria-label="Elimina giroconto"
                     >
                       🗑️
                     </button>
@@ -770,16 +1188,16 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
                 <div className="transaction-info">
                   <h4 className="transaction-title">
-                    {tx.isRecurring && <span title="Ricorrente">🔄 </span>}
+                    {tx.isRecurring && <span title="Ricorrente">* </span>}
                     {formatDescription(tx.description, 'Transazione senza descrizione')}
                   </h4>
 
                   <div className="transaction-secondary">
-                    <span className="transaction-account">{accountMap[tx.accountId] || 'Conto sconosciuto'}</span>
-                    <span className="transaction-category">{categoryMap[catId] || tx.categoryName || 'Senza categoria'}</span>
-                    {subLabel ? <span className="transaction-category">{subLabel}</span> : null}
+                    <span className="transaction-account">{toTitleCase(accountMap[tx.accountId] || 'Conto sconosciuto')}</span>
+                    <span className="transaction-category">{toTitleCase(categoryMap[catId] || tx.categoryName || 'Senza categoria')}</span>
+                    {subLabel ? <span className="transaction-category">{toTitleCase(subLabel)}</span> : null}
                     <span className="transaction-date">
-                      {formatDate(tx.date)} • {formatTime(tx.date)}
+                      {formatDate(tx.date)} - {formatTime(tx.date)}
                     </span>
                   </div>
                 </div>
@@ -788,10 +1206,20 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                 </div>
 
                 <div className="transaction-actions">
-                  <button onClick={() => setShowEditForm(tx)} className="edit-btn" title="Modifica transazione">
+                  <button
+                    onClick={() => setShowEditForm(tx)}
+                    className="edit-btn"
+                    title="Modifica transazione"
+                    aria-label="Modifica transazione"
+                  >
                     ✏️
                   </button>
-                  <button onClick={() => startDeleteTransaction(tx.id, false)} className="delete-btn" title="Elimina transazione">
+                  <button
+                    onClick={() => startDeleteTransaction(tx.id, false)}
+                    className="delete-btn"
+                    title="Elimina transazione"
+                    aria-label="Elimina transazione"
+                  >
                     🗑️
                   </button>
                 </div>
@@ -800,10 +1228,27 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           })}
       </div>
 
+      <button
+        type="button"
+        className="fab-add-transaction"
+        onClick={() => setShowForm(true)}
+        aria-label="Aggiungi transazione"
+      >
+        +
+      </button>
+
+      {canLoadMore && (
+        <div className="load-more-wrap" ref={loadMoreRef}>
+          <button type="button" className="secondary-btn load-more-btn" onClick={handleLoadMore}>
+            Carica altre ({Math.min(60, filteredTransactions.length - visibleCount)})
+          </button>
+        </div>
+      )}
+
       {/* Stato vuoto */}
       {filteredTransactions.length === 0 && (
         <div className="empty-state">
-          <div className="empty-icon">📊</div>
+          <div className="empty-icon">[ ]</div>
           <h3>Nessuna transazione trovata</h3>
           <p>
             {searchTerm || filterType !== 'all' || selectedAccount !== 'all' || selectedCategory !== 'all' || selectedMonth !== 'all'
@@ -823,5 +1268,3 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 };
 
 export default Transactions;
-
-

@@ -6,6 +6,17 @@ const parseDate = (date) => {
   if (!date) return new Date();
   if (typeof date === 'object' && typeof date.toDate === 'function') return date.toDate();
   if (date instanceof Date) return date;
+
+  if (typeof date === 'string') {
+    const m = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      if (y && mo && d) return new Date(y, mo - 1, d);
+    }
+  }
+
   const d = new Date(date);
   return Number.isNaN(d.getTime()) ? new Date() : d;
 };
@@ -18,21 +29,22 @@ export const getMonthComparison = (transactions, currentMonth, currentYear) => {
   let prevTotal = 0;
 
   transactions.forEach(t => {
-    const type = t.type || (t.amount < 0 ? 'expense' : 'income');
-    if (type !== 'expense' || t.isTransfer) return;
+    const amount = Number(t.amount) || 0;
+    const type = t.type || (amount < 0 ? 'expense' : 'income');
+    if (type !== 'expense' || t.isTransfer || t.transferId) return;
 
     const d = parseDate(t.date);
     const m = d.getMonth();
     const y = d.getFullYear();
 
     if (m === currentMonth && y === currentYear) {
-      currentTotal += Math.abs(t.amount || 0);
+      currentTotal += Math.abs(amount);
     } else if (m === prevMonth && y === prevYear) {
-      prevTotal += Math.abs(t.amount || 0);
+      prevTotal += Math.abs(amount);
     }
   });
 
-  const percentChange = prevTotal > 0 ? ((currentTotal - prevTotal) / prevTotal) * 100 : 0;
+  const percentChange = prevTotal > 0 ? ((currentTotal - prevTotal) / prevTotal) * 100 : null;
   return { currentTotal, prevTotal, percentChange };
 };
 
