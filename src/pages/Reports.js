@@ -564,6 +564,112 @@ function Reports() {
     return { last30, prev30, last90, delta30 };
   }, [filteredSubscriptions, subscriptionPayments]);
 
+  const subscriptionsReconciliation = useMemo(() => {
+    const scopedIds = new Set(filteredSubscriptions.map((s) => s.id));
+    const hasRange = Boolean(normalizedStartDate && normalizedEndDate);
+    const inRange = (d) => {
+      if (!d) return false;
+      if (!hasRange) return true;
+      return d >= normalizedStartDate && d <= normalizedEndDate;
+    };
+
+    const scopedPayments = (subscriptionPayments || [])
+      .filter((p) => scopedIds.has(p.subscriptionId))
+      .map((p) => ({
+        ...p,
+        amount: Math.abs(Number(p.amount) || 0),
+        paidAt: p.paidAt instanceof Date ? p.paidAt : null
+      }))
+      .filter((p) => p.paidAt && inRange(p.paidAt))
+      .sort((a, b) => (a.paidAt?.getTime() || 0) - (b.paidAt?.getTime() || 0));
+
+    const scopedTransactions = (transactions || [])
+      .filter((t) => t?.isSubscriptionPayment === true && scopedIds.has(t?.subscriptionId))
+      .map((t) => {
+        const d = parseDate(t?.date);
+        return {
+          ...t,
+          __date: d,
+          __amount: Math.abs(Number(t?.amount) || 0),
+          __type: getType(t)
+        };
+      })
+      .filter((t) => t.__type === 'expense' && t.__date && inRange(t.__date))
+      .sort((a, b) => (a.__date?.getTime() || 0) - (b.__date?.getTime() || 0));
+
+    const txPool = scopedTransactions.map((t) => ({ ...t, __matched: false }));
+    const matchedPairs = [];
+    const missingTransactions = [];
+
+    for (const payment of scopedPayments) {
+      let bestIdx = -1;
+      let bestScore = Number.MAX_SAFE_INTEGER;
+
+      for (let i = 0; i < txPool.length; i += 1) {
+        const tx = txPool[i];
+        if (tx.__matched) continue;
+        if (tx.subscriptionId !== payment.subscriptionId) continue;
+
+        const dayDiff = Math.abs((tx.__date.getTime() - payment.paidAt.getTime()) / 86400000);
+        const amountDiff = Math.abs((tx.__amount || 0) - (payment.amount || 0));
+        if (dayDiff > 7 || amountDiff > 0.51) continue;
+
+        const score = dayDiff * 100 + amountDiff;
+        if (score < bestScore) {
+          bestScore = score;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx === -1) {
+        missingTransactions.push(payment);
+        continue;
+      }
+
+      txPool[bestIdx].__matched = true;
+      matchedPairs.push({
+        payment,
+        transaction: txPool[bestIdx]
+      });
+    }
+
+    const transactionsWithoutPayment = txPool.filter((t) => !t.__matched);
+    const paymentsTotal = scopedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const transactionsTotal = scopedTransactions.reduce((sum, t) => sum + (t.__amount || 0), 0);
+    const matchedPaymentsTotal = matchedPairs.reduce((sum, pair) => sum + (pair.payment.amount || 0), 0);
+    const matchedTransactionsTotal = matchedPairs.reduce((sum, pair) => sum + (pair.transaction.__amount || 0), 0);
+    const paymentsCount = scopedPayments.length;
+    const transactionsCount = scopedTransactions.length;
+    const matchedCount = matchedPairs.length;
+
+    return {
+      paymentsCount,
+      transactionsCount,
+      matchedCount,
+      missingTransactionsCount: missingTransactions.length,
+      transactionsWithoutPaymentCount: transactionsWithoutPayment.length,
+      paymentsTotal,
+      transactionsTotal,
+      deltaAmount: transactionsTotal - paymentsTotal,
+      matchedPaymentsTotal,
+      matchedTransactionsTotal,
+      coveragePayments: paymentsCount > 0 ? (matchedCount / paymentsCount) * 100 : 100,
+      coverageTransactions: transactionsCount > 0 ? (matchedCount / transactionsCount) * 100 : 100,
+      missingTransactions: missingTransactions.sort((a, b) => (b.paidAt?.getTime() || 0) - (a.paidAt?.getTime() || 0)),
+      transactionsWithoutPayment: transactionsWithoutPayment.sort(
+        (a, b) => (b.__date?.getTime() || 0) - (a.__date?.getTime() || 0)
+      )
+    };
+  }, [
+    filteredSubscriptions,
+    subscriptionPayments,
+    transactions,
+    parseDate,
+    getType,
+    normalizedStartDate,
+    normalizedEndDate
+  ]);
+
   const subscriptionsByOwner = useMemo(() => {
     const map = new Map();
     filteredSubscriptions.forEach((s) => {
@@ -1835,6 +1941,129 @@ function Reports() {
                 <div className="subscriptions-report-empty">Nessun abbonamento per i filtri selezionati.</div>
               ) : (
                 <>
+                  <div className="subscriptions-reconciliation">
+                    <div className="subscriptions-reconciliation-head">
+                      <h4>Riconciliazione pagamenti vs transazioni</h4>
+                      <span
+                        className={`subscriptions-reconciliation-status ${
+                          subscriptionsReconciliation.missingTransactionsCount === 0 &&
+                          subscriptionsReconciliation.transactionsWithoutPaymentCount === 0 &&
+                          Math.abs(subscriptionsReconciliation.deltaAmount) < 0.01
+                            ? 'ok'
+                            : 'warning'
+                        }`}
+                      >
+                        {subscriptionsReconciliation.missingTransactionsCount === 0 &&
+                        subscriptionsReconciliation.transactionsWithoutPaymentCount === 0
+                          ? 'Allineato'
+                          : 'Da verificare'}
+                      </span>
+                    </div>
+                    <div className="subscriptions-reconciliation-kpis">
+                      <div className="comparison-card">
+                        <div className="label">Pagamenti registrati</div>
+                        <div className="value">{subscriptionsReconciliation.paymentsCount}</div>
+                      </div>
+                      <div className="comparison-card">
+                        <div className="label">Transazioni generate</div>
+                        <div className="value">{subscriptionsReconciliation.transactionsCount}</div>
+                      </div>
+                      <div className="comparison-card">
+                        <div className="label">Riconciliati</div>
+                        <div className="value">{subscriptionsReconciliation.matchedCount}</div>
+                      </div>
+                      <div className="comparison-card">
+                        <div className="label">Mancano transazioni</div>
+                        <div className="value negative">{subscriptionsReconciliation.missingTransactionsCount}</div>
+                      </div>
+                      <div className="comparison-card">
+                        <div className="label">Transazioni senza pagamento</div>
+                        <div className="value negative">{subscriptionsReconciliation.transactionsWithoutPaymentCount}</div>
+                      </div>
+                      <div className="comparison-card">
+                        <div className="label">Delta importi</div>
+                        <div
+                          className={`value ${
+                            Math.abs(subscriptionsReconciliation.deltaAmount) < 0.01
+                              ? ''
+                              : subscriptionsReconciliation.deltaAmount <= 0
+                              ? 'positive'
+                              : 'negative'
+                          }`}
+                        >
+                          {subscriptionsReconciliation.deltaAmount > 0 ? '+' : ''}
+                          {formatEUR(subscriptionsReconciliation.deltaAmount)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="subscriptions-reconciliation-tables">
+                      <div className="table-scroll">
+                        <table className="expenses-table">
+                          <thead>
+                            <tr>
+                              <th colSpan={4}>Pagamenti senza transazione</th>
+                            </tr>
+                            <tr>
+                              <th>Data</th>
+                              <th>Abbonamento</th>
+                              <th>Intestatario</th>
+                              <th className="amount-col">Importo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subscriptionsReconciliation.missingTransactions.length === 0 ? (
+                              <tr>
+                                <td colSpan={4}>Nessuna discrepanza.</td>
+                              </tr>
+                            ) : (
+                              subscriptionsReconciliation.missingTransactions.map((p) => (
+                                <tr key={p.id}>
+                                  <td>{formatDateIT(p.paidAt)}</td>
+                                  <td>{p.subscriptionName || 'N/D'}</td>
+                                  <td>{toTitleCase(p.ownerName || 'Tu')}</td>
+                                  <td className="amount-col">{formatEUR(p.amount)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="table-scroll">
+                        <table className="expenses-table">
+                          <thead>
+                            <tr>
+                              <th colSpan={4}>Transazioni senza pagamento</th>
+                            </tr>
+                            <tr>
+                              <th>Data</th>
+                              <th>Abbonamento</th>
+                              <th>Descrizione</th>
+                              <th className="amount-col">Importo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {subscriptionsReconciliation.transactionsWithoutPayment.length === 0 ? (
+                              <tr>
+                                <td colSpan={4}>Nessuna discrepanza.</td>
+                              </tr>
+                            ) : (
+                              subscriptionsReconciliation.transactionsWithoutPayment.map((t) => (
+                                <tr key={t.id}>
+                                  <td>{formatDateIT(t.__date)}</td>
+                                  <td>{t.subscriptionName || 'N/D'}</td>
+                                  <td>{t.description || 'N/D'}</td>
+                                  <td className="amount-col">{formatEUR(t.__amount)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="subscriptions-trend">
                     <div className="subscriptions-trend-head">
                       <h4>Trend costi abbonamenti (prossimi {subscriptionsTrendMonths} mesi)</h4>
