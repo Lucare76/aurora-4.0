@@ -24,7 +24,7 @@ import SpendingHeatmap from '../components/reports/SpendingHeatmap';
 import InsightsPanel from '../components/reports/InsightsPanel';
 import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
-import { getSubscriptions } from '../services/subscriptionsService';
+import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsService';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
@@ -543,6 +543,61 @@ function Reports() {
       map.set(key, prev);
     });
     return Array.from(map.values()).sort((a, b) => b.monthly - a.monthly);
+  }, [filteredSubscriptions]);
+
+  const subscriptionsMonthlyTrend = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const months = Array.from({ length: 12 }).map((_, idx) => {
+      const d = new Date(start.getFullYear(), start.getMonth() + idx, 1);
+      return {
+        key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: d.toLocaleDateString('it-IT', { month: 'short' }),
+        total: 0
+      };
+    });
+    const monthMap = new Map(months.map((m) => [m.key, m]));
+
+    const end = new Date(start.getFullYear(), start.getMonth() + 12, 0);
+    const source = filteredSubscriptions.filter((s) => s.active !== false);
+
+    source.forEach((s) => {
+      const amount = Math.abs(Number(s.amount) || 0);
+      if (!amount) return;
+
+      const kind = s.kind || 'recurring';
+      const cycle = s.billingCycle || 'monthly';
+      const baseDue = s.dueDate instanceof Date ? new Date(s.dueDate) : null;
+      if (!baseDue || Number.isNaN(baseDue.getTime())) return;
+      baseDue.setHours(0, 0, 0, 0);
+
+      if (kind === 'fixed') {
+        if (baseDue >= start && baseDue <= end) {
+          const key = `${baseDue.getFullYear()}-${String(baseDue.getMonth() + 1).padStart(2, '0')}`;
+          const bucket = monthMap.get(key);
+          if (bucket) bucket.total += amount;
+        }
+        return;
+      }
+
+      let due = new Date(baseDue);
+      let guard = 0;
+      while (due <= end && guard < 500) {
+        if (due >= start) {
+          const key = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}`;
+          const bucket = monthMap.get(key);
+          if (bucket) bucket.total += amount;
+        }
+        due = computeNextDueDate(due, cycle);
+        due.setHours(0, 0, 0, 0);
+        guard += 1;
+      }
+    });
+
+    const max = Math.max(1, ...months.map((m) => m.total));
+    return { months, max };
   }, [filteredSubscriptions]);
 
   const periodComparison = useMemo(() => {
@@ -1682,6 +1737,24 @@ function Reports() {
                 <div className="subscriptions-report-empty">Nessun abbonamento per i filtri selezionati.</div>
               ) : (
                 <>
+                  <div className="subscriptions-trend">
+                    <h4>Trend costi abbonamenti (prossimi 12 mesi)</h4>
+                    <div className="subscriptions-trend-grid">
+                      {subscriptionsMonthlyTrend.months.map((m) => {
+                        const h = Math.max(4, Math.round((m.total / subscriptionsMonthlyTrend.max) * 100));
+                        return (
+                          <div className="subscriptions-trend-col" key={m.key}>
+                            <div className="subscriptions-trend-bar-wrap">
+                              <div className="subscriptions-trend-bar" style={{ height: `${h}%` }} />
+                            </div>
+                            <div className="subscriptions-trend-value">{formatEUR(m.total)}</div>
+                            <div className="subscriptions-trend-label">{m.label}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div className="subscriptions-breakdowns">
                     <div className="table-scroll">
                       <table className="expenses-table">
