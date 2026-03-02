@@ -4,21 +4,20 @@ import { useAuth } from '../../contexts/AuthContext';
 import PageHeader from './PageHeader';
 
 const DASHBOARD_SECTIONS = [
-  { id: 'header', label: 'Entrate/Uscite mese', required: true },
+  { id: 'header', label: 'Buongiorno', required: true },
   { id: 'financial', label: 'Saldo totale + Cash Flow', required: true },
   { id: 'story', label: 'Story del mese', required: true },
-  { id: 'timeline', label: 'Timeline Smart', required: false },
-  { id: 'scenario', label: 'Scenario: Cosa succede se…', required: false },
+  { id: 'smartInsights', label: 'Insights intelligenti', required: false },
   { id: 'forecast', label: 'Forecast 30/60/90 giorni', required: false },
-  { id: 'health', label: 'Score salute finanziaria', required: false },
-  { id: 'smartInsights', label: 'Insights intelligenti', required: true },
   { id: 'insightsBase', label: 'Insights (card standard)', required: false },
+  { id: 'top5', label: 'Top 5 spese & entrate', required: false },
   { id: 'budgetAlerts', label: 'Alert Budget', required: false },
   { id: 'actions', label: 'Azioni consigliate oggi', required: false },
   { id: 'birthdays', label: 'Prossimi compleanni', required: false }
 ];
 
 const DEFAULT_DASHBOARD_ORDER = DASHBOARD_SECTIONS.map((s) => s.id);
+const FIXED_SECTION_IDS = DASHBOARD_SECTIONS.filter((s) => s.required).map((s) => s.id);
 
 const normalizeDashboardOrder = (order) => {
   if (!Array.isArray(order)) return DEFAULT_DASHBOARD_ORDER;
@@ -27,7 +26,8 @@ const normalizeDashboardOrder = (order) => {
   for (const id of DEFAULT_DASHBOARD_ORDER) {
     if (!set.has(id)) merged.push(id);
   }
-  return merged;
+  const optional = merged.filter((id) => !FIXED_SECTION_IDS.includes(id));
+  return [...FIXED_SECTION_IDS, ...optional];
 };
 
 function SettingsContent() {
@@ -49,11 +49,10 @@ function SettingsContent() {
     savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
     dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal',
     dashboardOrder: normalizeDashboardOrder(userSettings?.dashboardOrder),
-    dashboardShowTimeline: userSettings?.dashboardShowTimeline ?? true,
-    dashboardShowScenario: userSettings?.dashboardShowScenario ?? true,
+    dashboardShowSmartInsights: userSettings?.dashboardShowSmartInsights ?? true,
     dashboardShowForecast: userSettings?.dashboardShowForecast ?? true,
-    dashboardShowHealthScore: userSettings?.dashboardShowHealthScore ?? true,
     dashboardShowInsightsBase: userSettings?.dashboardShowInsightsBase ?? true,
+    dashboardShowTop5: userSettings?.dashboardShowTop5 ?? true,
     dashboardShowBudgetAlerts: userSettings?.dashboardShowBudgetAlerts ?? true,
     dashboardShowActions: userSettings?.dashboardShowActions ?? true,
     dashboardShowBirthdays: userSettings?.dashboardShowBirthdays ?? true,
@@ -91,11 +90,10 @@ function SettingsContent() {
             savingsTargetAmount: data.savingsTargetAmount ?? 0,
             dashboardMobileMode: data.dashboardMobileMode || 'normal',
             dashboardOrder: normalizeDashboardOrder(data.dashboardOrder),
-            dashboardShowTimeline: data.dashboardShowTimeline ?? true,
-            dashboardShowScenario: data.dashboardShowScenario ?? true,
+            dashboardShowSmartInsights: data.dashboardShowSmartInsights ?? true,
             dashboardShowForecast: data.dashboardShowForecast ?? true,
-            dashboardShowHealthScore: data.dashboardShowHealthScore ?? true,
             dashboardShowInsightsBase: data.dashboardShowInsightsBase ?? true,
+            dashboardShowTop5: data.dashboardShowTop5 ?? true,
             dashboardShowBudgetAlerts: data.dashboardShowBudgetAlerts ?? true,
             dashboardShowActions: data.dashboardShowActions ?? true,
             dashboardShowBirthdays: data.dashboardShowBirthdays ?? true,
@@ -120,11 +118,10 @@ function SettingsContent() {
             savingsTargetAmount: 0,
             dashboardMobileMode: 'normal',
             dashboardOrder: normalizeDashboardOrder(null),
-            dashboardShowTimeline: true,
-            dashboardShowScenario: true,
+            dashboardShowSmartInsights: true,
             dashboardShowForecast: true,
-            dashboardShowHealthScore: true,
             dashboardShowInsightsBase: true,
+            dashboardShowTop5: true,
             dashboardShowBudgetAlerts: true,
             dashboardShowActions: true,
             dashboardShowBirthdays: true,
@@ -172,11 +169,10 @@ function SettingsContent() {
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           dashboardMobileMode: settings.dashboardMobileMode || 'normal',
           dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
-          dashboardShowTimeline: settings.dashboardShowTimeline !== false,
-          dashboardShowScenario: settings.dashboardShowScenario !== false,
+          dashboardShowSmartInsights: settings.dashboardShowSmartInsights !== false,
           dashboardShowForecast: settings.dashboardShowForecast !== false,
-          dashboardShowHealthScore: settings.dashboardShowHealthScore !== false,
           dashboardShowInsightsBase: settings.dashboardShowInsightsBase !== false,
+          dashboardShowTop5: settings.dashboardShowTop5 !== false,
           dashboardShowBudgetAlerts: settings.dashboardShowBudgetAlerts !== false,
           dashboardShowActions: settings.dashboardShowActions !== false,
           dashboardShowBirthdays: settings.dashboardShowBirthdays !== false,
@@ -201,11 +197,10 @@ function SettingsContent() {
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           dashboardMobileMode: settings.dashboardMobileMode || 'normal',
           dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
-          dashboardShowTimeline: settings.dashboardShowTimeline !== false,
-          dashboardShowScenario: settings.dashboardShowScenario !== false,
+          dashboardShowSmartInsights: settings.dashboardShowSmartInsights !== false,
           dashboardShowForecast: settings.dashboardShowForecast !== false,
-          dashboardShowHealthScore: settings.dashboardShowHealthScore !== false,
           dashboardShowInsightsBase: settings.dashboardShowInsightsBase !== false,
+          dashboardShowTop5: settings.dashboardShowTop5 !== false,
           dashboardShowBudgetAlerts: settings.dashboardShowBudgetAlerts !== false,
           dashboardShowActions: settings.dashboardShowActions !== false,
           dashboardShowBirthdays: settings.dashboardShowBirthdays !== false,
@@ -245,6 +240,8 @@ function SettingsContent() {
   }, [settings.dashboardOrder]);
 
   const handleDragStart = (index, event) => {
+    const section = orderedDashboardSections[index];
+    if (!section || section.required) return;
     setDragIndex(index);
     if (event?.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
@@ -253,6 +250,13 @@ function SettingsContent() {
   };
 
   const handleDrop = (index) => {
+    const source = orderedDashboardSections[dragIndex];
+    const target = orderedDashboardSections[index];
+    if (!source || !target || source.required || target.required) {
+      setDragIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
     if (dragIndex == null || dragIndex === index) {
       setDragIndex(null);
       setDragOverIndex(null);
@@ -689,24 +693,16 @@ function SettingsContent() {
             <h3>Dashboard Personalizzata</h3>
             <p className="section-description">
               Scegli quali sezioni opzionali mostrare nella dashboard. Le sezioni base restano sempre visibili
-              (Entrate/Uscite, Saldo/Cash Flow, Story del mese, Insights intelligenti).
+              (Buongiorno, Saldo/Cash Flow, Story del mese).
             </p>
             <div className="setting-form">
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowTimeline}
-                  onChange={(e) => handleChange('dashboardShowTimeline', e.target.checked)}
+                  checked={!!settings.dashboardShowSmartInsights}
+                  onChange={(e) => handleChange('dashboardShowSmartInsights', e.target.checked)}
                 />
-                <span>Timeline Smart</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowScenario}
-                  onChange={(e) => handleChange('dashboardShowScenario', e.target.checked)}
-                />
-                <span>Scenario: Cosa succede se…</span>
+                <span>Insights intelligenti</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -719,18 +715,18 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowHealthScore}
-                  onChange={(e) => handleChange('dashboardShowHealthScore', e.target.checked)}
-                />
-                <span>Score salute finanziaria</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
                   checked={!!settings.dashboardShowInsightsBase}
                   onChange={(e) => handleChange('dashboardShowInsightsBase', e.target.checked)}
                 />
                 <span>Insights (card standard)</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowTop5}
+                  onChange={(e) => handleChange('dashboardShowTop5', e.target.checked)}
+                />
+                <span>Top 5 spese & entrate</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -763,7 +759,7 @@ function SettingsContent() {
                     <div
                       key={section.id}
                       className={`dashboard-order-item ${section.required ? 'locked' : ''} ${dragIndex === index ? 'dragging' : ''}`}
-                      draggable
+                      draggable={!section.required}
                       onDragStart={(e) => handleDragStart(index, e)}
                       onDragOver={(e) => {
                         e.preventDefault();

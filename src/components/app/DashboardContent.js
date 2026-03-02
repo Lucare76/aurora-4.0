@@ -10,6 +10,30 @@ import { formatNumber } from '../../utils/format';
 import { formatEntityLabel } from '../../utils/text';
 
 const InsightsSection = React.lazy(() => import('./InsightsSection'));
+const DASHBOARD_ORDER_DEFAULT = [
+  'header',
+  'financial',
+  'story',
+  'smartInsights',
+  'forecast',
+  'insightsBase',
+  'top5',
+  'budgetAlerts',
+  'actions',
+  'birthdays'
+];
+
+function normalizeDashboardOrder(order) {
+  if (!Array.isArray(order)) return DASHBOARD_ORDER_DEFAULT;
+  const set = new Set(order);
+  const merged = order.filter((id) => DASHBOARD_ORDER_DEFAULT.includes(id));
+  for (const id of DASHBOARD_ORDER_DEFAULT) {
+    if (!set.has(id)) merged.push(id);
+  }
+  const fixed = ['header', 'financial', 'story'];
+  const optional = merged.filter((id) => !fixed.includes(id));
+  return [...fixed, ...optional];
+}
 
 const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const { user, userSettings } = useAuth();
@@ -714,6 +738,24 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     return { cards, riskyAccounts };
   }, [accounts, transactions, parseDate]);
 
+  const showSmartInsights = userSettings?.dashboardShowSmartInsights !== false;
+  const showForecast = userSettings?.dashboardShowForecast !== false;
+  const showInsightsBase = userSettings?.dashboardShowInsightsBase !== false;
+  const showTop5 = userSettings?.dashboardShowTop5 !== false;
+  const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts !== false;
+  const showActions = userSettings?.dashboardShowActions !== false;
+  const showBirthdays = userSettings?.dashboardShowBirthdays !== false;
+
+  const optionalSectionOrder = useMemo(() => {
+    const ids = normalizeDashboardOrder(userSettings?.dashboardOrder)
+      .filter((id) => !['header', 'financial', 'story'].includes(id));
+    const out = {};
+    ids.forEach((id, idx) => {
+      out[id] = 4 + idx;
+    });
+    return out;
+  }, [userSettings?.dashboardOrder]);
+
   return (
     <div className="content-page">
       <div className="aurora-background">
@@ -723,15 +765,15 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
       </div>
 
       <div className={`dashboard-content dashboard-content-home ${isCompactMobile ? 'compact-mobile' : ''}`}>
-        <div className="dashboard-header">
+        <div className="dashboard-header" style={{ order: 0 }}>
           <div className="header-main">
             <h1>{greetingLabel}, {user?.displayName?.split(' ')[0] || 'Utente'}!</h1>
             <LiveClock />
           </div>
         </div>
 
-        {!isCompactMobile && (
-        <div className="section smart-insights">
+        {!isCompactMobile && showSmartInsights && (
+        <div className="section smart-insights" style={{ order: optionalSectionOrder.smartInsights ?? 999 }}>
           <h2 className="section-title">Insights intelligenti</h2>
           <div className="smart-insights-grid">
             {smartInsights.map((insight) => (
@@ -756,7 +798,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         </div>
         )}
 
-        <div className="financial-overview">
+        <div className="financial-overview" style={{ order: 1 }}>
           <div className="finance-card total-balance">
             <div className="card-content">
               <h3>Saldo Totale</h3>
@@ -786,7 +828,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
 
         </div>
 
-        <div className="section mobile-monthly-stats-section">
+        <div className="section mobile-monthly-stats-section" style={{ order: 2 }}>
           <div className="header-stats mobile-only-stats">
             <div className="mini-stat">
               <div className="mini-value mini-value-income">
@@ -803,7 +845,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
           </div>
         </div>
 
-        <div className="section hero-story">
+        <div className="section hero-story" style={{ order: 3 }}>
           <div className="hero-story-main">
             <div className="hero-story-head">
               <div className="hero-story-badge">Story del mese</div>
@@ -886,7 +928,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
           </div>
         </div>
 
-        <div className="section forecast-3090">
+        {showForecast && (
+        <div className="section forecast-3090" style={{ order: optionalSectionOrder.forecast ?? 999 }}>
           <h2 className="section-title">Forecast 30/60/90 giorni</h2>
           <div className="forecast-3090-grid">
             {forecastData.cards.map((f) => (
@@ -910,8 +953,10 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             </div>
           )}
         </div>
+        )}
 
-        {!isCompactMobile && (
+        {!isCompactMobile && showInsightsBase && (
+        <div style={{ order: optionalSectionOrder.insightsBase ?? 999 }}>
         <Suspense
           fallback={
             <div className="section">
@@ -934,9 +979,11 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             cs={cs}
           />
         </Suspense>
+        </div>
         )}
 
-        <div className="section section-top5 hide-mobile">
+        {showTop5 && (
+        <div className="section section-top5 hide-mobile" style={{ order: optionalSectionOrder.top5 ?? 999 }}>
           <h2 className="section-title">Top 5 Spese & Entrate del Mese</h2>
           <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
             <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 16 }}>
@@ -986,9 +1033,10 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             </div>
           </div>
         </div>
+        )}
 
-        {!isCompactMobile && (
-        <div className="section section-actions">
+        {!isCompactMobile && showActions && (
+        <div className="section section-actions" style={{ order: optionalSectionOrder.actions ?? 999 }}>
           <h2 className="section-title">Azioni Consigliate Oggi</h2>
           <div className="today-actions-grid">
             {todayActions.map((a) => (
@@ -1006,7 +1054,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         </div>
         )}
 
-        <div className="section section-budget-alerts">
+        {showBudgetAlerts && (
+        <div className="section section-budget-alerts" style={{ order: optionalSectionOrder.budgetAlerts ?? 999 }}>
           <h2 className="section-title">Alert Budget</h2>
 
           {budgetsLoading ? (
@@ -1079,9 +1128,10 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             </div>
           )}
         </div>
+        )}
 
-        {!isCompactMobile && upcomingBirthdays.length > 0 && (
-          <div className="section section-birthdays">
+        {!isCompactMobile && showBirthdays && upcomingBirthdays.length > 0 && (
+          <div className="section section-birthdays" style={{ order: optionalSectionOrder.birthdays ?? 999 }}>
             <h2 className="section-title">Prossimi Compleanni</h2>
             <div style={{ display: 'grid', gap: 10 }}>
               {upcomingBirthdays.map((b) => {
