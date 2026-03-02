@@ -157,6 +157,12 @@
   border-color: var(--primary);
 }
 
+.period-chip.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
 .date-input {
   padding: 10px 15px;
   border: 2px solid var(--border);
@@ -553,6 +559,53 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.subscriptions-report-filters {
+  display: grid;
+  gap: 12px;
+}
+
+.subscriptions-report-filter-row {
+  display: grid;
+  gap: 8px;
+}
+
+.subscriptions-report-filter-label {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.subscriptions-report-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.subscriptions-report-section {
+  display: grid;
+  gap: 14px;
+}
+
+.subscriptions-report-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.subscriptions-breakdowns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.subscriptions-report-empty {
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--muted);
 }
 
 .spotlight-card {
@@ -1355,6 +1408,14 @@
   }
 
   .reports-spotlight {
+    grid-template-columns: 1fr;
+  }
+
+  .subscriptions-report-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .subscriptions-breakdowns {
     grid-template-columns: 1fr;
   }
 

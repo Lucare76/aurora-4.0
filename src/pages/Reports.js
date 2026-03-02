@@ -13,7 +13,8 @@ import {
   FiRefreshCw,
   FiFilter,
   FiDownload,
-  FiPrinter
+  FiPrinter,
+  FiRepeat
 } from 'react-icons/fi';
 
 import MonthlyTrendChart from '../components/reports/MonthlyTrendChart';
@@ -23,10 +24,11 @@ import SpendingHeatmap from '../components/reports/SpendingHeatmap';
 import InsightsPanel from '../components/reports/InsightsPanel';
 import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
+import { getSubscriptions } from '../services/subscriptionsService';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
-  const { userSettings } = useAuth();
+  const { user, userSettings } = useAuth();
   const currencyCode = userSettings?.currency || 'EUR';
 
   // -----------------------------
@@ -136,6 +138,10 @@ function Reports() {
   });
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionsFilterStatus, setSubscriptionsFilterStatus] = useState('all');
+  const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [filterAccount, setFilterAccount] = useState('all');
@@ -171,6 +177,26 @@ function Reports() {
   const formatEUR = useCallback((n) => {
     return formatCurrency(n, currencyCode, { decimals: 2 });
   }, [currencyCode]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadSubscriptions() {
+      if (!user?.uid) return;
+      setSubscriptionsLoading(true);
+      try {
+        const data = await getSubscriptions(user.uid);
+        if (mounted) setSubscriptions(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error('Errore caricamento abbonamenti report:', e);
+      } finally {
+        if (mounted) setSubscriptionsLoading(false);
+      }
+    }
+    loadSubscriptions();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     try {
@@ -414,6 +440,110 @@ function Reports() {
 
     return { income, expenses, net, count: filteredTransactions.length, transferCount };
   }, [filteredTransactions]);
+
+  const getMonthlyEquivalent = useCallback((item) => {
+    const amount = Math.abs(Number(item?.amount) || 0);
+    const cycle = item?.billingCycle || 'monthly';
+    if (cycle === 'weekly') return (amount * 52) / 12;
+    if (cycle === 'yearly') return amount / 12;
+    return amount;
+  }, []);
+
+  const subscriptionsWithDerived = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return (subscriptions || []).map((s) => {
+      const due = s?.nextDueDate ? new Date(s.nextDueDate) : null;
+      const dueDate = due && !Number.isNaN(due.getTime()) ? due : null;
+      if (dueDate) dueDate.setHours(0, 0, 0, 0);
+      const daysToDue = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / 86400000) : null;
+      const monthlyEquivalent = getMonthlyEquivalent(s);
+      const annualEquivalent = monthlyEquivalent * 12;
+      return {
+        ...s,
+        dueDate,
+        daysToDue,
+        monthlyEquivalent,
+        annualEquivalent
+      };
+    });
+  }, [subscriptions, getMonthlyEquivalent]);
+
+  const filteredSubscriptions = useMemo(() => {
+    return subscriptionsWithDerived
+      .filter((s) => {
+        if (subscriptionsFilterStatus === 'active') return s.active !== false;
+        if (subscriptionsFilterStatus === 'paused') return s.active === false;
+        if (subscriptionsFilterStatus === 'due30') {
+          return s.active !== false && s.daysToDue != null && s.daysToDue >= 0 && s.daysToDue <= 30;
+        }
+        return true;
+      })
+      .filter((s) => {
+        if (subscriptionsFilterKind === 'all') return true;
+        return (s.kind || 'recurring') === subscriptionsFilterKind;
+      })
+      .sort((a, b) => {
+        const ad = a.daysToDue == null ? Number.MAX_SAFE_INTEGER : a.daysToDue;
+        const bd = b.daysToDue == null ? Number.MAX_SAFE_INTEGER : b.daysToDue;
+        return ad - bd;
+      });
+  }, [subscriptionsWithDerived, subscriptionsFilterStatus, subscriptionsFilterKind]);
+
+  const subscriptionsStats = useMemo(() => {
+    const active = subscriptionsWithDerived.filter((s) => s.active !== false);
+    const paused = subscriptionsWithDerived.filter((s) => s.active === false);
+    const due30 = active.filter((s) => s.daysToDue != null && s.daysToDue >= 0 && s.daysToDue <= 30).length;
+    const monthlyTotal = active.reduce((sum, s) => sum + s.monthlyEquivalent, 0);
+    const annualTotal = active.reduce((sum, s) => sum + s.annualEquivalent, 0);
+    return {
+      total: subscriptionsWithDerived.length,
+      active: active.length,
+      paused: paused.length,
+      due30,
+      monthlyTotal,
+      annualTotal
+    };
+  }, [subscriptionsWithDerived]);
+
+  const subscriptionsByOwner = useMemo(() => {
+    const map = new Map();
+    filteredSubscriptions.forEach((s) => {
+      const key = String(s.ownerName || 'Tu').trim() || 'Tu';
+      const prev = map.get(key) || { owner: key, count: 0, monthly: 0, annual: 0 };
+      prev.count += 1;
+      prev.monthly += s.monthlyEquivalent;
+      prev.annual += s.annualEquivalent;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.monthly - a.monthly);
+  }, [filteredSubscriptions]);
+
+  const subscriptionsByProvider = useMemo(() => {
+    const map = new Map();
+    filteredSubscriptions.forEach((s) => {
+      const key = String(s.provider || 'Senza fornitore').trim() || 'Senza fornitore';
+      const prev = map.get(key) || { provider: key, count: 0, monthly: 0, annual: 0 };
+      prev.count += 1;
+      prev.monthly += s.monthlyEquivalent;
+      prev.annual += s.annualEquivalent;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.monthly - a.monthly);
+  }, [filteredSubscriptions]);
+
+  const subscriptionsByKind = useMemo(() => {
+    const map = new Map();
+    filteredSubscriptions.forEach((s) => {
+      const key = s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente';
+      const prev = map.get(key) || { kind: key, count: 0, monthly: 0, annual: 0 };
+      prev.count += 1;
+      prev.monthly += s.monthlyEquivalent;
+      prev.annual += s.annualEquivalent;
+      map.set(key, prev);
+    });
+    return Array.from(map.values()).sort((a, b) => b.monthly - a.monthly);
+  }, [filteredSubscriptions]);
 
   const periodComparison = useMemo(() => {
     if (!normalizedStartDate || !normalizedEndDate) return null;
@@ -671,7 +801,115 @@ function Reports() {
     getAccountName
   ]);
 
+  const exportSubscriptionsCSV = useCallback(() => {
+    const headers = [
+      'Nome',
+      'Intestatario',
+      'Fornitore',
+      'Tipo',
+      'Ciclo',
+      'Importo',
+      'Mensile Equivalente',
+      'Annuale Equivalente',
+      'Prossima Scadenza',
+      'Giorni alla Scadenza',
+      'Stato'
+    ];
+    const rows = filteredSubscriptions.map((s) => {
+      const due = s.dueDate ? s.dueDate.toISOString().split('T')[0] : '';
+      const days = s.daysToDue == null ? '' : String(s.daysToDue);
+      const state = s.active === false ? 'In pausa' : 'Attivo';
+      const cycle = s.billingCycle === 'yearly' ? 'Annuale' : s.billingCycle === 'weekly' ? 'Settimanale' : 'Mensile';
+      const type = s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente';
+      return [
+        `"${String(s.name || '').replaceAll('"', '""')}"`,
+        `"${String(s.ownerName || '').replaceAll('"', '""')}"`,
+        `"${String(s.provider || '').replaceAll('"', '""')}"`,
+        `"${type}"`,
+        `"${cycle}"`,
+        String(Math.abs(Number(s.amount) || 0)),
+        s.monthlyEquivalent.toFixed(2),
+        s.annualEquivalent.toFixed(2),
+        due,
+        days,
+        `"${state}"`
+      ].join(',');
+    });
+    const content = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'report_abbonamenti.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredSubscriptions]);
+
   const exportPDF = useCallback(() => {
+    if (activeTab === 'subscriptions') {
+      const rows = filteredSubscriptions
+        .map((s) => {
+          const dueText = s.dueDate ? s.dueDate.toLocaleDateString('it-IT') : 'N/D';
+          const daysText = s.daysToDue == null ? 'N/D' : s.daysToDue < 0 ? `Scaduto da ${Math.abs(s.daysToDue)} gg` : s.daysToDue === 0 ? 'Oggi' : s.daysToDue === 1 ? 'Domani' : `Tra ${s.daysToDue} gg`;
+          return `
+            <tr>
+              <td>${String(s.name || '')}</td>
+              <td>${String(s.ownerName || 'Tu')}</td>
+              <td>${String(s.provider || '-')}</td>
+              <td>${s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente'}</td>
+              <td>${s.active === false ? 'In pausa' : 'Attivo'}</td>
+              <td>${formatEUR(s.monthlyEquivalent)}</td>
+              <td>${dueText} (${daysText})</td>
+            </tr>
+          `;
+        })
+        .join('');
+      const html = `
+        <html>
+          <head>
+            <title>Report Abbonamenti Aurora</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 18px; color: #0f172a; }
+              h1 { margin: 0 0 6px; }
+              p { margin: 0 0 10px; color: #334155; }
+              .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+              .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; }
+              .card .v { font-weight: 700; font-size: 18px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; }
+              th { background: #f1f5f9; text-align: left; }
+            </style>
+          </head>
+          <body>
+            <h1>Report Abbonamenti</h1>
+            <p>Totale: ${subscriptionsStats.total} | Attivi: ${subscriptionsStats.active} | In pausa: ${subscriptionsStats.paused} | In scadenza 30g: ${subscriptionsStats.due30}</p>
+            <div class="cards">
+              <div class="card"><div>Mensile</div><div class="v">${formatEUR(subscriptionsStats.monthlyTotal)}</div></div>
+              <div class="card"><div>Annuale</div><div class="v">${formatEUR(subscriptionsStats.annualTotal)}</div></div>
+              <div class="card"><div>Attivi</div><div class="v">${subscriptionsStats.active}</div></div>
+              <div class="card"><div>Scadenza 30g</div><div class="v">${subscriptionsStats.due30}</div></div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th><th>Intestatario</th><th>Fornitore</th><th>Tipo</th><th>Stato</th><th>Mensile eq.</th><th>Scadenza</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+      const w = window.open('', '_blank');
+      if (!w) return;
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 250);
+      return;
+    }
+
     const rows = filteredTransactions
       .map((t) => {
         const isTransfer = t.__type === 'transfer';
@@ -738,6 +976,14 @@ function Reports() {
       w.print();
     }, 250);
   }, [
+    activeTab,
+    filteredSubscriptions,
+    subscriptionsStats.total,
+    subscriptionsStats.active,
+    subscriptionsStats.paused,
+    subscriptionsStats.due30,
+    subscriptionsStats.monthlyTotal,
+    subscriptionsStats.annualTotal,
     filteredTransactions,
     getAccountNameFromTx,
     getCategoryNameFromTx,
@@ -813,6 +1059,8 @@ function Reports() {
     return d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }, []);
 
+  const isSubscriptionsTab = activeTab === 'subscriptions';
+  const showTransactionsEmpty = !isSubscriptionsTab && stats.count === 0;
 
   // -----------------------------
   // Render
@@ -855,6 +1103,8 @@ function Reports() {
       </div>
 
       <div className="reports-controls">
+        {!isSubscriptionsTab && (
+        <>
         {/* Date range */}
         <div className="date-range-controls">
           <div className="control-group">
@@ -1025,6 +1275,72 @@ function Reports() {
             )}
           </div>
         </div>
+        </>
+        )}
+
+        {isSubscriptionsTab && (
+          <div className="subscriptions-report-filters">
+            <div className="subscriptions-report-filter-row">
+              <span className="subscriptions-report-filter-label">Stato</span>
+              <div className="subscriptions-report-chip-row">
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterStatus === 'all' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterStatus('all')}
+                >
+                  Tutti
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterStatus === 'active' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterStatus('active')}
+                >
+                  Attivi
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterStatus === 'paused' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterStatus('paused')}
+                >
+                  In pausa
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterStatus === 'due30' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterStatus('due30')}
+                >
+                  Scadenza 30 giorni
+                </button>
+              </div>
+            </div>
+            <div className="subscriptions-report-filter-row">
+              <span className="subscriptions-report-filter-label">Tipo</span>
+              <div className="subscriptions-report-chip-row">
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterKind === 'all' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterKind('all')}
+                >
+                  Tutti
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterKind === 'recurring' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterKind('recurring')}
+                >
+                  Ricorrenti
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterKind === 'fixed' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterKind('fixed')}
+                >
+                  Scadenza fissa
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="report-type-tabs">
@@ -1046,10 +1362,13 @@ function Reports() {
           <button className={`tab-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
             <FiBarChart2 /> Transazioni
           </button>
+          <button className={`tab-btn ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => setActiveTab('subscriptions')}>
+            <FiRepeat /> Abbonamenti
+          </button>
         </div>
       </div>
 
-      {periodComparison && (
+      {!isSubscriptionsTab && periodComparison && (
         <div className="comparison-panel">
           <div className="comparison-head">
             <h3>Confronto col periodo precedente</h3>
@@ -1093,7 +1412,7 @@ function Reports() {
       )}
 
       {/* Tab content */}
-      {stats.count === 0 ? (
+      {showTransactionsEmpty ? (
         <div className="empty-state">
           <div className="empty-icon">[ ]</div>
           <h3>Nessuna transazione nel periodo/filtri</h3>
@@ -1333,16 +1652,161 @@ function Reports() {
               </div>
             </div>
           )}
+
+          {activeTab === 'subscriptions' && (
+            <div className="categories-section subscriptions-report-section">
+              <h3>Report Abbonamenti</h3>
+
+              <div className="subscriptions-report-kpis">
+                <div className="comparison-card">
+                  <div className="label">Totale Mensile (equivalente)</div>
+                  <div className="value">{formatEUR(subscriptionsStats.monthlyTotal)}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Totale Annuale (equivalente)</div>
+                  <div className="value">{formatEUR(subscriptionsStats.annualTotal)}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Attivi / In pausa</div>
+                  <div className="value">{subscriptionsStats.active} / {subscriptionsStats.paused}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Scadenze 30 giorni</div>
+                  <div className="value">{subscriptionsStats.due30}</div>
+                </div>
+              </div>
+
+              {subscriptionsLoading ? (
+                <div className="subscriptions-report-empty">Caricamento abbonamenti...</div>
+              ) : filteredSubscriptions.length === 0 ? (
+                <div className="subscriptions-report-empty">Nessun abbonamento per i filtri selezionati.</div>
+              ) : (
+                <>
+                  <div className="subscriptions-breakdowns">
+                    <div className="table-scroll">
+                      <table className="expenses-table">
+                        <thead>
+                          <tr>
+                            <th>Per intestatario</th>
+                            <th>Abbonamenti</th>
+                            <th className="amount-col">Mensile eq.</th>
+                            <th className="amount-col">Annuale eq.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subscriptionsByOwner.map((r) => (
+                            <tr key={r.owner}>
+                              <td>{toTitleCase(r.owner)}</td>
+                              <td>{r.count}</td>
+                              <td className="amount-col">{formatEUR(r.monthly)}</td>
+                              <td className="amount-col">{formatEUR(r.annual)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="table-scroll">
+                      <table className="expenses-table">
+                        <thead>
+                          <tr>
+                            <th>Per fornitore</th>
+                            <th>Abbonamenti</th>
+                            <th className="amount-col">Mensile eq.</th>
+                            <th className="amount-col">Annuale eq.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subscriptionsByProvider.map((r) => (
+                            <tr key={r.provider}>
+                              <td>{toTitleCase(r.provider)}</td>
+                              <td>{r.count}</td>
+                              <td className="amount-col">{formatEUR(r.monthly)}</td>
+                              <td className="amount-col">{formatEUR(r.annual)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="table-scroll" style={{ marginTop: 14 }}>
+                    <table className="expenses-table">
+                      <thead>
+                        <tr>
+                          <th>Per tipo</th>
+                          <th>Abbonamenti</th>
+                          <th className="amount-col">Mensile eq.</th>
+                          <th className="amount-col">Annuale eq.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptionsByKind.map((r) => (
+                          <tr key={r.kind}>
+                            <td>{r.kind}</td>
+                            <td>{r.count}</td>
+                            <td className="amount-col">{formatEUR(r.monthly)}</td>
+                            <td className="amount-col">{formatEUR(r.annual)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="table-scroll" style={{ marginTop: 14 }}>
+                    <table className="full-transactions-table">
+                      <thead>
+                        <tr>
+                          <th>Nome</th>
+                          <th>Intestatario</th>
+                          <th>Fornitore</th>
+                          <th>Tipo</th>
+                          <th>Stato</th>
+                          <th>Scadenza</th>
+                          <th className="amount-col">Mensile eq.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredSubscriptions.map((s) => {
+                          const dueLabel =
+                            s.daysToDue == null
+                              ? 'N/D'
+                              : s.daysToDue < 0
+                              ? `Scaduto da ${Math.abs(s.daysToDue)} gg`
+                              : s.daysToDue === 0
+                              ? 'Oggi'
+                              : s.daysToDue === 1
+                              ? 'Domani'
+                              : `Tra ${s.daysToDue} gg`;
+                          return (
+                            <tr key={s.id}>
+                              <td>{s.name || 'N/D'}</td>
+                              <td>{toTitleCase(s.ownerName || 'Tu')}</td>
+                              <td>{toTitleCase(s.provider || '-')}</td>
+                              <td>{s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente'}</td>
+                              <td>{s.active === false ? 'In pausa' : 'Attivo'}</td>
+                              <td>{s.dueDate ? `${formatDateIT(s.dueDate)} (${dueLabel})` : 'N/D'}</td>
+                              <td className="amount-col">{formatEUR(s.monthlyEquivalent)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 
       {/* Actions */}
       <div className="reports-actions">
-        <button className="action-btn export-btn" onClick={exportCSV}>
-          <FiDownload className="btn-icon" /> Esporta CSV
+        <button className="action-btn export-btn" onClick={isSubscriptionsTab ? exportSubscriptionsCSV : exportCSV}>
+          <FiDownload className="btn-icon" /> {isSubscriptionsTab ? 'Esporta CSV Abbonamenti' : 'Esporta CSV'}
         </button>
         <button className="action-btn print-btn" onClick={exportPDF}>
-          <FiPrinter className="btn-icon" /> Esporta PDF
+          <FiPrinter className="btn-icon" /> {isSubscriptionsTab ? 'Esporta PDF Abbonamenti' : 'Esporta PDF'}
         </button>
         <button className="action-btn print-btn" onClick={() => window.print()}>
           <FiPrinter className="btn-icon" /> Stampa
