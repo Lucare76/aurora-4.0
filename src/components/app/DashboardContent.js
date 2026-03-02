@@ -8,32 +8,9 @@ import { processRecurring } from '../../services/recurringService';
 import LiveClock from './LiveClock';
 import { formatNumber } from '../../utils/format';
 import { formatEntityLabel } from '../../utils/text';
+import { normalizeDashboardOrder } from '../../utils/dashboardLayout';
 
 const InsightsSection = React.lazy(() => import('./InsightsSection'));
-const DASHBOARD_ORDER_DEFAULT = [
-  'header',
-  'financial',
-  'story',
-  'smartInsights',
-  'forecast',
-  'insightsBase',
-  'top5',
-  'budgetAlerts',
-  'actions',
-  'birthdays'
-];
-
-function normalizeDashboardOrder(order) {
-  if (!Array.isArray(order)) return DASHBOARD_ORDER_DEFAULT;
-  const set = new Set(order);
-  const merged = order.filter((id) => DASHBOARD_ORDER_DEFAULT.includes(id));
-  for (const id of DASHBOARD_ORDER_DEFAULT) {
-    if (!set.has(id)) merged.push(id);
-  }
-  const fixed = ['header', 'financial', 'story'];
-  const optional = merged.filter((id) => !fixed.includes(id));
-  return [...fixed, ...optional];
-}
 
 const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const { user, userSettings } = useAuth();

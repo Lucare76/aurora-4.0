@@ -1,34 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FiUser, FiMail, FiBell, FiCheck } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import PageHeader from './PageHeader';
-
-const DASHBOARD_SECTIONS = [
-  { id: 'header', label: 'Buongiorno', required: true },
-  { id: 'financial', label: 'Saldo totale + Cash Flow', required: true },
-  { id: 'story', label: 'Story del mese', required: true },
-  { id: 'smartInsights', label: 'Insights intelligenti', required: false },
-  { id: 'forecast', label: 'Forecast 30/60/90 giorni', required: false },
-  { id: 'insightsBase', label: 'Insights (card standard)', required: false },
-  { id: 'top5', label: 'Top 5 spese & entrate', required: false },
-  { id: 'budgetAlerts', label: 'Alert Budget', required: false },
-  { id: 'actions', label: 'Azioni consigliate oggi', required: false },
-  { id: 'birthdays', label: 'Prossimi compleanni', required: false }
-];
-
-const DEFAULT_DASHBOARD_ORDER = DASHBOARD_SECTIONS.map((s) => s.id);
-const FIXED_SECTION_IDS = DASHBOARD_SECTIONS.filter((s) => s.required).map((s) => s.id);
-
-const normalizeDashboardOrder = (order) => {
-  if (!Array.isArray(order)) return DEFAULT_DASHBOARD_ORDER;
-  const set = new Set(order);
-  const merged = order.filter((id) => DEFAULT_DASHBOARD_ORDER.includes(id));
-  for (const id of DEFAULT_DASHBOARD_ORDER) {
-    if (!set.has(id)) merged.push(id);
-  }
-  const optional = merged.filter((id) => !FIXED_SECTION_IDS.includes(id));
-  return [...FIXED_SECTION_IDS, ...optional];
-};
+import {
+  buildDashboardPreview,
+  DASHBOARD_SECTIONS,
+  getSectionLabel,
+  normalizeDashboardOrder
+} from '../../utils/dashboardLayout';
 
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
@@ -38,6 +17,8 @@ function SettingsContent() {
   const [exporting, setExporting] = useState(false);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const hasLoadedOnceRef = useRef(false);
+  const autoSaveTimerRef = useRef(null);
 
   const [settings, setSettings] = useState({
     reminderEmail: '',
@@ -66,6 +47,31 @@ function SettingsContent() {
     familyCommentsEnabled: userSettings?.familyCommentsEnabled ?? false,
     familyApprovalsEnabled: userSettings?.familyApprovalsEnabled ?? false
   });
+
+  const dashboardSettingsPayload = useMemo(
+    () => ({
+      dashboardMobileMode: settings.dashboardMobileMode || 'normal',
+      dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
+      dashboardShowSmartInsights: settings.dashboardShowSmartInsights === true,
+      dashboardShowForecast: settings.dashboardShowForecast === true,
+      dashboardShowInsightsBase: settings.dashboardShowInsightsBase === true,
+      dashboardShowTop5: settings.dashboardShowTop5 === true,
+      dashboardShowBudgetAlerts: settings.dashboardShowBudgetAlerts === true,
+      dashboardShowActions: settings.dashboardShowActions === true,
+      dashboardShowBirthdays: settings.dashboardShowBirthdays === true
+    }),
+    [
+      settings.dashboardMobileMode,
+      settings.dashboardOrder,
+      settings.dashboardShowActions,
+      settings.dashboardShowBirthdays,
+      settings.dashboardShowBudgetAlerts,
+      settings.dashboardShowForecast,
+      settings.dashboardShowInsightsBase,
+      settings.dashboardShowSmartInsights,
+      settings.dashboardShowTop5
+    ]
+  );
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -141,11 +147,45 @@ function SettingsContent() {
         setMessage({ text: 'Errore caricamento impostazioni', type: 'error' });
       } finally {
         setLoading(false);
+        hasLoadedOnceRef.current = true;
       }
     };
 
     loadSettings();
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || !hasLoadedOnceRef.current) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const { doc, updateDoc } = await import('firebase/firestore');
+        const { db } = await import('../../services/firebase');
+
+        await updateDoc(doc(db, 'users', user.uid), dashboardSettingsPayload);
+        if (setUserSettings) {
+          setUserSettings((prev) => ({
+            ...prev,
+            ...dashboardSettingsPayload
+          }));
+        }
+        setMessage((prev) =>
+          prev.type === 'error'
+            ? prev
+            : { text: 'Layout dashboard salvato automaticamente', type: 'success' }
+        );
+      } catch (error) {
+        console.error('Errore autosave dashboard:', error);
+        setMessage({ text: 'Errore salvataggio automatico dashboard', type: 'error' });
+      }
+    }, 700);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [dashboardSettingsPayload, setUserSettings, user?.uid]);
 
   const handleSave = async () => {
     if (!user?.uid) return;
@@ -167,15 +207,7 @@ function SettingsContent() {
           savingsTargetType: settings.savingsTargetType,
           savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
-          dashboardMobileMode: settings.dashboardMobileMode || 'normal',
-          dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
-          dashboardShowSmartInsights: settings.dashboardShowSmartInsights !== false,
-          dashboardShowForecast: settings.dashboardShowForecast !== false,
-          dashboardShowInsightsBase: settings.dashboardShowInsightsBase !== false,
-          dashboardShowTop5: settings.dashboardShowTop5 !== false,
-          dashboardShowBudgetAlerts: settings.dashboardShowBudgetAlerts !== false,
-          dashboardShowActions: settings.dashboardShowActions !== false,
-          dashboardShowBirthdays: settings.dashboardShowBirthdays !== false,
+          ...dashboardSettingsPayload,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
           subscriptionsNotificationsDays: Number(settings.subscriptionsNotificationsDays) || 7,
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
@@ -195,15 +227,7 @@ function SettingsContent() {
           savingsTargetType: settings.savingsTargetType,
           savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
-          dashboardMobileMode: settings.dashboardMobileMode || 'normal',
-          dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
-          dashboardShowSmartInsights: settings.dashboardShowSmartInsights !== false,
-          dashboardShowForecast: settings.dashboardShowForecast !== false,
-          dashboardShowInsightsBase: settings.dashboardShowInsightsBase !== false,
-          dashboardShowTop5: settings.dashboardShowTop5 !== false,
-          dashboardShowBudgetAlerts: settings.dashboardShowBudgetAlerts !== false,
-          dashboardShowActions: settings.dashboardShowActions !== false,
-          dashboardShowBirthdays: settings.dashboardShowBirthdays !== false,
+          ...dashboardSettingsPayload,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
           subscriptionsNotificationsDays: Number(settings.subscriptionsNotificationsDays) || 7,
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
@@ -238,6 +262,23 @@ function SettingsContent() {
     const map = new Map(DASHBOARD_SECTIONS.map((s) => [s.id, s]));
     return normalizeDashboardOrder(settings.dashboardOrder).map((id) => map.get(id)).filter(Boolean);
   }, [settings.dashboardOrder]);
+
+  const previewOrder = useMemo(() => buildDashboardPreview(settings), [settings]);
+
+  const handleResetDashboardDefaults = () => {
+    setSettings((prev) => ({
+      ...prev,
+      dashboardOrder: normalizeDashboardOrder(null),
+      dashboardShowSmartInsights: false,
+      dashboardShowForecast: false,
+      dashboardShowInsightsBase: false,
+      dashboardShowTop5: false,
+      dashboardShowBudgetAlerts: false,
+      dashboardShowActions: false,
+      dashboardShowBirthdays: false
+    }));
+    setMessage({ text: 'Layout dashboard ripristinato ai default', type: 'success' });
+  };
 
   const handleDragStart = (index, event) => {
     const section = orderedDashboardSections[index];
@@ -696,6 +737,16 @@ function SettingsContent() {
               (Buongiorno, Saldo/Cash Flow, Story del mese).
             </p>
             <div className="setting-form">
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn-save-settings"
+                  onClick={handleResetDashboardDefaults}
+                  style={{ padding: '8px 14px', fontSize: 13 }}
+                >
+                  Ripristina default dashboard
+                </button>
+              </div>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
@@ -780,6 +831,23 @@ function SettingsContent() {
                   ))}
                 </div>
                 <small>Trascina le sezioni per cambiare l’ordine nella dashboard.</small>
+              </div>
+              <div className="dashboard-order">
+                <div className="dashboard-order-title">Anteprima live ordine</div>
+                <div className="dashboard-order-list">
+                  <div className="dashboard-order-item locked">
+                    <span className="drag-handle">D</span>
+                    <span className="order-label">
+                      Desktop: {previewOrder.desktop.map((id) => getSectionLabel(id)).join(' > ')}
+                    </span>
+                  </div>
+                  <div className="dashboard-order-item locked">
+                    <span className="drag-handle">M</span>
+                    <span className="order-label">
+                      Mobile: {previewOrder.mobile.map((id) => getSectionLabel(id)).join(' > ')}
+                    </span>
+                  </div>
+                </div>
               </div>
               <small>Puoi modificare queste opzioni in qualsiasi momento.</small>
             </div>

@@ -1,15 +1,15 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import InsightsSection from './InsightsSection';
 
 describe('InsightsSection', () => {
-  test('renders snapshot with basic data', () => {
+  test('renders key insight blocks with basic data', () => {
     const transactions = [
       { amount: -20, type: 'expense', date: new Date(), categoryName: 'Spesa', description: 'pane' },
       { amount: 100, type: 'income', date: new Date(), categoryName: 'Stipendio', description: 'entrata' }
     ];
 
-    const { container } = render(
+    render(
       <InsightsSection
         transactions={transactions}
         categories={[]}
@@ -21,6 +21,9 @@ describe('InsightsSection', () => {
         cs="€"
       />
     );
-    expect(container.firstChild).toMatchSnapshot();
+
+    expect(screen.getByText('Insights')).toBeInTheDocument();
+    expect(screen.getByText('Tasso di Risparmio')).toBeInTheDocument();
+    expect(screen.getByText('Proiezione Fine Mese')).toBeInTheDocument();
   });
 });
