@@ -153,6 +153,9 @@ function Reports() {
   const [subscriptionsTrendMonths, setSubscriptionsTrendMonths] = useState(12);
   const [subscriptionsReconcileBusyId, setSubscriptionsReconcileBusyId] = useState('');
   const [subscriptionsReconcileMessage, setSubscriptionsReconcileMessage] = useState(null);
+  const [reconcileLogStatusFilter, setReconcileLogStatusFilter] = useState('all');
+  const [reconcileLogModeFilter, setReconcileLogModeFilter] = useState('all');
+  const [reconcileLogRangeFilter, setReconcileLogRangeFilter] = useState('30d');
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [filterAccount, setFilterAccount] = useState('all');
@@ -686,10 +689,40 @@ function Reports() {
 
   const filteredReconciliationLogs = useMemo(() => {
     const scopedIds = new Set(filteredSubscriptions.map((s) => s.id));
+    const now = new Date();
+    const rangeStart = (() => {
+      if (reconcileLogRangeFilter === '7d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 7);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      if (reconcileLogRangeFilter === '30d') {
+        const d = new Date(now);
+        d.setDate(d.getDate() - 30);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      return null;
+    })();
+
     return (subscriptionReconciliationLogs || [])
       .filter((l) => scopedIds.has(l.subscriptionId))
+      .filter((l) => (reconcileLogStatusFilter === 'all' ? true : l.status === reconcileLogStatusFilter))
+      .filter((l) => (reconcileLogModeFilter === 'all' ? true : l.mode === reconcileLogModeFilter))
+      .filter((l) => {
+        if (!rangeStart) return true;
+        const refDate = l.createdAt || l.actionAt;
+        return refDate instanceof Date && refDate >= rangeStart;
+      })
       .slice(0, 30);
-  }, [filteredSubscriptions, subscriptionReconciliationLogs]);
+  }, [
+    filteredSubscriptions,
+    subscriptionReconciliationLogs,
+    reconcileLogStatusFilter,
+    reconcileLogModeFilter,
+    reconcileLogRangeFilter
+  ]);
 
   const writeReconciliationLog = useCallback(
     async (payload) => {
@@ -2483,6 +2516,86 @@ function Reports() {
                     </div>
 
                     <div className="table-scroll">
+                      <div className="subscriptions-report-filters" style={{ padding: 12, paddingBottom: 0 }}>
+                        <div className="subscriptions-report-filter-row">
+                          <span className="subscriptions-report-filter-label">Stato log</span>
+                          <div className="subscriptions-report-chip-row">
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogStatusFilter === 'all' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogStatusFilter('all')}
+                            >
+                              Tutti
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogStatusFilter === 'success' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogStatusFilter('success')}
+                            >
+                              Solo OK
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogStatusFilter === 'error' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogStatusFilter('error')}
+                            >
+                              Solo errori
+                            </button>
+                          </div>
+                        </div>
+                        <div className="subscriptions-report-filter-row">
+                          <span className="subscriptions-report-filter-label">Modalita</span>
+                          <div className="subscriptions-report-chip-row">
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogModeFilter === 'all' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogModeFilter('all')}
+                            >
+                              Tutte
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogModeFilter === 'single' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogModeFilter('single')}
+                            >
+                              Singole
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogModeFilter === 'bulk' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogModeFilter('bulk')}
+                            >
+                              Bulk
+                            </button>
+                          </div>
+                        </div>
+                        <div className="subscriptions-report-filter-row">
+                          <span className="subscriptions-report-filter-label">Periodo</span>
+                          <div className="subscriptions-report-chip-row">
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogRangeFilter === '7d' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogRangeFilter('7d')}
+                            >
+                              Ultimi 7g
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogRangeFilter === '30d' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogRangeFilter('30d')}
+                            >
+                              Ultimi 30g
+                            </button>
+                            <button
+                              type="button"
+                              className={`period-chip ${reconcileLogRangeFilter === 'all' ? 'active' : ''}`}
+                              onClick={() => setReconcileLogRangeFilter('all')}
+                            >
+                              Tutto
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                       <table className="expenses-table">
                         <thead>
                           <tr>
