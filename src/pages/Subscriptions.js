@@ -37,7 +37,7 @@ function getDaysTo(date) {
 
 export default function Subscriptions() {
   const { user, userSettings } = useAuth();
-  const { accounts = [] } = useFinancial();
+  const { accounts = [], categories = [], createTransaction } = useFinancial();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +66,15 @@ export default function Subscriptions() {
     userSettings?.subscriptionsNotificationOffsets ?? userSettings?.subscriptionsNotificationsDays
   );
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.name])), [accounts]);
+  const subscriptionExpenseCategory = useMemo(() => {
+    const expenseCategories = (categories || []).filter((c) => c?.type === 'expense');
+    if (!expenseCategories.length) return null;
+    const byName = expenseCategories.find((c) => String(c?.name || '').trim().toLowerCase() === 'abbonamenti');
+    if (byName) return byName;
+    const byBills = expenseCategories.find((c) => String(c?.name || '').trim().toLowerCase() === 'bollette');
+    if (byBills) return byBills;
+    return expenseCategories[0];
+  }, [categories]);
 
   const loadItems = useCallback(async () => {
     if (!user?.uid) return;
@@ -223,6 +232,29 @@ export default function Subscriptions() {
   const handleMarkPaid = useCallback(async (item) => {
     setSaving(true);
     try {
+      const targetAccountId = item?.accountId || accounts[0]?.id || null;
+      if (!targetAccountId) {
+        throw new Error('Nessun conto disponibile per registrare il pagamento');
+      }
+      const txPayload = {
+        description: `Rinnovo abbonamento: ${item.name}`,
+        amount: Math.abs(Number(item?.amount) || 0),
+        type: 'expense',
+        accountId: targetAccountId,
+        date: new Date(),
+        isSubscriptionPayment: true,
+        subscriptionId: item.id,
+        subscriptionName: item.name,
+        ownerName: item.ownerName || '',
+        provider: item.provider || ''
+      };
+      if (subscriptionExpenseCategory?.id) {
+        txPayload.categoryId = subscriptionExpenseCategory.id;
+      } else {
+        txPayload.category = 'Abbonamenti';
+      }
+
+      await createTransaction(txPayload);
       await createSubscriptionPayment(user.uid, {
         subscriptionId: item.id,
         subscriptionName: item.name,
@@ -243,7 +275,15 @@ export default function Subscriptions() {
     } finally {
       setSaving(false);
     }
-  }, [loadItems, loadPayments, user?.uid, userSettings?.currency]);
+  }, [
+    accounts,
+    createTransaction,
+    loadItems,
+    loadPayments,
+    subscriptionExpenseCategory?.id,
+    user?.uid,
+    userSettings?.currency
+  ]);
 
   const handleManualPayment = useCallback(async (item) => {
     if (!user?.uid) return;
