@@ -9,18 +9,11 @@ import {
   setRecurringActive,
   updateRecurring
 } from '../services/recurringService';
+import { getRecurringNextRunLabel, parseRecurringDate } from '../utils/recurring';
 import './Recurring.css';
 
-function parseDate(value) {
-  if (!value) return null;
-  if (value && typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
-  if (value instanceof Date) return value;
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
 function dateInputValue(value) {
-  const d = parseDate(value);
+  const d = parseRecurringDate(value);
   if (!d) return '';
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -46,6 +39,9 @@ function Recurring() {
     categoryId: ''
   });
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.name])), [accounts]);
   const categoryMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c.name])), [categories]);
@@ -56,8 +52,8 @@ function Recurring() {
     try {
       const list = await getAllRecurringTransactions(user.uid);
       const sorted = (Array.isArray(list) ? list : []).sort((a, b) => {
-        const da = parseDate(a.nextDate)?.getTime() || Number.MAX_SAFE_INTEGER;
-        const db = parseDate(b.nextDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const da = parseRecurringDate(a.nextDate)?.getTime() || Number.MAX_SAFE_INTEGER;
+        const db = parseRecurringDate(b.nextDate)?.getTime() || Number.MAX_SAFE_INTEGER;
         return da - db;
       });
       setItems(sorted);
@@ -83,11 +79,21 @@ function Recurring() {
     soonLimit.setDate(soonLimit.getDate() + 7);
     const dueSoon = items.filter((r) => {
       if (r.active === false) return false;
-      const d = parseDate(r.nextDate);
+      const d = parseRecurringDate(r.nextDate);
       return !!d && d >= now && d <= soonLimit;
     }).length;
     return { active, paused, dueSoon, total: items.length };
   }, [items]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => items.some((r) => r.id === id)));
+  }, [items]);
+
+  const filteredItems = useMemo(() => {
+    if (statusFilter === 'active') return items.filter((r) => r.active !== false);
+    if (statusFilter === 'paused') return items.filter((r) => r.active === false);
+    return items;
+  }, [items, statusFilter]);
 
   const startEdit = useCallback((item) => {
     setEditingId(item.id);
@@ -186,6 +192,48 @@ function Recurring() {
     }
   }, [editingId, form, accountMap, categoryMap, loadItems]);
 
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
+  const toggleSelectAllFiltered = useCallback(() => {
+    if (!filteredItems.length) {
+      setSelectedIds([]);
+      return;
+    }
+    const allFilteredIds = filteredItems.map((r) => r.id);
+    const allSelected = allFilteredIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  }, [filteredItems, selectedIds]);
+
+  const handleBulkSetActive = useCallback(
+    async (active) => {
+      if (!selectedIds.length || bulkBusy) return;
+      setBulkBusy(true);
+      try {
+        await Promise.all(selectedIds.map((id) => setRecurringActive(id, active)));
+        setMessage({
+          text: active
+            ? `${selectedIds.length} ricorrenze riattivate`
+            : `${selectedIds.length} ricorrenze messe in pausa`,
+          type: 'success'
+        });
+        setSelectedIds([]);
+        await loadItems();
+      } catch (e) {
+        console.error('Errore aggiornamento multiplo ricorrenze:', e);
+        setMessage({ text: e?.message || 'Errore operazione multipla', type: 'error' });
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selectedIds, bulkBusy, loadItems]
+  );
+
   return (
     <div className="recurring-page">
       <PageHeader
@@ -200,24 +248,82 @@ function Recurring() {
         <div className="summary-card"><span>In scadenza (7g)</span><strong>{summary.dueSoon}</strong></div>
       </div>
 
+      <div className="recurring-toolbar">
+        <div className="recurring-filter-group">
+          <button
+            type="button"
+            className={`recurring-filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
+            Tutte
+          </button>
+          <button
+            type="button"
+            className={`recurring-filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('active')}
+          >
+            Attive
+          </button>
+          <button
+            type="button"
+            className={`recurring-filter-btn ${statusFilter === 'paused' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('paused')}
+          >
+            In pausa
+          </button>
+        </div>
+        <div className="recurring-bulk-actions">
+          <button type="button" className="recurring-btn-ghost" onClick={toggleSelectAllFiltered}>
+            {filteredItems.length > 0 && filteredItems.every((r) => selectedIds.includes(r.id))
+              ? 'Deseleziona visibili'
+              : 'Seleziona visibili'}
+          </button>
+          <button
+            type="button"
+            className="recurring-btn-ghost"
+            disabled={!selectedIds.length || bulkBusy}
+            onClick={() => handleBulkSetActive(false)}
+          >
+            Pausa selezionate
+          </button>
+          <button
+            type="button"
+            className="recurring-btn-primary"
+            disabled={!selectedIds.length || bulkBusy}
+            onClick={() => handleBulkSetActive(true)}
+          >
+            Riattiva selezionate
+          </button>
+        </div>
+      </div>
+
       {message.text && <div className={`recurring-message ${message.type}`}>{message.text}</div>}
 
       {loading ? (
         <div className="recurring-empty">Caricamento ricorrenze...</div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="recurring-empty">Nessuna ricorrenza trovata. Creane una da Nuova Transazione.</div>
       ) : (
         <div className="recurring-list">
-          {items.map((item) => {
-            const next = parseDate(item.nextDate);
+          {filteredItems.map((item) => {
+            const next = parseRecurringDate(item.nextDate);
             const accountName = accountMap[item.accountId] || item.accountName || 'Conto';
             const categoryName = categoryMap[item.categoryId] || item.categoryName || 'Senza categoria';
             const isSaving = savingId === item.id;
             const isEditing = editingId === item.id;
+            const isSelected = selectedIds.includes(item.id);
             return (
               <article key={item.id} className={`recurring-item ${item.active === false ? 'paused' : ''}`}>
                 <div className="recurring-item-head">
                   <div>
+                    <label className="recurring-select-item">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(item.id)}
+                      />
+                      <span>Seleziona</span>
+                    </label>
                     <h3>{item.description || 'Senza descrizione'}</h3>
                     <p>
                       {item.type === 'income' ? 'Entrata' : 'Spesa'} · {item.frequency === 'weekly' ? 'Settimanale' : 'Mensile'} ·{' '}
@@ -230,7 +336,10 @@ function Recurring() {
                 </div>
 
                 <div className="recurring-item-meta">
-                  <span>Prossima data: <strong>{next ? next.toLocaleDateString('it-IT') : 'N/D'}</strong></span>
+                  <span>
+                    Prossima data: <strong>{next ? next.toLocaleDateString('it-IT') : 'N/D'}</strong> ·{' '}
+                    <strong>{getRecurringNextRunLabel(item.nextDate)}</strong>
+                  </span>
                   <span className={`pill ${item.active === false ? 'paused' : 'active'}`}>{item.active === false ? 'In pausa' : 'Attiva'}</span>
                 </div>
 
