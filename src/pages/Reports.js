@@ -142,6 +142,7 @@ function Reports() {
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionsFilterStatus, setSubscriptionsFilterStatus] = useState('all');
   const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
+  const [subscriptionsTrendMonths, setSubscriptionsTrendMonths] = useState(12);
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [filterAccount, setFilterAccount] = useState('all');
@@ -548,7 +549,7 @@ function Reports() {
   const subscriptionsMonthlyTrend = useMemo(() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const months = Array.from({ length: 12 }).map((_, idx) => {
+    const months = Array.from({ length: subscriptionsTrendMonths }).map((_, idx) => {
       const d = new Date(start.getFullYear(), start.getMonth() + idx, 1);
       return {
         key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -560,7 +561,7 @@ function Reports() {
     });
     const monthMap = new Map(months.map((m) => [m.key, m]));
 
-    const end = new Date(start.getFullYear(), start.getMonth() + 12, 0);
+    const end = new Date(start.getFullYear(), start.getMonth() + subscriptionsTrendMonths, 0);
     const source = filteredSubscriptions.filter((s) => s.active !== false);
 
     source.forEach((s) => {
@@ -598,7 +599,7 @@ function Reports() {
 
     const max = Math.max(1, ...months.map((m) => m.total));
     return { months, max };
-  }, [filteredSubscriptions]);
+  }, [filteredSubscriptions, subscriptionsTrendMonths]);
 
   const periodComparison = useMemo(() => {
     if (!normalizedStartDate || !normalizedEndDate) return null;
@@ -1738,7 +1739,21 @@ function Reports() {
               ) : (
                 <>
                   <div className="subscriptions-trend">
-                    <h4>Trend costi abbonamenti (prossimi 12 mesi)</h4>
+                    <div className="subscriptions-trend-head">
+                      <h4>Trend costi abbonamenti (prossimi {subscriptionsTrendMonths} mesi)</h4>
+                      <div className="subscriptions-trend-range">
+                        {[12, 6, 3].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            className={`period-chip ${subscriptionsTrendMonths === n ? 'active' : ''}`}
+                            onClick={() => setSubscriptionsTrendMonths(n)}
+                          >
+                            {n} mesi
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="subscriptions-trend-grid">
                       {subscriptionsMonthlyTrend.months.map((m) => {
                         const h = Math.max(4, Math.round((m.total / subscriptionsMonthlyTrend.max) * 100));
