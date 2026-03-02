@@ -777,6 +777,129 @@ function Reports() {
     ]
   );
 
+  const handleCreateAllMissingSubscriptionTransactions = useCallback(async () => {
+    if (subscriptionsReconcileBusyId) return;
+    const pending = subscriptionsReconciliation.missingTransactions || [];
+    if (!pending.length) return;
+    const ok = window.confirm(`Creare ${pending.length} transazioni mancanti?`);
+    if (!ok) return;
+
+    setSubscriptionsReconcileMessage(null);
+    setSubscriptionsReconcileBusyId('bulk-payment');
+    let created = 0;
+    let failed = 0;
+
+    try {
+      for (const payment of pending) {
+        try {
+          const relatedSub =
+            subscriptionsWithDerived.find((s) => s.id === payment.subscriptionId) ||
+            filteredSubscriptions.find((s) => s.id === payment.subscriptionId);
+          const accountId = relatedSub?.accountId || accounts[0]?.id || null;
+          if (!accountId) {
+            failed += 1;
+            continue;
+          }
+          const txPayload = {
+            description: `Pagamento abbonamento: ${payment.subscriptionName || relatedSub?.name || 'Abbonamento'}`,
+            amount: Math.abs(Number(payment.amount) || 0),
+            type: 'expense',
+            accountId,
+            date: payment.paidAt || new Date(),
+            isSubscriptionPayment: true,
+            subscriptionId: payment.subscriptionId || relatedSub?.id || '',
+            subscriptionName: payment.subscriptionName || relatedSub?.name || '',
+            ownerName: payment.ownerName || relatedSub?.ownerName || '',
+            provider: payment.provider || relatedSub?.provider || ''
+          };
+          if (subscriptionExpenseCategory?.id) {
+            txPayload.categoryId = subscriptionExpenseCategory.id;
+          } else {
+            txPayload.category = 'Abbonamenti';
+          }
+          await createTransaction(txPayload);
+          created += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      setSubscriptionsReconcileMessage({
+        type: failed === 0 ? 'success' : 'error',
+        text:
+          failed === 0
+            ? `Create ${created} transazioni mancanti.`
+            : `Create ${created} transazioni, ${failed} non riuscite.`
+      });
+      await loadSubscriptionsReport();
+    } finally {
+      setSubscriptionsReconcileBusyId('');
+    }
+  }, [
+    subscriptionsReconcileBusyId,
+    subscriptionsReconciliation.missingTransactions,
+    subscriptionsWithDerived,
+    filteredSubscriptions,
+    accounts,
+    subscriptionExpenseCategory?.id,
+    createTransaction,
+    loadSubscriptionsReport
+  ]);
+
+  const handleCreateAllMissingSubscriptionPayments = useCallback(async () => {
+    if (subscriptionsReconcileBusyId || !user?.uid) return;
+    const pending = subscriptionsReconciliation.transactionsWithoutPayment || [];
+    if (!pending.length) return;
+    const ok = window.confirm(`Creare ${pending.length} pagamenti mancanti?`);
+    if (!ok) return;
+
+    setSubscriptionsReconcileMessage(null);
+    setSubscriptionsReconcileBusyId('bulk-tx');
+    let created = 0;
+    let failed = 0;
+
+    try {
+      for (const tx of pending) {
+        try {
+          const amount = Math.abs(Number(tx.__amount || tx.amount) || 0);
+          if (amount <= 0) {
+            failed += 1;
+            continue;
+          }
+          await createSubscriptionPayment(user.uid, {
+            subscriptionId: tx.subscriptionId || '',
+            subscriptionName: tx.subscriptionName || '',
+            ownerName: tx.ownerName || '',
+            provider: tx.provider || '',
+            amount,
+            currency: userSettings?.currency || 'EUR',
+            paidAt: tx.__date || tx.date || new Date(),
+            method: 'reconciliation',
+            notes: 'Pagamento creato da riconciliazione report'
+          });
+          created += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      setSubscriptionsReconcileMessage({
+        type: failed === 0 ? 'success' : 'error',
+        text:
+          failed === 0
+            ? `Creati ${created} pagamenti mancanti.`
+            : `Creati ${created} pagamenti, ${failed} non riusciti.`
+      });
+      await loadSubscriptionsReport();
+    } finally {
+      setSubscriptionsReconcileBusyId('');
+    }
+  }, [
+    subscriptionsReconcileBusyId,
+    user?.uid,
+    userSettings?.currency,
+    subscriptionsReconciliation.transactionsWithoutPayment,
+    loadSubscriptionsReport
+  ]);
+
   const subscriptionsByOwner = useMemo(() => {
     const map = new Map();
     filteredSubscriptions.forEach((s) => {
@@ -2066,6 +2189,29 @@ function Reports() {
                           : 'Da verificare'}
                       </span>
                     </div>
+                    <div className="subscriptions-reconcile-bulk-actions">
+                      <button
+                        type="button"
+                        className="subscriptions-reconcile-btn"
+                        disabled={
+                          !!subscriptionsReconcileBusyId || subscriptionsReconciliation.missingTransactionsCount === 0
+                        }
+                        onClick={handleCreateAllMissingSubscriptionTransactions}
+                      >
+                        {subscriptionsReconcileBusyId === 'bulk-payment' ? 'Creazione...' : 'Crea tutte le transazioni mancanti'}
+                      </button>
+                      <button
+                        type="button"
+                        className="subscriptions-reconcile-btn"
+                        disabled={
+                          !!subscriptionsReconcileBusyId ||
+                          subscriptionsReconciliation.transactionsWithoutPaymentCount === 0
+                        }
+                        onClick={handleCreateAllMissingSubscriptionPayments}
+                      >
+                        {subscriptionsReconcileBusyId === 'bulk-tx' ? 'Creazione...' : 'Crea tutti i pagamenti mancanti'}
+                      </button>
+                    </div>
                     {subscriptionsReconcileMessage?.text ? (
                       <div
                         className={`subscriptions-reconcile-feedback ${
@@ -2144,7 +2290,7 @@ function Reports() {
                                     <button
                                       type="button"
                                       className="subscriptions-reconcile-btn"
-                                      disabled={subscriptionsReconcileBusyId === `payment-${p.id}`}
+                                      disabled={!!subscriptionsReconcileBusyId}
                                       onClick={() => handleCreateMissingSubscriptionTransaction(p)}
                                     >
                                       {subscriptionsReconcileBusyId === `payment-${p.id}` ? 'Creazione...' : 'Crea transazione'}
@@ -2187,7 +2333,7 @@ function Reports() {
                                     <button
                                       type="button"
                                       className="subscriptions-reconcile-btn"
-                                      disabled={subscriptionsReconcileBusyId === `tx-${t.id}`}
+                                      disabled={!!subscriptionsReconcileBusyId}
                                       onClick={() => handleCreateMissingSubscriptionPayment(t)}
                                     >
                                       {subscriptionsReconcileBusyId === `tx-${t.id}` ? 'Creazione...' : 'Crea pagamento'}
