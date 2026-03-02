@@ -26,6 +26,10 @@ import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
 import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsService';
 import { createSubscriptionPayment, getSubscriptionPayments } from '../services/subscriptionPaymentsService';
+import {
+  createSubscriptionReconciliationLog,
+  getSubscriptionReconciliationLogs
+} from '../services/subscriptionReconciliationLogService';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
@@ -142,6 +146,7 @@ function Reports() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionPayments, setSubscriptionPayments] = useState([]);
+  const [subscriptionReconciliationLogs, setSubscriptionReconciliationLogs] = useState([]);
   const [subscriptionsFilterStatus, setSubscriptionsFilterStatus] = useState('all');
   const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
   const [subscriptionsFilterPrice, setSubscriptionsFilterPrice] = useState('all');
@@ -188,9 +193,14 @@ function Reports() {
     if (!user?.uid) return;
     setSubscriptionsLoading(true);
     try {
-      const [subsData, paymentsData] = await Promise.all([getSubscriptions(user.uid), getSubscriptionPayments(user.uid)]);
+      const [subsData, paymentsData, logsData] = await Promise.all([
+        getSubscriptions(user.uid),
+        getSubscriptionPayments(user.uid),
+        getSubscriptionReconciliationLogs(user.uid)
+      ]);
       setSubscriptions(Array.isArray(subsData) ? subsData : []);
       setSubscriptionPayments(Array.isArray(paymentsData) ? paymentsData : []);
+      setSubscriptionReconciliationLogs(Array.isArray(logsData) ? logsData : []);
     } catch (e) {
       console.error('Errore caricamento abbonamenti report:', e);
     } finally {
@@ -674,6 +684,25 @@ function Reports() {
     normalizedEndDate
   ]);
 
+  const filteredReconciliationLogs = useMemo(() => {
+    const scopedIds = new Set(filteredSubscriptions.map((s) => s.id));
+    return (subscriptionReconciliationLogs || [])
+      .filter((l) => scopedIds.has(l.subscriptionId))
+      .slice(0, 30);
+  }, [filteredSubscriptions, subscriptionReconciliationLogs]);
+
+  const writeReconciliationLog = useCallback(
+    async (payload) => {
+      if (!user?.uid) return;
+      try {
+        await createSubscriptionReconciliationLog(user.uid, payload);
+      } catch (e) {
+        console.error('Errore salvataggio log riconciliazione:', e);
+      }
+    },
+    [user?.uid]
+  );
+
   const handleCreateMissingSubscriptionTransaction = useCallback(
     async (payment) => {
       if (!payment?.id || subscriptionsReconcileBusyId) return;
@@ -708,12 +737,37 @@ function Reports() {
         }
 
         await createTransaction(txPayload);
+        await writeReconciliationLog({
+          actionType: 'createTransaction',
+          mode: 'single',
+          status: 'success',
+          subscriptionId: payment.subscriptionId || relatedSub?.id || '',
+          subscriptionName: payment.subscriptionName || relatedSub?.name || '',
+          sourceId: payment.id || '',
+          amount: Math.abs(Number(payment.amount) || 0),
+          currency: payment.currency || userSettings?.currency || 'EUR',
+          actionAt: payment.paidAt || new Date(),
+          notes: 'Creata transazione da pagamento mancante'
+        });
         setSubscriptionsReconcileMessage({
           type: 'success',
           text: `Transazione creata per "${payment.subscriptionName || 'abbonamento'}".`
         });
         await loadSubscriptionsReport();
       } catch (e) {
+        await writeReconciliationLog({
+          actionType: 'createTransaction',
+          mode: 'single',
+          status: 'error',
+          subscriptionId: payment.subscriptionId || '',
+          subscriptionName: payment.subscriptionName || '',
+          sourceId: payment.id || '',
+          amount: Math.abs(Number(payment.amount) || 0),
+          currency: payment.currency || userSettings?.currency || 'EUR',
+          actionAt: payment.paidAt || new Date(),
+          errorMessage: e?.message || 'Errore creazione transazione',
+          notes: 'Tentativo creazione transazione da pagamento mancante'
+        });
         setSubscriptionsReconcileMessage({
           type: 'error',
           text: e?.message || 'Errore creazione transazione.'
@@ -729,7 +783,9 @@ function Reports() {
       accounts,
       subscriptionExpenseCategory?.id,
       createTransaction,
-      loadSubscriptionsReport
+      loadSubscriptionsReport,
+      userSettings?.currency,
+      writeReconciliationLog
     ]
   );
 
@@ -755,12 +811,37 @@ function Reports() {
           method: 'reconciliation',
           notes: 'Pagamento creato da riconciliazione report'
         });
+        await writeReconciliationLog({
+          actionType: 'createPayment',
+          mode: 'single',
+          status: 'success',
+          subscriptionId: tx.subscriptionId || '',
+          subscriptionName: tx.subscriptionName || '',
+          sourceId: tx.id || '',
+          amount,
+          currency: userSettings?.currency || 'EUR',
+          actionAt: tx.__date || tx.date || new Date(),
+          notes: 'Creato pagamento da transazione mancante'
+        });
         setSubscriptionsReconcileMessage({
           type: 'success',
           text: `Pagamento creato per "${tx.subscriptionName || 'abbonamento'}".`
         });
         await loadSubscriptionsReport();
       } catch (e) {
+        await writeReconciliationLog({
+          actionType: 'createPayment',
+          mode: 'single',
+          status: 'error',
+          subscriptionId: tx.subscriptionId || '',
+          subscriptionName: tx.subscriptionName || '',
+          sourceId: tx.id || '',
+          amount: Math.abs(Number(tx.__amount || tx.amount) || 0),
+          currency: userSettings?.currency || 'EUR',
+          actionAt: tx.__date || tx.date || new Date(),
+          errorMessage: e?.message || 'Errore creazione pagamento',
+          notes: 'Tentativo creazione pagamento da transazione mancante'
+        });
         setSubscriptionsReconcileMessage({
           type: 'error',
           text: e?.message || 'Errore creazione pagamento.'
@@ -773,7 +854,8 @@ function Reports() {
       subscriptionsReconcileBusyId,
       user?.uid,
       userSettings?.currency,
-      loadSubscriptionsReport
+      loadSubscriptionsReport,
+      writeReconciliationLog
     ]
   );
 
@@ -818,8 +900,33 @@ function Reports() {
             txPayload.category = 'Abbonamenti';
           }
           await createTransaction(txPayload);
+          await writeReconciliationLog({
+            actionType: 'createTransaction',
+            mode: 'bulk',
+            status: 'success',
+            subscriptionId: payment.subscriptionId || relatedSub?.id || '',
+            subscriptionName: payment.subscriptionName || relatedSub?.name || '',
+            sourceId: payment.id || '',
+            amount: Math.abs(Number(payment.amount) || 0),
+            currency: payment.currency || userSettings?.currency || 'EUR',
+            actionAt: payment.paidAt || new Date(),
+            notes: 'Bulk: creata transazione da pagamento mancante'
+          });
           created += 1;
-        } catch {
+        } catch (e) {
+          await writeReconciliationLog({
+            actionType: 'createTransaction',
+            mode: 'bulk',
+            status: 'error',
+            subscriptionId: payment.subscriptionId || '',
+            subscriptionName: payment.subscriptionName || '',
+            sourceId: payment.id || '',
+            amount: Math.abs(Number(payment.amount) || 0),
+            currency: payment.currency || userSettings?.currency || 'EUR',
+            actionAt: payment.paidAt || new Date(),
+            errorMessage: e?.message || 'Errore creazione transazione',
+            notes: 'Bulk: tentativo creazione transazione da pagamento mancante'
+          });
           failed += 1;
         }
       }
@@ -842,7 +949,9 @@ function Reports() {
     accounts,
     subscriptionExpenseCategory?.id,
     createTransaction,
-    loadSubscriptionsReport
+    loadSubscriptionsReport,
+    userSettings?.currency,
+    writeReconciliationLog
   ]);
 
   const handleCreateAllMissingSubscriptionPayments = useCallback(async () => {
@@ -876,8 +985,33 @@ function Reports() {
             method: 'reconciliation',
             notes: 'Pagamento creato da riconciliazione report'
           });
+          await writeReconciliationLog({
+            actionType: 'createPayment',
+            mode: 'bulk',
+            status: 'success',
+            subscriptionId: tx.subscriptionId || '',
+            subscriptionName: tx.subscriptionName || '',
+            sourceId: tx.id || '',
+            amount,
+            currency: userSettings?.currency || 'EUR',
+            actionAt: tx.__date || tx.date || new Date(),
+            notes: 'Bulk: creato pagamento da transazione mancante'
+          });
           created += 1;
-        } catch {
+        } catch (e) {
+          await writeReconciliationLog({
+            actionType: 'createPayment',
+            mode: 'bulk',
+            status: 'error',
+            subscriptionId: tx.subscriptionId || '',
+            subscriptionName: tx.subscriptionName || '',
+            sourceId: tx.id || '',
+            amount: Math.abs(Number(tx.__amount || tx.amount) || 0),
+            currency: userSettings?.currency || 'EUR',
+            actionAt: tx.__date || tx.date || new Date(),
+            errorMessage: e?.message || 'Errore creazione pagamento',
+            notes: 'Bulk: tentativo creazione pagamento da transazione mancante'
+          });
           failed += 1;
         }
       }
@@ -897,7 +1031,8 @@ function Reports() {
     user?.uid,
     userSettings?.currency,
     subscriptionsReconciliation.transactionsWithoutPayment,
-    loadSubscriptionsReport
+    loadSubscriptionsReport,
+    writeReconciliationLog
   ]);
 
   const subscriptionsByOwner = useMemo(() => {
@@ -2345,6 +2480,44 @@ function Reports() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+
+                    <div className="table-scroll">
+                      <table className="expenses-table">
+                        <thead>
+                          <tr>
+                            <th colSpan={7}>Storico correzioni riconciliazione (ultime 30)</th>
+                          </tr>
+                          <tr>
+                            <th>Quando</th>
+                            <th>Azione</th>
+                            <th>Modalita</th>
+                            <th>Abbonamento</th>
+                            <th>Stato</th>
+                            <th className="amount-col">Importo</th>
+                            <th>Dettagli</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredReconciliationLogs.length === 0 ? (
+                            <tr>
+                              <td colSpan={7}>Nessun log disponibile.</td>
+                            </tr>
+                          ) : (
+                            filteredReconciliationLogs.map((l) => (
+                              <tr key={l.id}>
+                                <td>{formatDateIT(l.createdAt || l.actionAt)}</td>
+                                <td>{l.actionType === 'createPayment' ? 'Crea pagamento' : 'Crea transazione'}</td>
+                                <td>{l.mode === 'bulk' ? 'Bulk' : 'Singola'}</td>
+                                <td>{l.subscriptionName || 'N/D'}</td>
+                                <td>{l.status === 'success' ? 'OK' : 'Errore'}</td>
+                                <td className="amount-col">{formatEUR(l.amount || 0)}</td>
+                                <td>{l.errorMessage || l.notes || '-'}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 

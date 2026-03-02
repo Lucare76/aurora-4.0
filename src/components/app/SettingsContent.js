@@ -393,6 +393,7 @@ function SettingsContent() {
         'recurringTransactions',
         'subscriptions',
         'subscriptionPayments',
+        'subscriptionReconciliationLogs',
         'birthdays'
       ];
 
