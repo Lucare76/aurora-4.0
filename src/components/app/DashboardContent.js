@@ -10,6 +10,10 @@ import LiveClock from './LiveClock';
 import { formatNumber } from '../../utils/format';
 import { formatEntityLabel } from '../../utils/text';
 import { normalizeDashboardOrder } from '../../utils/dashboardLayout';
+import {
+  getMaxSubscriptionNotificationDays,
+  normalizeSubscriptionNotificationOffsets
+} from '../../utils/subscriptionsNotifications';
 
 const InsightsSection = React.lazy(() => import('./InsightsSection'));
 
@@ -611,7 +615,14 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     return max;
   }, [lastMonths]);
 
-  const subscriptionsReminderDays = Number(userSettings?.subscriptionsNotificationsDays) || 7;
+  const subscriptionNotificationOffsets = useMemo(
+    () =>
+      normalizeSubscriptionNotificationOffsets(
+        userSettings?.subscriptionsNotificationOffsets ?? userSettings?.subscriptionsNotificationsDays
+      ),
+    [userSettings?.subscriptionsNotificationOffsets, userSettings?.subscriptionsNotificationsDays]
+  );
+  const subscriptionsReminderDays = getMaxSubscriptionNotificationDays(subscriptionNotificationOffsets);
   const includeRecurringSubscriptions = userSettings?.subscriptionsRecurringEnabled !== false;
   const includeFixedSubscriptions = userSettings?.subscriptionsFixedEnabled !== false;
 
@@ -640,6 +651,86 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     () => dueSubscriptions.filter((s) => s.daysTo <= subscriptionsReminderDays),
     [dueSubscriptions, subscriptionsReminderDays]
   );
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    if (userSettings?.subscriptionsNotificationsEnabled !== true) return;
+
+    const targetOffsets = new Set([0, ...subscriptionNotificationOffsets]);
+    const matched = dueSubscriptions.filter((s) => targetOffsets.has(s.daysTo));
+    if (matched.length === 0) return;
+
+    const storageKey = `aurora_subs_notified_v1_${user.uid}`;
+    let sent = {};
+    try {
+      sent = JSON.parse(localStorage.getItem(storageKey) || '{}') || {};
+    } catch {
+      sent = {};
+    }
+
+    const toNotify = [];
+    matched.forEach((s) => {
+      const dueIso = s?.dueDate instanceof Date ? s.dueDate.toISOString().slice(0, 10) : 'na';
+      const dedupeKey = `${s.id}|${dueIso}|${s.daysTo}`;
+      if (sent[dedupeKey]) return;
+      sent[dedupeKey] = Date.now();
+      toNotify.push(s);
+    });
+
+    if (toNotify.length === 0) return;
+
+    const entries = Object.entries(sent);
+    if (entries.length > 300) {
+      entries
+        .sort((a, b) => Number(a[1]) - Number(b[1]))
+        .slice(0, entries.length - 300)
+        .forEach(([k]) => {
+          delete sent[k];
+        });
+    }
+    localStorage.setItem(storageKey, JSON.stringify(sent));
+
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+
+    const makeBody = (s) => {
+      const dueLabel =
+        s.daysTo < 0
+          ? `Scaduto da ${Math.abs(s.daysTo)} giorni`
+          : s.daysTo === 0
+          ? 'Scade oggi'
+          : s.daysTo === 1
+          ? 'Scade domani'
+          : `Scade tra ${s.daysTo} giorni`;
+      return `${s.name} (${s.ownerName || 'tu'}) - ${dueLabel}`;
+    };
+
+    const sendBrowserNotifications = () => {
+      toNotify.forEach((s) => {
+        try {
+          new Notification('Promemoria abbonamento', { body: makeBody(s) });
+        } catch (e) {
+          console.error('Errore notifica browser abbonamenti:', e);
+        }
+      });
+    };
+
+    if (Notification.permission === 'granted') {
+      sendBrowserNotifications();
+      return;
+    }
+    if (Notification.permission === 'default') {
+      Notification.requestPermission()
+        .then((permission) => {
+          if (permission === 'granted') sendBrowserNotifications();
+        })
+        .catch((e) => console.error('Errore richiesta permessi notifiche:', e));
+    }
+  }, [
+    dueSubscriptions,
+    subscriptionNotificationOffsets,
+    user?.uid,
+    userSettings?.subscriptionsNotificationsEnabled
+  ]);
 
   const todayActions = useMemo(() => {
     const items = [];

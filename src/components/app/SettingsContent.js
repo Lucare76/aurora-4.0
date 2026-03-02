@@ -8,6 +8,10 @@ import {
   getSectionLabel,
   normalizeDashboardOrder
 } from '../../utils/dashboardLayout';
+import {
+  normalizeSubscriptionNotificationOffsets,
+  SUBSCRIPTION_NOTIFICATION_OPTIONS
+} from '../../utils/subscriptionsNotifications';
 
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
@@ -39,7 +43,9 @@ function SettingsContent() {
     dashboardShowActions: userSettings?.dashboardShowActions ?? false,
     dashboardShowBirthdays: userSettings?.dashboardShowBirthdays ?? false,
     subscriptionsNotificationsEnabled: userSettings?.subscriptionsNotificationsEnabled ?? false,
-    subscriptionsNotificationsDays: userSettings?.subscriptionsNotificationsDays ?? 7,
+    subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(
+      userSettings?.subscriptionsNotificationOffsets ?? userSettings?.subscriptionsNotificationsDays
+    ),
     subscriptionsNotificationsPriceAlert: userSettings?.subscriptionsNotificationsPriceAlert ?? true,
     subscriptionsRecurringEnabled: userSettings?.subscriptionsRecurringEnabled ?? true,
     subscriptionsFixedEnabled: userSettings?.subscriptionsFixedEnabled ?? true,
@@ -108,7 +114,9 @@ function SettingsContent() {
             dashboardShowActions: data.dashboardShowActions ?? false,
             dashboardShowBirthdays: data.dashboardShowBirthdays ?? false,
             subscriptionsNotificationsEnabled: data.subscriptionsNotificationsEnabled ?? false,
-            subscriptionsNotificationsDays: data.subscriptionsNotificationsDays ?? 7,
+            subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(
+              data.subscriptionsNotificationOffsets ?? data.subscriptionsNotificationsDays
+            ),
             subscriptionsNotificationsPriceAlert: data.subscriptionsNotificationsPriceAlert ?? true,
             subscriptionsRecurringEnabled: data.subscriptionsRecurringEnabled ?? true,
             subscriptionsFixedEnabled: data.subscriptionsFixedEnabled ?? true,
@@ -137,7 +145,7 @@ function SettingsContent() {
             dashboardShowActions: false,
             dashboardShowBirthdays: false,
             subscriptionsNotificationsEnabled: false,
-            subscriptionsNotificationsDays: 7,
+            subscriptionsNotificationOffsets: [...SUBSCRIPTION_NOTIFICATION_OPTIONS],
             subscriptionsNotificationsPriceAlert: true,
             subscriptionsRecurringEnabled: true,
             subscriptionsFixedEnabled: true,
@@ -214,7 +222,10 @@ function SettingsContent() {
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           ...dashboardSettingsPayload,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
-          subscriptionsNotificationsDays: Number(settings.subscriptionsNotificationsDays) || 7,
+          subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets),
+          subscriptionsNotificationsDays: Math.max(
+            ...normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets)
+          ),
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
@@ -234,7 +245,10 @@ function SettingsContent() {
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           ...dashboardSettingsPayload,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
-          subscriptionsNotificationsDays: Number(settings.subscriptionsNotificationsDays) || 7,
+          subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets),
+          subscriptionsNotificationsDays: Math.max(
+            ...normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets)
+          ),
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
@@ -261,6 +275,24 @@ function SettingsContent() {
 
   const handleChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleSubscriptionNotificationOffset = (day) => {
+    setSettings((prev) => {
+      const current = normalizeSubscriptionNotificationOffsets(prev.subscriptionsNotificationOffsets);
+      const hasDay = current.includes(day);
+      if (hasDay) {
+        const next = current.filter((d) => d !== day);
+        return {
+          ...prev,
+          subscriptionsNotificationOffsets: next.length > 0 ? next : [day]
+        };
+      }
+      return {
+        ...prev,
+        subscriptionsNotificationOffsets: [...current, day].sort((a, b) => b - a)
+      };
+    });
   };
 
   const orderedDashboardSections = useMemo(() => {
@@ -534,18 +566,20 @@ function SettingsContent() {
                 <span>Notifiche push abbonamenti</span>
               </label>
               <div className="form-group">
-                <label htmlFor="subscriptionsNotificationsDays">Anticipo rinnovi</label>
-                <select
-                  id="subscriptionsNotificationsDays"
-                  value={settings.subscriptionsNotificationsDays}
-                  onChange={(e) => handleChange('subscriptionsNotificationsDays', parseInt(e.target.value, 10))}
-                  className="settings-select"
-                >
-                  <option value={3}>3 giorni prima</option>
-                  <option value={7}>7 giorni prima</option>
-                  <option value={14}>14 giorni prima</option>
-                </select>
-                <small>Quando vuoi ricevere la notifica dei rinnovi</small>
+                <label>Anticipo rinnovi (selezione multipla)</label>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {SUBSCRIPTION_NOTIFICATION_OPTIONS.map((day) => (
+                    <label className="settings-toggle" key={day}>
+                      <input
+                        type="checkbox"
+                        checked={normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets).includes(day)}
+                        onChange={() => toggleSubscriptionNotificationOffset(day)}
+                      />
+                      <span>{day} {day === 1 ? 'giorno prima' : 'giorni prima'}</span>
+                    </label>
+                  ))}
+                </div>
+                <small>Promemoria automatico a 7/3/1 giorni (o i valori che lasci attivi).</small>
               </div>
               <label className="settings-toggle">
                 <input

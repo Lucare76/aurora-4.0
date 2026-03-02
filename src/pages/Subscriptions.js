@@ -10,6 +10,7 @@ import {
   markSubscriptionPaid,
   updateSubscription
 } from '../services/subscriptionsService';
+import { getMaxSubscriptionNotificationDays } from '../utils/subscriptionsNotifications';
 import './Subscriptions.css';
 
 function toDateInputValue(value) {
@@ -53,7 +54,9 @@ export default function Subscriptions() {
     active: true
   });
 
-  const reminderDays = Number(userSettings?.subscriptionsNotificationsDays) || 7;
+  const reminderDays = getMaxSubscriptionNotificationDays(
+    userSettings?.subscriptionsNotificationOffsets ?? userSettings?.subscriptionsNotificationsDays
+  );
   const accountMap = useMemo(() => Object.fromEntries(accounts.map((a) => [a.id, a.name])), [accounts]);
 
   const loadItems = useCallback(async () => {
