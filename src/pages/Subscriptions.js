@@ -133,6 +133,7 @@ export default function Subscriptions() {
 
     setSaving(true);
     try {
+      const currentItem = editingId ? items.find((x) => x.id === editingId) : null;
       const payload = {
         name: form.name.trim(),
         ownerName: form.ownerName.trim(),
@@ -147,6 +148,18 @@ export default function Subscriptions() {
         active: form.active !== false,
         currency: userSettings?.currency || 'EUR'
       };
+
+      if (currentItem) {
+        const oldAmount = Math.abs(Number(currentItem.amount) || 0);
+        if (amount > oldAmount && oldAmount > 0) {
+          const delta = amount - oldAmount;
+          const pct = (delta / oldAmount) * 100;
+          payload.previousAmount = oldAmount;
+          payload.priceIncreaseDelta = delta;
+          payload.priceIncreasePercent = pct;
+          payload.priceIncreasedAt = new Date();
+        }
+      }
 
       if (editingId) {
         await updateSubscription(editingId, payload);
@@ -163,7 +176,7 @@ export default function Subscriptions() {
     } finally {
       setSaving(false);
     }
-  }, [accountMap, editingId, form, loadItems, resetForm, saving, user?.uid, userSettings?.currency]);
+  }, [accountMap, editingId, form, items, loadItems, resetForm, saving, user?.uid, userSettings?.currency]);
 
   const handleDelete = useCallback(
     async (item) => {

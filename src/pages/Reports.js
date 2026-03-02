@@ -142,6 +142,7 @@ function Reports() {
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionsFilterStatus, setSubscriptionsFilterStatus] = useState('all');
   const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
+  const [subscriptionsFilterPrice, setSubscriptionsFilterPrice] = useState('all');
   const [subscriptionsTrendMonths, setSubscriptionsTrendMonths] = useState(12);
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
@@ -460,12 +461,24 @@ function Reports() {
       const daysToDue = dueDate ? Math.round((dueDate.getTime() - today.getTime()) / 86400000) : null;
       const monthlyEquivalent = getMonthlyEquivalent(s);
       const annualEquivalent = monthlyEquivalent * 12;
+      const priceIncreaseDelta = Number(s?.priceIncreaseDelta) || 0;
+      const priceIncreasePercent = Number(s?.priceIncreasePercent) || 0;
+      const priceIncreasedAt = s?.priceIncreasedAt ? new Date(s.priceIncreasedAt) : null;
+      const validPriceIncreaseDate = priceIncreasedAt && !Number.isNaN(priceIncreasedAt.getTime()) ? priceIncreasedAt : null;
+      const daysFromPriceIncrease = validPriceIncreaseDate
+        ? Math.round((today.getTime() - validPriceIncreaseDate.getTime()) / 86400000)
+        : null;
       return {
         ...s,
         dueDate,
         daysToDue,
         monthlyEquivalent,
-        annualEquivalent
+        annualEquivalent,
+        priceIncreaseDelta,
+        priceIncreasePercent,
+        priceIncreasedAt: validPriceIncreaseDate,
+        hasRecentPriceIncrease:
+          priceIncreaseDelta > 0 && daysFromPriceIncrease != null && daysFromPriceIncrease >= 0 && daysFromPriceIncrease <= 30
       };
     });
   }, [subscriptions, getMonthlyEquivalent]);
@@ -484,12 +497,17 @@ function Reports() {
         if (subscriptionsFilterKind === 'all') return true;
         return (s.kind || 'recurring') === subscriptionsFilterKind;
       })
+      .filter((s) => {
+        if (subscriptionsFilterPrice === 'all') return true;
+        if (subscriptionsFilterPrice === 'recentIncrease') return s.hasRecentPriceIncrease;
+        return true;
+      })
       .sort((a, b) => {
         const ad = a.daysToDue == null ? Number.MAX_SAFE_INTEGER : a.daysToDue;
         const bd = b.daysToDue == null ? Number.MAX_SAFE_INTEGER : b.daysToDue;
         return ad - bd;
       });
-  }, [subscriptionsWithDerived, subscriptionsFilterStatus, subscriptionsFilterKind]);
+  }, [subscriptionsWithDerived, subscriptionsFilterStatus, subscriptionsFilterKind, subscriptionsFilterPrice]);
 
   const subscriptionsStats = useMemo(() => {
     const active = subscriptionsWithDerived.filter((s) => s.active !== false);
@@ -869,6 +887,8 @@ function Reports() {
       'Annuale Equivalente',
       'Prossima Scadenza',
       'Giorni alla Scadenza',
+      'Aumento Prezzo',
+      'Aumento Percentuale',
       'Stato'
     ];
     const rows = filteredSubscriptions.map((s) => {
@@ -888,6 +908,8 @@ function Reports() {
         s.annualEquivalent.toFixed(2),
         due,
         days,
+        s.priceIncreaseDelta > 0 ? s.priceIncreaseDelta.toFixed(2) : '0',
+        s.priceIncreasePercent > 0 ? s.priceIncreasePercent.toFixed(2) : '0',
         `"${state}"`
       ].join(',');
     });
@@ -914,6 +936,7 @@ function Reports() {
               <td>${String(s.provider || '-')}</td>
               <td>${s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente'}</td>
               <td>${s.active === false ? 'In pausa' : 'Attivo'}</td>
+              <td>${s.priceIncreaseDelta > 0 ? `+${formatEUR(s.priceIncreaseDelta)} (${formatNumber(s.priceIncreasePercent)}%)` : '-'}</td>
               <td>${formatEUR(s.monthlyEquivalent)}</td>
               <td>${dueText} (${daysText})</td>
             </tr>
@@ -948,7 +971,7 @@ function Reports() {
             <table>
               <thead>
                 <tr>
-                  <th>Nome</th><th>Intestatario</th><th>Fornitore</th><th>Tipo</th><th>Stato</th><th>Mensile eq.</th><th>Scadenza</th>
+                  <th>Nome</th><th>Intestatario</th><th>Fornitore</th><th>Tipo</th><th>Stato</th><th>Aumento</th><th>Mensile eq.</th><th>Scadenza</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -1044,6 +1067,7 @@ function Reports() {
     getAccountNameFromTx,
     getCategoryNameFromTx,
     getSubCategoryNameFromTx,
+    formatNumber,
     formatEUR,
     dateRange.start,
     dateRange.end,
@@ -1392,6 +1416,25 @@ function Reports() {
                   onClick={() => setSubscriptionsFilterKind('fixed')}
                 >
                   Scadenza fissa
+                </button>
+              </div>
+            </div>
+            <div className="subscriptions-report-filter-row">
+              <span className="subscriptions-report-filter-label">Prezzo</span>
+              <div className="subscriptions-report-chip-row">
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterPrice === 'all' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterPrice('all')}
+                >
+                  Tutti
+                </button>
+                <button
+                  type="button"
+                  className={`period-chip ${subscriptionsFilterPrice === 'recentIncrease' ? 'active' : ''}`}
+                  onClick={() => setSubscriptionsFilterPrice('recentIncrease')}
+                >
+                  Aumenti recenti (30g)
                 </button>
               </div>
             </div>
@@ -1851,6 +1894,7 @@ function Reports() {
                           <th>Tipo</th>
                           <th>Stato</th>
                           <th>Scadenza</th>
+                          <th>Variazione prezzo</th>
                           <th className="amount-col">Mensile eq.</th>
                         </tr>
                       </thead>
@@ -1874,6 +1918,15 @@ function Reports() {
                               <td>{s.kind === 'fixed' ? 'Scadenza fissa' : 'Ricorrente'}</td>
                               <td>{s.active === false ? 'In pausa' : 'Attivo'}</td>
                               <td>{s.dueDate ? `${formatDateIT(s.dueDate)} (${dueLabel})` : 'N/D'}</td>
+                              <td>
+                                {s.priceIncreaseDelta > 0 ? (
+                                  <span className="price-increase-pill">
+                                    +{formatEUR(s.priceIncreaseDelta)} ({formatNumber(s.priceIncreasePercent)}%)
+                                  </span>
+                                ) : (
+                                  '-'
+                                )}
+                              </td>
                               <td className="amount-col">{formatEUR(s.monthlyEquivalent)}</td>
                             </tr>
                           );

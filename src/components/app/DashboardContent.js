@@ -736,6 +736,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     const items = [];
 
     const notifySubs = userSettings?.subscriptionsNotificationsEnabled === true;
+    const notifyPriceIncrease = userSettings?.subscriptionsNotificationsPriceAlert === true;
 
     if (notifySubs && dueSubscriptionsSoon.length > 0) {
       const s = dueSubscriptionsSoon[0];
@@ -749,6 +750,37 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         menu: 'subscriptions',
         level: s.daysTo < 0 ? 'danger' : s.daysTo <= 2 ? 'warn' : 'info'
       });
+    }
+
+    if (notifyPriceIncrease) {
+      const now = new Date();
+      const increased = (subscriptions || [])
+        .filter((s) => s?.active !== false)
+        .filter((s) => {
+          const increasedAt = s?.priceIncreasedAt ? new Date(s.priceIncreasedAt) : null;
+          if (!increasedAt || Number.isNaN(increasedAt.getTime())) return false;
+          const deltaDays = Math.round((now.getTime() - increasedAt.getTime()) / 86400000);
+          return deltaDays >= 0 && deltaDays <= 30 && Number(s?.priceIncreaseDelta) > 0;
+        })
+        .sort((a, b) => {
+          const ad = a?.priceIncreasedAt ? new Date(a.priceIncreasedAt).getTime() : 0;
+          const bd = b?.priceIncreasedAt ? new Date(b.priceIncreasedAt).getTime() : 0;
+          return bd - ad;
+        });
+
+      if (increased.length > 0) {
+        const s = increased[0];
+        const delta = Number(s?.priceIncreaseDelta) || 0;
+        const pct = Number(s?.priceIncreasePercent) || 0;
+        items.push({
+          id: 'subscription-price-up',
+          title: 'Aumento prezzo abbonamento',
+          detail: `${s.name} +${cs} ${formatNumber(delta)} (${formatNumber(pct)}%)`,
+          cta: 'Controlla Abbonamenti',
+          menu: 'subscriptions',
+          level: pct >= 15 ? 'danger' : 'warn'
+        });
+      }
     }
 
     if (monthlyIncome > 0 && monthlyExpenses > monthlyIncome) {
@@ -818,7 +850,9 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     upcomingBirthdays,
     cs,
     dueSubscriptionsSoon,
+    subscriptions,
     userSettings?.subscriptionsNotificationsEnabled,
+    userSettings?.subscriptionsNotificationsPriceAlert,
     subscriptionsReminderDays
   ]);
 

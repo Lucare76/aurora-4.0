@@ -685,6 +685,18 @@
   text-transform: capitalize;
 }
 
+.price-increase-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .spotlight-card {
   border: 1px solid var(--border);
   border-radius: 12px;
