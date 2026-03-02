@@ -208,6 +208,81 @@
   border-color: rgba(239, 68, 68, 0.6);
 }
 
+.subscriptions-history {
+  margin-top: 16px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.subscriptions-history h3 {
+  margin: 0 0 10px 0;
+}
+
+.subscriptions-history-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.history-kpi {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.history-kpi span {
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.history-kpi strong {
+  font-size: 18px;
+}
+
+.subscriptions-history-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.subscriptions-history-filters select {
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 9px 10px;
+}
+
+.subscriptions-history-table-wrap {
+  overflow-x: auto;
+}
+
+.subscriptions-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.subscriptions-history-table th,
+.subscriptions-history-table td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.subscriptions-history-table th:last-child,
+.subscriptions-history-table td:last-child {
+  text-align: right;
+}
+
 @media (max-width: 980px) {
   .subscriptions-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -241,5 +316,13 @@
 
   .row-actions {
     justify-content: flex-start;
+  }
+
+  .subscriptions-history-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .subscriptions-history-filters {
+    grid-template-columns: 1fr;
   }
 }

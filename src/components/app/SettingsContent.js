@@ -387,6 +387,7 @@ function SettingsContent() {
         'savingsGoals',
         'recurringTransactions',
         'subscriptions',
+        'subscriptionPayments',
         'birthdays'
       ];
 

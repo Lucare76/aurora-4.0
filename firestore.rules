@@ -76,6 +76,13 @@ service cloud.firestore {
       allow delete: if isOwner() || isAdmin();
     }
 
+    match /subscriptionPayments/{docId} {
+      allow read: if isOwner() || isAdmin();
+      allow create: if isCreatingOwner();
+      allow update: if isOwner() && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner() || isAdmin();
+    }
+
     match /accounts/{docId} {
       allow read: if isOwner() || isAdmin();
       allow create: if isCreatingOwner();

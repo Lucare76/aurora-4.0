@@ -25,6 +25,7 @@ import InsightsPanel from '../components/reports/InsightsPanel';
 import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
 import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsService';
+import { getSubscriptionPayments } from '../services/subscriptionPaymentsService';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [] } = useFinancial();
@@ -140,6 +141,7 @@ function Reports() {
   const [activeTab, setActiveTab] = useState('overview');
   const [subscriptions, setSubscriptions] = useState([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionPayments, setSubscriptionPayments] = useState([]);
   const [subscriptionsFilterStatus, setSubscriptionsFilterStatus] = useState('all');
   const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
   const [subscriptionsFilterPrice, setSubscriptionsFilterPrice] = useState('all');
@@ -186,8 +188,14 @@ function Reports() {
       if (!user?.uid) return;
       setSubscriptionsLoading(true);
       try {
-        const data = await getSubscriptions(user.uid);
-        if (mounted) setSubscriptions(Array.isArray(data) ? data : []);
+        const [subsData, paymentsData] = await Promise.all([
+          getSubscriptions(user.uid),
+          getSubscriptionPayments(user.uid)
+        ]);
+        if (mounted) {
+          setSubscriptions(Array.isArray(subsData) ? subsData : []);
+          setSubscriptionPayments(Array.isArray(paymentsData) ? paymentsData : []);
+        }
       } catch (e) {
         console.error('Errore caricamento abbonamenti report:', e);
       } finally {
@@ -524,6 +532,37 @@ function Reports() {
       annualTotal
     };
   }, [subscriptionsWithDerived]);
+
+  const subscriptionsPaymentStats = useMemo(() => {
+    const scopedIds = new Set(filteredSubscriptions.map((s) => s.id));
+    const scopedPayments = (subscriptionPayments || []).filter((p) => scopedIds.has(p.subscriptionId));
+
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    const start30 = new Date(now);
+    start30.setDate(start30.getDate() - 30);
+    start30.setHours(0, 0, 0, 0);
+
+    const start60 = new Date(start30);
+    start60.setDate(start60.getDate() - 30);
+    start60.setHours(0, 0, 0, 0);
+
+    const start90 = new Date(now);
+    start90.setDate(start90.getDate() - 90);
+    start90.setHours(0, 0, 0, 0);
+
+    const sumBetween = (from, to) =>
+      scopedPayments
+        .filter((p) => p.paidAt && p.paidAt >= from && p.paidAt <= to)
+        .reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
+
+    const last30 = sumBetween(start30, now);
+    const prev30 = sumBetween(start60, new Date(start30.getTime() - 1));
+    const last90 = sumBetween(start90, now);
+    const delta30 = last30 - prev30;
+
+    return { last30, prev30, last90, delta30 };
+  }, [filteredSubscriptions, subscriptionPayments]);
 
   const subscriptionsByOwner = useMemo(() => {
     const map = new Map();
@@ -1772,6 +1811,21 @@ function Reports() {
                 <div className="comparison-card">
                   <div className="label">Scadenze 30 giorni</div>
                   <div className="value">{subscriptionsStats.due30}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Speso ultimi 30 giorni</div>
+                  <div className="value">{formatEUR(subscriptionsPaymentStats.last30)}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Speso ultimi 90 giorni</div>
+                  <div className="value">{formatEUR(subscriptionsPaymentStats.last90)}</div>
+                </div>
+                <div className="comparison-card">
+                  <div className="label">Vs 30 giorni precedenti</div>
+                  <div className={`value ${subscriptionsPaymentStats.delta30 <= 0 ? 'positive' : 'negative'}`}>
+                    {subscriptionsPaymentStats.delta30 >= 0 ? '+' : ''}
+                    {formatEUR(subscriptionsPaymentStats.delta30)}
+                  </div>
                 </div>
               </div>
 

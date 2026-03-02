@@ -10,6 +10,10 @@ import {
   markSubscriptionPaid,
   updateSubscription
 } from '../services/subscriptionsService';
+import {
+  createSubscriptionPayment,
+  getSubscriptionPayments
+} from '../services/subscriptionPaymentsService';
 import { getMaxSubscriptionNotificationDays } from '../utils/subscriptionsNotifications';
 import './Subscriptions.css';
 
@@ -40,6 +44,10 @@ export default function Subscriptions() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [payments, setPayments] = useState([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  const [paymentOwnerFilter, setPaymentOwnerFilter] = useState('all');
+  const [paymentProviderFilter, setPaymentProviderFilter] = useState('all');
   const [message, setMessage] = useState({ text: '', type: '' });
   const [form, setForm] = useState({
     name: '',
@@ -73,9 +81,24 @@ export default function Subscriptions() {
     }
   }, [user?.uid]);
 
+  const loadPayments = useCallback(async () => {
+    if (!user?.uid) return;
+    setPaymentsLoading(true);
+    try {
+      const out = await getSubscriptionPayments(user.uid);
+      setPayments(Array.isArray(out) ? out : []);
+    } catch (e) {
+      console.error('Errore caricamento storico pagamenti:', e);
+      setMessage({ text: e?.message || 'Errore caricamento storico pagamenti', type: 'error' });
+    } finally {
+      setPaymentsLoading(false);
+    }
+  }, [user?.uid]);
+
   useEffect(() => {
     loadItems();
-  }, [loadItems]);
+    loadPayments();
+  }, [loadItems, loadPayments]);
 
   const resetForm = useCallback(() => {
     setForm({
@@ -169,14 +192,14 @@ export default function Subscriptions() {
         setMessage({ text: 'Abbonamento creato', type: 'success' });
       }
       resetForm();
-      await loadItems();
+      await Promise.all([loadItems(), loadPayments()]);
     } catch (e) {
       console.error('Errore salvataggio abbonamento:', e);
       setMessage({ text: e?.message || 'Errore salvataggio', type: 'error' });
     } finally {
       setSaving(false);
     }
-  }, [accountMap, editingId, form, items, loadItems, resetForm, saving, user?.uid, userSettings?.currency]);
+  }, [accountMap, editingId, form, items, loadItems, loadPayments, resetForm, saving, user?.uid, userSettings?.currency]);
 
   const handleDelete = useCallback(
     async (item) => {
@@ -186,7 +209,7 @@ export default function Subscriptions() {
       try {
         await deleteSubscription(item.id);
         if (editingId === item.id) resetForm();
-        await loadItems();
+        await Promise.all([loadItems(), loadPayments()]);
       } catch (e) {
         console.error('Errore eliminazione abbonamento:', e);
         setMessage({ text: e?.message || 'Errore eliminazione', type: 'error' });
@@ -194,22 +217,73 @@ export default function Subscriptions() {
         setSaving(false);
       }
     },
-    [editingId, loadItems, resetForm]
+    [editingId, loadItems, loadPayments, resetForm]
   );
 
   const handleMarkPaid = useCallback(async (item) => {
     setSaving(true);
     try {
+      await createSubscriptionPayment(user.uid, {
+        subscriptionId: item.id,
+        subscriptionName: item.name,
+        ownerName: item.ownerName || '',
+        provider: item.provider || '',
+        amount: Number(item.amount) || 0,
+        currency: userSettings?.currency || 'EUR',
+        paidAt: new Date(),
+        method: 'renewal',
+        notes: 'Segnato come rinnovato'
+      });
       await markSubscriptionPaid(item);
       setMessage({ text: `"${item.name}" segnato come rinnovato`, type: 'success' });
-      await loadItems();
+      await Promise.all([loadItems(), loadPayments()]);
     } catch (e) {
       console.error('Errore rinnovo abbonamento:', e);
       setMessage({ text: e?.message || 'Errore rinnovo', type: 'error' });
     } finally {
       setSaving(false);
     }
-  }, [loadItems]);
+  }, [loadItems, loadPayments, user?.uid, userSettings?.currency]);
+
+  const handleManualPayment = useCallback(async (item) => {
+    if (!user?.uid) return;
+    const rawAmount = window.prompt('Importo pagamento', String(Math.abs(Number(item?.amount) || 0)));
+    if (rawAmount == null) return;
+    const amount = Number(String(rawAmount).replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage({ text: 'Importo pagamento non valido', type: 'error' });
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const rawDate = window.prompt('Data pagamento (YYYY-MM-DD)', today);
+    if (rawDate == null) return;
+    const paidAt = new Date(`${rawDate}T00:00:00`);
+    if (Number.isNaN(paidAt.getTime())) {
+      setMessage({ text: 'Data pagamento non valida', type: 'error' });
+      return;
+    }
+    setSaving(true);
+    try {
+      await createSubscriptionPayment(user.uid, {
+        subscriptionId: item.id,
+        subscriptionName: item.name,
+        ownerName: item.ownerName || '',
+        provider: item.provider || '',
+        amount,
+        currency: userSettings?.currency || 'EUR',
+        paidAt,
+        method: 'manual',
+        notes: 'Pagamento registrato manualmente'
+      });
+      setMessage({ text: `Pagamento registrato per "${item.name}"`, type: 'success' });
+      await loadPayments();
+    } catch (e) {
+      console.error('Errore registrazione pagamento:', e);
+      setMessage({ text: e?.message || 'Errore registrazione pagamento', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  }, [loadPayments, user?.uid, userSettings?.currency]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -220,6 +294,51 @@ export default function Subscriptions() {
       return true;
     });
   }, [items, reminderDays, statusFilter]);
+
+  const paymentOwners = useMemo(() => {
+    const set = new Set();
+    payments.forEach((p) => {
+      const owner = String(p?.ownerName || '').trim();
+      if (owner) set.add(owner);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'it'));
+  }, [payments]);
+
+  const paymentProviders = useMemo(() => {
+    const set = new Set();
+    payments.forEach((p) => {
+      const provider = String(p?.provider || '').trim();
+      if (provider) set.add(provider);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'it'));
+  }, [payments]);
+
+  const filteredPayments = useMemo(() => {
+    return payments.filter((p) => {
+      if (paymentOwnerFilter !== 'all' && String(p?.ownerName || '') !== paymentOwnerFilter) return false;
+      if (paymentProviderFilter !== 'all' && String(p?.provider || '') !== paymentProviderFilter) return false;
+      return true;
+    });
+  }, [payments, paymentOwnerFilter, paymentProviderFilter]);
+
+  const paymentStats = useMemo(() => {
+    const now = new Date();
+    const start30 = new Date(now);
+    start30.setDate(start30.getDate() - 30);
+    start30.setHours(0, 0, 0, 0);
+    const start90 = new Date(now);
+    start90.setDate(start90.getDate() - 90);
+    start90.setHours(0, 0, 0, 0);
+
+    const total30 = filteredPayments
+      .filter((p) => p.paidAt && p.paidAt >= start30)
+      .reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
+    const total90 = filteredPayments
+      .filter((p) => p.paidAt && p.paidAt >= start90)
+      .reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
+
+    return { total30, total90, count: filteredPayments.length };
+  }, [filteredPayments]);
 
   return (
     <div className="subscriptions-page">
@@ -316,6 +435,9 @@ export default function Subscriptions() {
                     <button type="button" className="sub-btn primary" onClick={() => handleMarkPaid(item)} disabled={saving || item.active === false}>
                       Segna rinnovato
                     </button>
+                    <button type="button" className="sub-btn ghost" onClick={() => handleManualPayment(item)} disabled={saving}>
+                      Registra pagamento
+                    </button>
                     <button type="button" className="sub-btn danger" onClick={() => handleDelete(item)} disabled={saving}>Elimina</button>
                   </div>
                 </div>
@@ -324,6 +446,72 @@ export default function Subscriptions() {
           })}
         </div>
       )}
+
+      <div className="subscriptions-history">
+        <h3>Storico pagamenti</h3>
+        <div className="subscriptions-history-kpis">
+          <div className="history-kpi">
+            <span>Ultimi 30 giorni</span>
+            <strong>{formatCurrency(paymentStats.total30, userSettings?.currency || 'EUR')}</strong>
+          </div>
+          <div className="history-kpi">
+            <span>Ultimi 90 giorni</span>
+            <strong>{formatCurrency(paymentStats.total90, userSettings?.currency || 'EUR')}</strong>
+          </div>
+          <div className="history-kpi">
+            <span>Pagamenti filtrati</span>
+            <strong>{paymentStats.count}</strong>
+          </div>
+        </div>
+
+        <div className="subscriptions-history-filters">
+          <select value={paymentOwnerFilter} onChange={(e) => setPaymentOwnerFilter(e.target.value)}>
+            <option value="all">Intestatari: tutti</option>
+            {paymentOwners.map((owner) => (
+              <option key={owner} value={owner}>{owner}</option>
+            ))}
+          </select>
+          <select value={paymentProviderFilter} onChange={(e) => setPaymentProviderFilter(e.target.value)}>
+            <option value="all">Fornitori: tutti</option>
+            {paymentProviders.map((provider) => (
+              <option key={provider} value={provider}>{provider}</option>
+            ))}
+          </select>
+        </div>
+
+        {paymentsLoading ? (
+          <div className="subscriptions-empty">Caricamento storico...</div>
+        ) : filteredPayments.length === 0 ? (
+          <div className="subscriptions-empty">Nessun pagamento nello storico per i filtri selezionati.</div>
+        ) : (
+          <div className="subscriptions-history-table-wrap">
+            <table className="subscriptions-history-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Abbonamento</th>
+                  <th>Intestatario</th>
+                  <th>Fornitore</th>
+                  <th>Metodo</th>
+                  <th>Importo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredPayments.map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.paidAt ? p.paidAt.toLocaleDateString('it-IT') : 'N/D'}</td>
+                    <td>{p.subscriptionName || 'N/D'}</td>
+                    <td>{p.ownerName || 'N/D'}</td>
+                    <td>{p.provider || '-'}</td>
+                    <td>{p.method === 'renewal' ? 'Rinnovo' : 'Manuale'}</td>
+                    <td>{formatCurrency(p.amount, userSettings?.currency || 'EUR')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
