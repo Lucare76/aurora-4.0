@@ -738,13 +738,13 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     return { cards, riskyAccounts };
   }, [accounts, transactions, parseDate]);
 
-  const showSmartInsights = userSettings?.dashboardShowSmartInsights !== false;
-  const showForecast = userSettings?.dashboardShowForecast !== false;
-  const showInsightsBase = userSettings?.dashboardShowInsightsBase !== false;
-  const showTop5 = userSettings?.dashboardShowTop5 !== false;
-  const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts !== false;
-  const showActions = userSettings?.dashboardShowActions !== false;
-  const showBirthdays = userSettings?.dashboardShowBirthdays !== false;
+  const showSmartInsights = userSettings?.dashboardShowSmartInsights === true;
+  const showForecast = userSettings?.dashboardShowForecast === true;
+  const showInsightsBase = userSettings?.dashboardShowInsightsBase === true;
+  const showTop5 = userSettings?.dashboardShowTop5 === true;
+  const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts === true;
+  const showActions = userSettings?.dashboardShowActions === true;
+  const showBirthdays = userSettings?.dashboardShowBirthdays === true;
 
   const optionalSectionOrder = useMemo(() => {
     const ids = normalizeDashboardOrder(userSettings?.dashboardOrder)
