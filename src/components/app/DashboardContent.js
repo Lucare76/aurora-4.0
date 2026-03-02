@@ -611,36 +611,43 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     return max;
   }, [lastMonths]);
 
-  const todayActions = useMemo(() => {
-    const items = [];
+  const subscriptionsReminderDays = Number(userSettings?.subscriptionsNotificationsDays) || 7;
+  const includeRecurringSubscriptions = userSettings?.subscriptionsRecurringEnabled !== false;
+  const includeFixedSubscriptions = userSettings?.subscriptionsFixedEnabled !== false;
 
-    const reminderDays = Number(userSettings?.subscriptionsNotificationsDays) || 7;
-    const notifySubs = userSettings?.subscriptionsNotificationsEnabled === true;
-    const includeRecurring = userSettings?.subscriptionsRecurringEnabled !== false;
-    const includeFixed = userSettings?.subscriptionsFixedEnabled !== false;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    const dueSubs = (subscriptions || [])
+  const dueSubscriptions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return (subscriptions || [])
       .filter((s) => s?.active !== false)
       .filter((s) => {
-        if (s?.kind === 'fixed' && !includeFixed) return false;
-        if (s?.kind !== 'fixed' && !includeRecurring) return false;
+        if (s?.kind === 'fixed' && !includeFixedSubscriptions) return false;
+        if (s?.kind !== 'fixed' && !includeRecurringSubscriptions) return false;
         return true;
       })
       .map((s) => {
-        const d = s?.nextDueDate ? new Date(s.nextDueDate) : null;
-        if (!d || Number.isNaN(d.getTime())) return null;
-        d.setHours(0, 0, 0, 0);
-        const diff = Math.round((d.getTime() - now.getTime()) / 86400000);
-        return { ...s, daysTo: diff };
+        const dueDate = s?.nextDueDate ? new Date(s.nextDueDate) : null;
+        if (!dueDate || Number.isNaN(dueDate.getTime())) return null;
+        dueDate.setHours(0, 0, 0, 0);
+        const daysTo = Math.round((dueDate.getTime() - today.getTime()) / 86400000);
+        return { ...s, dueDate, daysTo };
       })
       .filter(Boolean)
-      .filter((s) => s.daysTo <= reminderDays)
       .sort((a, b) => a.daysTo - b.daysTo);
+  }, [subscriptions, includeFixedSubscriptions, includeRecurringSubscriptions]);
 
-    if (notifySubs && dueSubs.length > 0) {
-      const s = dueSubs[0];
+  const dueSubscriptionsSoon = useMemo(
+    () => dueSubscriptions.filter((s) => s.daysTo <= subscriptionsReminderDays),
+    [dueSubscriptions, subscriptionsReminderDays]
+  );
+
+  const todayActions = useMemo(() => {
+    const items = [];
+
+    const notifySubs = userSettings?.subscriptionsNotificationsEnabled === true;
+
+    if (notifySubs && dueSubscriptionsSoon.length > 0) {
+      const s = dueSubscriptionsSoon[0];
       const dueLabel =
         s.daysTo < 0 ? `${Math.abs(s.daysTo)} gg fa` : s.daysTo === 0 ? 'oggi' : s.daysTo === 1 ? 'domani' : `tra ${s.daysTo} gg`;
       items.push({
@@ -719,11 +726,9 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     budgetAlerts,
     upcomingBirthdays,
     cs,
-    subscriptions,
-    userSettings?.subscriptionsFixedEnabled,
-    userSettings?.subscriptionsNotificationsDays,
+    dueSubscriptionsSoon,
     userSettings?.subscriptionsNotificationsEnabled,
-    userSettings?.subscriptionsRecurringEnabled
+    subscriptionsReminderDays
   ]);
 
   const forecastData = useMemo(() => {
@@ -785,6 +790,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts === true;
   const showActions = userSettings?.dashboardShowActions === true;
   const showBirthdays = userSettings?.dashboardShowBirthdays === true;
+  const showSubscriptionsDue = userSettings?.dashboardShowSubscriptionsDue === true;
 
   const optionalSectionOrder = useMemo(() => {
     const ids = normalizeDashboardOrder(userSettings?.dashboardOrder)
@@ -990,6 +996,58 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
               {forecastData.riskyAccounts
                 .map((a) => `${a.name} (rosso entro ${a.riskHorizon}g)`)
                 .join(' - ')}
+            </div>
+          )}
+        </div>
+        )}
+
+        {showSubscriptionsDue && (
+        <div className="section section-subscriptions-due" style={{ order: optionalSectionOrder.subscriptionsDue ?? 999 }}>
+          <h2 className="section-title">Abbonamenti in scadenza</h2>
+          {dueSubscriptionsSoon.length === 0 ? (
+            <div className="empty-state">
+              <p>Nessun abbonamento in scadenza nei prossimi {subscriptionsReminderDays} giorni.</p>
+              <button
+                type="button"
+                className="today-action-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => setActiveMenu('subscriptions')}
+              >
+                Apri Abbonamenti
+              </button>
+            </div>
+          ) : (
+            <div className="subscriptions-due-list">
+              {dueSubscriptionsSoon.slice(0, 6).map((s) => {
+                const dueLabel =
+                  s.daysTo < 0
+                    ? `Scaduto da ${Math.abs(s.daysTo)} gg`
+                    : s.daysTo === 0
+                    ? 'Oggi'
+                    : s.daysTo === 1
+                    ? 'Domani'
+                    : `Tra ${s.daysTo} gg`;
+                const level = s.daysTo < 0 ? 'danger' : s.daysTo <= 2 ? 'warn' : 'info';
+                return (
+                  <div key={s.id} className="subscription-due-card" data-level={level}>
+                    <div className="subscription-due-main">
+                      <div className="subscription-due-title">
+                        {s.name}
+                        <span className="subscription-due-owner">{s.ownerName || 'tu'}</span>
+                      </div>
+                      <div className="subscription-due-meta">
+                        {cs} {formatNumber(Math.abs(Number(s.amount) || 0))} - {s.dueDate?.toLocaleDateString('it-IT')}
+                      </div>
+                    </div>
+                    <div className="subscription-due-badge">{dueLabel}</div>
+                  </div>
+                );
+              })}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" className="today-action-btn" onClick={() => setActiveMenu('subscriptions')}>
+                  Gestisci abbonamenti
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -30,6 +30,7 @@ function SettingsContent() {
     savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
     dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal',
     dashboardOrder: normalizeDashboardOrder(userSettings?.dashboardOrder),
+    dashboardShowSubscriptionsDue: userSettings?.dashboardShowSubscriptionsDue ?? false,
     dashboardShowSmartInsights: userSettings?.dashboardShowSmartInsights ?? false,
     dashboardShowForecast: userSettings?.dashboardShowForecast ?? false,
     dashboardShowInsightsBase: userSettings?.dashboardShowInsightsBase ?? false,
@@ -52,6 +53,7 @@ function SettingsContent() {
     () => ({
       dashboardMobileMode: settings.dashboardMobileMode || 'normal',
       dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
+      dashboardShowSubscriptionsDue: settings.dashboardShowSubscriptionsDue === true,
       dashboardShowSmartInsights: settings.dashboardShowSmartInsights === true,
       dashboardShowForecast: settings.dashboardShowForecast === true,
       dashboardShowInsightsBase: settings.dashboardShowInsightsBase === true,
@@ -68,6 +70,7 @@ function SettingsContent() {
       settings.dashboardShowBudgetAlerts,
       settings.dashboardShowForecast,
       settings.dashboardShowInsightsBase,
+      settings.dashboardShowSubscriptionsDue,
       settings.dashboardShowSmartInsights,
       settings.dashboardShowTop5
     ]
@@ -96,6 +99,7 @@ function SettingsContent() {
             savingsTargetAmount: data.savingsTargetAmount ?? 0,
             dashboardMobileMode: data.dashboardMobileMode || 'normal',
             dashboardOrder: normalizeDashboardOrder(data.dashboardOrder),
+            dashboardShowSubscriptionsDue: data.dashboardShowSubscriptionsDue ?? false,
             dashboardShowSmartInsights: data.dashboardShowSmartInsights ?? false,
             dashboardShowForecast: data.dashboardShowForecast ?? false,
             dashboardShowInsightsBase: data.dashboardShowInsightsBase ?? false,
@@ -124,6 +128,7 @@ function SettingsContent() {
             savingsTargetAmount: 0,
             dashboardMobileMode: 'normal',
             dashboardOrder: normalizeDashboardOrder(null),
+            dashboardShowSubscriptionsDue: false,
             dashboardShowSmartInsights: false,
             dashboardShowForecast: false,
             dashboardShowInsightsBase: false,
@@ -269,6 +274,7 @@ function SettingsContent() {
     setSettings((prev) => ({
       ...prev,
       dashboardOrder: normalizeDashboardOrder(null),
+      dashboardShowSubscriptionsDue: false,
       dashboardShowSmartInsights: false,
       dashboardShowForecast: false,
       dashboardShowInsightsBase: false,
@@ -748,6 +754,14 @@ function SettingsContent() {
                   Ripristina default dashboard
                 </button>
               </div>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSubscriptionsDue}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionsDue', e.target.checked)}
+                />
+                <span>Abbonamenti in scadenza</span>
+              </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
