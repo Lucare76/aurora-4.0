@@ -47,6 +47,7 @@ function SettingsContent() {
       userSettings?.subscriptionsNotificationOffsets ?? userSettings?.subscriptionsNotificationsDays
     ),
     subscriptionsNotificationsPriceAlert: userSettings?.subscriptionsNotificationsPriceAlert ?? true,
+    subscriptionsAutoCreateTransactionOnRenew: userSettings?.subscriptionsAutoCreateTransactionOnRenew ?? true,
     subscriptionsRecurringEnabled: userSettings?.subscriptionsRecurringEnabled ?? true,
     subscriptionsFixedEnabled: userSettings?.subscriptionsFixedEnabled ?? true,
     familyModeEnabled: userSettings?.familyModeEnabled ?? false,
@@ -118,6 +119,7 @@ function SettingsContent() {
               data.subscriptionsNotificationOffsets ?? data.subscriptionsNotificationsDays
             ),
             subscriptionsNotificationsPriceAlert: data.subscriptionsNotificationsPriceAlert ?? true,
+            subscriptionsAutoCreateTransactionOnRenew: data.subscriptionsAutoCreateTransactionOnRenew ?? true,
             subscriptionsRecurringEnabled: data.subscriptionsRecurringEnabled ?? true,
             subscriptionsFixedEnabled: data.subscriptionsFixedEnabled ?? true,
             familyModeEnabled: data.familyModeEnabled ?? false,
@@ -147,6 +149,7 @@ function SettingsContent() {
             subscriptionsNotificationsEnabled: false,
             subscriptionsNotificationOffsets: [...SUBSCRIPTION_NOTIFICATION_OPTIONS],
             subscriptionsNotificationsPriceAlert: true,
+            subscriptionsAutoCreateTransactionOnRenew: true,
             subscriptionsRecurringEnabled: true,
             subscriptionsFixedEnabled: true,
             familyModeEnabled: false,
@@ -227,6 +230,7 @@ function SettingsContent() {
             ...normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets)
           ),
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
+          subscriptionsAutoCreateTransactionOnRenew: settings.subscriptionsAutoCreateTransactionOnRenew !== false,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
           familyModeEnabled: !!settings.familyModeEnabled,
@@ -250,6 +254,7 @@ function SettingsContent() {
             ...normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets)
           ),
           subscriptionsNotificationsPriceAlert: !!settings.subscriptionsNotificationsPriceAlert,
+          subscriptionsAutoCreateTransactionOnRenew: settings.subscriptionsAutoCreateTransactionOnRenew !== false,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
           familyModeEnabled: !!settings.familyModeEnabled,
@@ -589,6 +594,14 @@ function SettingsContent() {
                   onChange={(e) => handleChange('subscriptionsNotificationsPriceAlert', e.target.checked)}
                 />
                 <span>Avvisa per aumento prezzo</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.subscriptionsAutoCreateTransactionOnRenew !== false}
+                  onChange={(e) => handleChange('subscriptionsAutoCreateTransactionOnRenew', e.target.checked)}
+                />
+                <span>Crea transazione automatica da rinnovo</span>
               </label>
               <label className="settings-toggle">
                 <input

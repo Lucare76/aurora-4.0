@@ -232,29 +232,31 @@ export default function Subscriptions() {
   const handleMarkPaid = useCallback(async (item) => {
     setSaving(true);
     try {
-      const targetAccountId = item?.accountId || accounts[0]?.id || null;
-      if (!targetAccountId) {
-        throw new Error('Nessun conto disponibile per registrare il pagamento');
-      }
-      const txPayload = {
-        description: `Rinnovo abbonamento: ${item.name}`,
-        amount: Math.abs(Number(item?.amount) || 0),
-        type: 'expense',
-        accountId: targetAccountId,
-        date: new Date(),
-        isSubscriptionPayment: true,
-        subscriptionId: item.id,
-        subscriptionName: item.name,
-        ownerName: item.ownerName || '',
-        provider: item.provider || ''
-      };
-      if (subscriptionExpenseCategory?.id) {
-        txPayload.categoryId = subscriptionExpenseCategory.id;
-      } else {
-        txPayload.category = 'Abbonamenti';
-      }
+      if (userSettings?.subscriptionsAutoCreateTransactionOnRenew !== false) {
+        const targetAccountId = item?.accountId || accounts[0]?.id || null;
+        if (!targetAccountId) {
+          throw new Error('Nessun conto disponibile per registrare il pagamento');
+        }
+        const txPayload = {
+          description: `Rinnovo abbonamento: ${item.name}`,
+          amount: Math.abs(Number(item?.amount) || 0),
+          type: 'expense',
+          accountId: targetAccountId,
+          date: new Date(),
+          isSubscriptionPayment: true,
+          subscriptionId: item.id,
+          subscriptionName: item.name,
+          ownerName: item.ownerName || '',
+          provider: item.provider || ''
+        };
+        if (subscriptionExpenseCategory?.id) {
+          txPayload.categoryId = subscriptionExpenseCategory.id;
+        } else {
+          txPayload.category = 'Abbonamenti';
+        }
 
-      await createTransaction(txPayload);
+        await createTransaction(txPayload);
+      }
       await createSubscriptionPayment(user.uid, {
         subscriptionId: item.id,
         subscriptionName: item.name,
@@ -281,6 +283,7 @@ export default function Subscriptions() {
     loadItems,
     loadPayments,
     subscriptionExpenseCategory?.id,
+    userSettings?.subscriptionsAutoCreateTransactionOnRenew,
     user?.uid,
     userSettings?.currency
   ]);
