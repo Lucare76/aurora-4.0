@@ -5,6 +5,7 @@ import Categories from '../../pages/Categories';
 import Budgets from '../../pages/Budgets';
 import Birthdays from '../../pages/Birthdays';
 import SavingsGoals from '../../pages/SavingsGoals';
+import Recurring from '../../pages/Recurring';
 import AdminApproval from '../../pages/AdminApproval';
 import { useAuth } from '../../contexts/AuthContext';
 import Header from './Header';
@@ -43,6 +44,8 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
         return <Budgets />;
       case 'savings':
         return <SavingsGoals />;
+      case 'recurring':
+        return <Recurring />;
       case 'import':
         return (
           <Suspense fallback={<LazyFallback />}>

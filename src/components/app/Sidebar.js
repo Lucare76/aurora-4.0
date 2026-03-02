@@ -11,6 +11,7 @@ import {
   FiMenu,
   FiX,
   FiPieChart,
+  FiRefreshCw,
   FiLogOut,
   FiShield,
   FiTarget
@@ -77,6 +78,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'dashboard', icon: <FiHome />, label: 'Dashboard', color: '#4f46e5' },
     { id: 'accounts', icon: <FiCreditCard />, label: 'Conti', color: '#06b6d4' },
     { id: 'transactions', icon: <FiDollarSign />, label: 'Transazioni', color: '#10b981' },
+    { id: 'recurring', icon: <FiRefreshCw />, label: 'Ricorrenze', color: '#14b8a6' },
     { id: 'categories', icon: <FiBarChart2 />, label: 'Categorie', color: '#8b5cf6' },
     { id: 'reports', icon: <FiBarChart2 />, label: 'Report', color: '#f59e0b' },
     { id: 'budgets', icon: <FiPieChart />, label: 'Budget', color: '#22c55e' },

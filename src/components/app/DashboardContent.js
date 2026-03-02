@@ -728,6 +728,65 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
             <h1>{greetingLabel}, {user?.displayName?.split(' ')[0] || 'Utente'}!</h1>
             <LiveClock />
           </div>
+        </div>
+
+        {!isCompactMobile && (
+        <div className="section smart-insights">
+          <h2 className="section-title">Insights intelligenti</h2>
+          <div className="smart-insights-grid">
+            {smartInsights.map((insight) => (
+              <div key={insight.id} className={`smart-card ${insight.tone}`}>
+                <div>
+                  <div className="smart-title">{insight.title}</div>
+                  <div className="smart-detail">{insight.detail}</div>
+                </div>
+                <button
+                  type="button"
+                  className="smart-cta"
+                  onClick={() => {
+                    if (insight.filter) setPendingFilter(insight.filter);
+                    setActiveMenu(insight.menu);
+                  }}
+                >
+                  {insight.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+        )}
+
+        <div className="financial-overview">
+          <div className="finance-card total-balance">
+            <div className="card-content">
+              <h3>Saldo Totale</h3>
+              <div className="amount">
+                {cs} {formatNumber(totalBalance)}
+              </div>
+              <div className="trend positive">{accounts.length} conti attivi</div>
+            </div>
+          </div>
+
+          <div className="finance-card cash-flow">
+            <div className="card-content">
+              <h3>Cash Flow Mensile</h3>
+              <div className="amount" style={{ color: monthlySavings >= 0 ? '#10b981' : '#ef4444' }}>
+                {monthlySavings < 0 ? '-' : ''}{cs} {formatNumber(monthlySavings)}
+              </div>
+              <div className="cashflow-detail">
+                <span className="cf-income">
+                  +{cs} {formatNumber(monthlyIncome)}
+                </span>
+                <span className="cf-expense">
+                  -{cs} {formatNumber(monthlyExpenses)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="section mobile-monthly-stats-section">
           <div className="header-stats mobile-only-stats">
             <div className="mini-stat">
               <div className="mini-value mini-value-income">
@@ -825,62 +884,6 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
               Aggiungi Transazione
             </button>
           </div>
-        </div>
-
-        {!isCompactMobile && (
-        <div className="section smart-insights">
-          <h2 className="section-title">Insights intelligenti</h2>
-          <div className="smart-insights-grid">
-            {smartInsights.map((insight) => (
-              <div key={insight.id} className={`smart-card ${insight.tone}`}>
-                <div>
-                  <div className="smart-title">{insight.title}</div>
-                  <div className="smart-detail">{insight.detail}</div>
-                </div>
-                <button
-                  type="button"
-                  className="smart-cta"
-                  onClick={() => {
-                    if (insight.filter) setPendingFilter(insight.filter);
-                    setActiveMenu(insight.menu);
-                  }}
-                >
-                  {insight.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-        )}
-
-        <div className="financial-overview">
-          <div className="finance-card total-balance">
-            <div className="card-content">
-              <h3>Saldo Totale</h3>
-              <div className="amount">
-                {cs} {formatNumber(totalBalance)}
-              </div>
-              <div className="trend positive">{accounts.length} conti attivi</div>
-            </div>
-          </div>
-
-          <div className="finance-card cash-flow">
-            <div className="card-content">
-              <h3>Cash Flow Mensile</h3>
-              <div className="amount" style={{ color: monthlySavings >= 0 ? '#10b981' : '#ef4444' }}>
-                {monthlySavings < 0 ? '-' : ''}{cs} {formatNumber(monthlySavings)}
-              </div>
-              <div className="cashflow-detail">
-                <span className="cf-income">
-                  +{cs} {formatNumber(monthlyIncome)}
-                </span>
-                <span className="cf-expense">
-                  -{cs} {formatNumber(monthlyExpenses)}
-                </span>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         <div className="section forecast-3090">

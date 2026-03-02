@@ -57,11 +57,47 @@ export async function getRecurringTransactions(userId) {
 }
 
 /**
+ * Restituisce tutte le ricorrenze (attive e in pausa) dell'utente
+ */
+export async function getAllRecurringTransactions(userId) {
+  const q = query(collection(db, 'recurringTransactions'), where('userId', '==', userId));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return {
+      id: d.id,
+      ...data,
+      nextDate: data.nextDate?.toDate ? data.nextDate.toDate() : new Date(data.nextDate)
+    };
+  });
+}
+
+/**
  * Rimuove (disattiva) una ricorrenza — soft delete
  */
 export async function removeRecurring(recurringId) {
   await updateDoc(doc(db, 'recurringTransactions', recurringId), {
     active: false
+  });
+}
+
+/**
+ * Imposta stato attivo/in pausa della ricorrenza
+ */
+export async function setRecurringActive(recurringId, active) {
+  await updateDoc(doc(db, 'recurringTransactions', recurringId), {
+    active: Boolean(active),
+    updatedAt: serverTimestamp()
+  });
+}
+
+/**
+ * Aggiorna i campi della ricorrenza
+ */
+export async function updateRecurring(recurringId, patch = {}) {
+  await updateDoc(doc(db, 'recurringTransactions', recurringId), {
+    ...patch,
+    updatedAt: serverTimestamp()
   });
 }
 
