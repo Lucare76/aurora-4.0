@@ -25,7 +25,7 @@ import InsightsPanel from '../components/reports/InsightsPanel';
 import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
 import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsService';
-import { getSubscriptionPayments } from '../services/subscriptionPaymentsService';
+import { createSubscriptionPayment, getSubscriptionPayments } from '../services/subscriptionPaymentsService';
 
 function Reports() {
   const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
@@ -184,31 +184,23 @@ function Reports() {
     return formatCurrency(n, currencyCode, { decimals: 2 });
   }, [currencyCode]);
 
-  useEffect(() => {
-    let mounted = true;
-    async function loadSubscriptions() {
-      if (!user?.uid) return;
-      setSubscriptionsLoading(true);
-      try {
-        const [subsData, paymentsData] = await Promise.all([
-          getSubscriptions(user.uid),
-          getSubscriptionPayments(user.uid)
-        ]);
-        if (mounted) {
-          setSubscriptions(Array.isArray(subsData) ? subsData : []);
-          setSubscriptionPayments(Array.isArray(paymentsData) ? paymentsData : []);
-        }
-      } catch (e) {
-        console.error('Errore caricamento abbonamenti report:', e);
-      } finally {
-        if (mounted) setSubscriptionsLoading(false);
-      }
+  const loadSubscriptionsReport = useCallback(async () => {
+    if (!user?.uid) return;
+    setSubscriptionsLoading(true);
+    try {
+      const [subsData, paymentsData] = await Promise.all([getSubscriptions(user.uid), getSubscriptionPayments(user.uid)]);
+      setSubscriptions(Array.isArray(subsData) ? subsData : []);
+      setSubscriptionPayments(Array.isArray(paymentsData) ? paymentsData : []);
+    } catch (e) {
+      console.error('Errore caricamento abbonamenti report:', e);
+    } finally {
+      setSubscriptionsLoading(false);
     }
-    loadSubscriptions();
-    return () => {
-      mounted = false;
-    };
   }, [user?.uid]);
+
+  useEffect(() => {
+    loadSubscriptionsReport();
+  }, [loadSubscriptionsReport]);
 
   useEffect(() => {
     try {
@@ -685,8 +677,9 @@ function Reports() {
   const handleCreateMissingSubscriptionTransaction = useCallback(
     async (payment) => {
       if (!payment?.id || subscriptionsReconcileBusyId) return;
+      const busyToken = `payment-${payment.id}`;
       setSubscriptionsReconcileMessage(null);
-      setSubscriptionsReconcileBusyId(payment.id);
+      setSubscriptionsReconcileBusyId(busyToken);
       try {
         const relatedSub =
           subscriptionsWithDerived.find((s) => s.id === payment.subscriptionId) ||
@@ -719,6 +712,7 @@ function Reports() {
           type: 'success',
           text: `Transazione creata per "${payment.subscriptionName || 'abbonamento'}".`
         });
+        await loadSubscriptionsReport();
       } catch (e) {
         setSubscriptionsReconcileMessage({
           type: 'error',
@@ -734,7 +728,52 @@ function Reports() {
       filteredSubscriptions,
       accounts,
       subscriptionExpenseCategory?.id,
-      createTransaction
+      createTransaction,
+      loadSubscriptionsReport
+    ]
+  );
+
+  const handleCreateMissingSubscriptionPayment = useCallback(
+    async (tx) => {
+      if (!tx?.id || subscriptionsReconcileBusyId || !user?.uid) return;
+      const busyToken = `tx-${tx.id}`;
+      setSubscriptionsReconcileMessage(null);
+      setSubscriptionsReconcileBusyId(busyToken);
+      try {
+        const amount = Math.abs(Number(tx.__amount || tx.amount) || 0);
+        if (amount <= 0) {
+          throw new Error('Importo transazione non valido');
+        }
+        await createSubscriptionPayment(user.uid, {
+          subscriptionId: tx.subscriptionId || '',
+          subscriptionName: tx.subscriptionName || '',
+          ownerName: tx.ownerName || '',
+          provider: tx.provider || '',
+          amount,
+          currency: userSettings?.currency || 'EUR',
+          paidAt: tx.__date || tx.date || new Date(),
+          method: 'reconciliation',
+          notes: 'Pagamento creato da riconciliazione report'
+        });
+        setSubscriptionsReconcileMessage({
+          type: 'success',
+          text: `Pagamento creato per "${tx.subscriptionName || 'abbonamento'}".`
+        });
+        await loadSubscriptionsReport();
+      } catch (e) {
+        setSubscriptionsReconcileMessage({
+          type: 'error',
+          text: e?.message || 'Errore creazione pagamento.'
+        });
+      } finally {
+        setSubscriptionsReconcileBusyId('');
+      }
+    },
+    [
+      subscriptionsReconcileBusyId,
+      user?.uid,
+      userSettings?.currency,
+      loadSubscriptionsReport
     ]
   );
 
@@ -2105,10 +2144,10 @@ function Reports() {
                                     <button
                                       type="button"
                                       className="subscriptions-reconcile-btn"
-                                      disabled={subscriptionsReconcileBusyId === p.id}
+                                      disabled={subscriptionsReconcileBusyId === `payment-${p.id}`}
                                       onClick={() => handleCreateMissingSubscriptionTransaction(p)}
                                     >
-                                      {subscriptionsReconcileBusyId === p.id ? 'Creazione...' : 'Crea transazione'}
+                                      {subscriptionsReconcileBusyId === `payment-${p.id}` ? 'Creazione...' : 'Crea transazione'}
                                     </button>
                                   </td>
                                 </tr>
@@ -2129,12 +2168,13 @@ function Reports() {
                               <th>Abbonamento</th>
                               <th>Descrizione</th>
                               <th className="amount-col">Importo</th>
+                              <th>Azione</th>
                             </tr>
                           </thead>
                           <tbody>
                             {subscriptionsReconciliation.transactionsWithoutPayment.length === 0 ? (
                               <tr>
-                                <td colSpan={4}>Nessuna discrepanza.</td>
+                                <td colSpan={5}>Nessuna discrepanza.</td>
                               </tr>
                             ) : (
                               subscriptionsReconciliation.transactionsWithoutPayment.map((t) => (
@@ -2143,6 +2183,16 @@ function Reports() {
                                   <td>{t.subscriptionName || 'N/D'}</td>
                                   <td>{t.description || 'N/D'}</td>
                                   <td className="amount-col">{formatEUR(t.__amount)}</td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="subscriptions-reconcile-btn"
+                                      disabled={subscriptionsReconcileBusyId === `tx-${t.id}`}
+                                      onClick={() => handleCreateMissingSubscriptionPayment(t)}
+                                    >
+                                      {subscriptionsReconcileBusyId === `tx-${t.id}` ? 'Creazione...' : 'Crea pagamento'}
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             )}
