@@ -28,7 +28,7 @@ import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsS
 import { getSubscriptionPayments } from '../services/subscriptionPaymentsService';
 
 function Reports() {
-  const { transactions = [], accounts = [], categories = [] } = useFinancial();
+  const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
   const { user, userSettings } = useAuth();
   const currencyCode = userSettings?.currency || 'EUR';
 
@@ -146,6 +146,8 @@ function Reports() {
   const [subscriptionsFilterKind, setSubscriptionsFilterKind] = useState('all');
   const [subscriptionsFilterPrice, setSubscriptionsFilterPrice] = useState('all');
   const [subscriptionsTrendMonths, setSubscriptionsTrendMonths] = useState(12);
+  const [subscriptionsReconcileBusyId, setSubscriptionsReconcileBusyId] = useState('');
+  const [subscriptionsReconcileMessage, setSubscriptionsReconcileMessage] = useState(null);
 
   const [filterType, setFilterType] = useState('all'); // all | income | expense | transfer
   const [filterAccount, setFilterAccount] = useState('all');
@@ -491,6 +493,16 @@ function Reports() {
     });
   }, [subscriptions, getMonthlyEquivalent]);
 
+  const subscriptionExpenseCategory = useMemo(() => {
+    const expenseCategories = (categories || []).filter((c) => c?.type === 'expense');
+    if (!expenseCategories.length) return null;
+    const byName = expenseCategories.find((c) => String(c?.name || '').trim().toLowerCase() === 'abbonamenti');
+    if (byName) return byName;
+    const byBills = expenseCategories.find((c) => String(c?.name || '').trim().toLowerCase() === 'bollette');
+    if (byBills) return byBills;
+    return expenseCategories[0];
+  }, [categories]);
+
   const filteredSubscriptions = useMemo(() => {
     return subscriptionsWithDerived
       .filter((s) => {
@@ -669,6 +681,62 @@ function Reports() {
     normalizedStartDate,
     normalizedEndDate
   ]);
+
+  const handleCreateMissingSubscriptionTransaction = useCallback(
+    async (payment) => {
+      if (!payment?.id || subscriptionsReconcileBusyId) return;
+      setSubscriptionsReconcileMessage(null);
+      setSubscriptionsReconcileBusyId(payment.id);
+      try {
+        const relatedSub =
+          subscriptionsWithDerived.find((s) => s.id === payment.subscriptionId) ||
+          filteredSubscriptions.find((s) => s.id === payment.subscriptionId);
+        const accountId = relatedSub?.accountId || accounts[0]?.id || null;
+        if (!accountId) {
+          throw new Error('Nessun conto disponibile per creare la transazione');
+        }
+
+        const txPayload = {
+          description: `Pagamento abbonamento: ${payment.subscriptionName || relatedSub?.name || 'Abbonamento'}`,
+          amount: Math.abs(Number(payment.amount) || 0),
+          type: 'expense',
+          accountId,
+          date: payment.paidAt || new Date(),
+          isSubscriptionPayment: true,
+          subscriptionId: payment.subscriptionId || relatedSub?.id || '',
+          subscriptionName: payment.subscriptionName || relatedSub?.name || '',
+          ownerName: payment.ownerName || relatedSub?.ownerName || '',
+          provider: payment.provider || relatedSub?.provider || ''
+        };
+        if (subscriptionExpenseCategory?.id) {
+          txPayload.categoryId = subscriptionExpenseCategory.id;
+        } else {
+          txPayload.category = 'Abbonamenti';
+        }
+
+        await createTransaction(txPayload);
+        setSubscriptionsReconcileMessage({
+          type: 'success',
+          text: `Transazione creata per "${payment.subscriptionName || 'abbonamento'}".`
+        });
+      } catch (e) {
+        setSubscriptionsReconcileMessage({
+          type: 'error',
+          text: e?.message || 'Errore creazione transazione.'
+        });
+      } finally {
+        setSubscriptionsReconcileBusyId('');
+      }
+    },
+    [
+      subscriptionsReconcileBusyId,
+      subscriptionsWithDerived,
+      filteredSubscriptions,
+      accounts,
+      subscriptionExpenseCategory?.id,
+      createTransaction
+    ]
+  );
 
   const subscriptionsByOwner = useMemo(() => {
     const map = new Map();
@@ -1959,6 +2027,15 @@ function Reports() {
                           : 'Da verificare'}
                       </span>
                     </div>
+                    {subscriptionsReconcileMessage?.text ? (
+                      <div
+                        className={`subscriptions-reconcile-feedback ${
+                          subscriptionsReconcileMessage.type === 'success' ? 'success' : 'error'
+                        }`}
+                      >
+                        {subscriptionsReconcileMessage.text}
+                      </div>
+                    ) : null}
                     <div className="subscriptions-reconciliation-kpis">
                       <div className="comparison-card">
                         <div className="label">Pagamenti registrati</div>
@@ -2009,12 +2086,13 @@ function Reports() {
                               <th>Abbonamento</th>
                               <th>Intestatario</th>
                               <th className="amount-col">Importo</th>
+                              <th>Azione</th>
                             </tr>
                           </thead>
                           <tbody>
                             {subscriptionsReconciliation.missingTransactions.length === 0 ? (
                               <tr>
-                                <td colSpan={4}>Nessuna discrepanza.</td>
+                                <td colSpan={5}>Nessuna discrepanza.</td>
                               </tr>
                             ) : (
                               subscriptionsReconciliation.missingTransactions.map((p) => (
@@ -2023,6 +2101,16 @@ function Reports() {
                                   <td>{p.subscriptionName || 'N/D'}</td>
                                   <td>{toTitleCase(p.ownerName || 'Tu')}</td>
                                   <td className="amount-col">{formatEUR(p.amount)}</td>
+                                  <td>
+                                    <button
+                                      type="button"
+                                      className="subscriptions-reconcile-btn"
+                                      disabled={subscriptionsReconcileBusyId === p.id}
+                                      onClick={() => handleCreateMissingSubscriptionTransaction(p)}
+                                    >
+                                      {subscriptionsReconcileBusyId === p.id ? 'Creazione...' : 'Crea transazione'}
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             )}

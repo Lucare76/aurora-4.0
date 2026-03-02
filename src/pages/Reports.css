@@ -650,6 +650,47 @@
   gap: 10px;
 }
 
+.subscriptions-reconcile-feedback {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subscriptions-reconcile-feedback.success {
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(52, 211, 153, 0.45);
+}
+
+.subscriptions-reconcile-feedback.error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.subscriptions-reconcile-btn {
+  border: 1px solid var(--border);
+  background: rgba(37, 99, 235, 0.15);
+  color: #dbeafe;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subscriptions-reconcile-btn:hover:not(:disabled) {
+  border-color: #60a5fa;
+  background: rgba(37, 99, 235, 0.28);
+}
+
+.subscriptions-reconcile-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .subscriptions-reconciliation-tables {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
