@@ -604,6 +604,16 @@ body {
   padding: 8px 4px 4px;
 }
 
+.notification-error {
+  color: #fecaca;
+  font-size: 12px;
+  border: 1px solid rgba(239, 68, 68, 0.38);
+  background: rgba(239, 68, 68, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 4px;
+}
+
 .quick-stats {
   display: flex;
   gap: 15px;

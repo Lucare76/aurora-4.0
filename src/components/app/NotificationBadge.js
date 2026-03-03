@@ -16,17 +16,25 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   const [todayBirthdays, setTodayBirthdays] = useState([]);
   const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loadingBirthdays, setLoadingBirthdays] = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [birthdaysError, setBirthdaysError] = useState('');
+  const [pendingError, setPendingError] = useState('');
   const { user, isAdmin } = useAuth();
   const rootRef = useRef(null);
 
   useEffect(() => {
     if (!user || !isAdmin) {
       setPendingCount(0);
+      setLoadingPending(false);
+      setPendingError('');
       return;
     }
 
     const setupListener = async () => {
       try {
+        setLoadingPending(true);
+        setPendingError('');
         const { collection, query, where, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('../../services/firebase');
 
@@ -37,10 +45,13 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
           q,
           (snapshot) => {
             setPendingCount(snapshot.size);
+            setLoadingPending(false);
           },
           (error) => {
             console.error('Errore conteggio pending:', error);
             setPendingCount(0);
+            setLoadingPending(false);
+            setPendingError('Impossibile caricare approvazioni admin.');
           }
         );
 
@@ -48,6 +59,8 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
       } catch (error) {
         console.error('Errore setup listener:', error);
         setPendingCount(0);
+        setLoadingPending(false);
+        setPendingError('Impossibile inizializzare notifiche admin.');
       }
     };
 
@@ -66,11 +79,15 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   useEffect(() => {
     if (!user?.uid) {
       setTodayBirthdays([]);
+      setLoadingBirthdays(false);
+      setBirthdaysError('');
       return;
     }
 
     const setupBirthdaysListener = async () => {
       try {
+        setLoadingBirthdays(true);
+        setBirthdaysError('');
         const { collection, query, where, onSnapshot } = await import('firebase/firestore');
         const { db } = await import('../../services/firebase');
         const q = query(collection(db, 'birthdays'), where('userId', '==', user.uid));
@@ -82,10 +99,13 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
               .map((d) => ({ id: d.id, ...d.data() }))
               .filter((b) => getDaysUntilBirthday(b?.date) === 0);
             setTodayBirthdays(list);
+            setLoadingBirthdays(false);
           },
           (error) => {
             console.error('Errore caricamento compleanni di oggi:', error);
             setTodayBirthdays([]);
+            setLoadingBirthdays(false);
+            setBirthdaysError('Impossibile caricare i compleanni di oggi.');
           }
         );
 
@@ -93,6 +113,8 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
       } catch (error) {
         console.error('Errore setup listener compleanni:', error);
         setTodayBirthdays([]);
+        setLoadingBirthdays(false);
+        setBirthdaysError('Impossibile inizializzare notifiche compleanni.');
       }
     };
 
@@ -218,7 +240,11 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
             <strong>Notifiche</strong>
           </div>
 
-          {todayBirthdays.length > 0 ? (
+          {loadingBirthdays ? (
+            <div className="notification-empty">Caricamento compleanni...</div>
+          ) : birthdaysError ? (
+            <div className="notification-error">{birthdaysError}</div>
+          ) : todayBirthdays.length > 0 ? (
             <div className="notification-block">
               <div className="notification-block-title">Compleanni oggi ({todayBirthdays.length})</div>
               <div className="notification-list">
@@ -245,7 +271,9 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
             <div className="notification-empty">Nessun compleanno oggi.</div>
           )}
 
-          {pendingCount > 0 && (
+          {isAdmin && loadingPending && <div className="notification-empty">Caricamento notifiche admin...</div>}
+          {isAdmin && !!pendingError && <div className="notification-error">{pendingError}</div>}
+          {isAdmin && pendingCount > 0 && (
             <div className="notification-block">
               <div className="notification-block-title">Admin</div>
               <div className="notification-list-item">
