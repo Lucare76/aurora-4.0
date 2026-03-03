@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FiBell } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDaysUntilBirthday } from '../../services/birthdaysService';
@@ -15,7 +15,9 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [todayBirthdays, setTodayBirthdays] = useState([]);
   const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { user, isAdmin } = useAuth();
+  const rootRef = useRef(null);
 
   useEffect(() => {
     if (!user || !isAdmin) {
@@ -118,6 +120,18 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     }
   }, [user?.uid]);
 
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onDocClick = (event) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [menuOpen]);
+
   const unseenTodayBirthdays = todayBirthdays.filter((b) => !seenBirthdayIds.includes(b.id));
 
   const totalCount = pendingCount + unseenTodayBirthdays.length;
@@ -137,7 +151,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     titleParts.push('Nessuna notifica');
   }
 
-  const handleClick = () => {
+  const markTodayBirthdaysAsSeen = () => {
     if (todayBirthdays.length > 0) {
       const ids = todayBirthdays.map((b) => b.id).filter(Boolean);
       const merged = Array.from(new Set([...seenBirthdayIds, ...ids]));
@@ -153,25 +167,100 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
         // ignore localStorage errors
       }
     }
+  };
+
+  const markTodayBirthdaysAsUnseen = () => {
+    if (!user?.uid) return;
+    setSeenBirthdayIds([]);
+    try {
+      localStorage.removeItem(`aurora_seen_birthdays_${user.uid}_${getTodayKey()}`);
+    } catch {
+      // ignore localStorage errors
+    }
+  };
+
+  const handleBellClick = () => {
+    if (!menuOpen) {
+      markTodayBirthdaysAsSeen();
+    }
+    setMenuOpen((prev) => !prev);
+  };
+
+  const handleOpenBirthdays = () => {
+    setMenuOpen(false);
     if (todayBirthdays.length > 0 && typeof onOpenBirthdays === 'function') {
       onOpenBirthdays();
-      return;
     }
+  };
+
+  const handleOpenAdmin = () => {
+    setMenuOpen(false);
     if (pendingCount > 0 && typeof onOpenAdmin === 'function') {
       onOpenAdmin();
     }
   };
 
   return (
-    <button
-      className="action-btn notification-btn"
-      type="button"
-      onClick={handleClick}
-      title={titleParts.join(' | ')}
-    >
-      <FiBell />
-      {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
-    </button>
+    <div className="notification-root" ref={rootRef}>
+      <button
+        className="action-btn notification-btn"
+        type="button"
+        onClick={handleBellClick}
+        title={titleParts.join(' | ')}
+      >
+        <FiBell />
+        {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
+      </button>
+
+      {menuOpen && (
+        <div className="notification-popover">
+          <div className="notification-popover-head">
+            <strong>Notifiche</strong>
+          </div>
+
+          {todayBirthdays.length > 0 ? (
+            <div className="notification-block">
+              <div className="notification-block-title">Compleanni oggi ({todayBirthdays.length})</div>
+              <div className="notification-list">
+                {todayBirthdays.map((b) => {
+                  const unseen = !seenBirthdayIds.includes(b.id);
+                  return (
+                    <div className="notification-list-item" key={b.id}>
+                      <span>{b.name || 'Compleanno'}</span>
+                      <span className={`notification-pill ${unseen ? 'new' : 'seen'}`}>{unseen ? 'Nuovo' : 'Visto'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="notification-actions-row">
+                <button type="button" className="notification-link-btn" onClick={handleOpenBirthdays}>
+                  Apri compleanni
+                </button>
+                <button type="button" className="notification-link-btn" onClick={markTodayBirthdaysAsUnseen}>
+                  Segna non letto
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="notification-empty">Nessun compleanno oggi.</div>
+          )}
+
+          {pendingCount > 0 && (
+            <div className="notification-block">
+              <div className="notification-block-title">Admin</div>
+              <div className="notification-list-item">
+                <span>{pendingCount} utenti in attesa approvazione</span>
+              </div>
+              <div className="notification-actions-row">
+                <button type="button" className="notification-link-btn" onClick={handleOpenAdmin}>
+                  Apri approvazioni
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
