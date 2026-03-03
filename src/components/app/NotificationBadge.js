@@ -11,14 +11,34 @@ function getTodayKey() {
   return `${y}-${m}-${d}`;
 }
 
-function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
+function toDate(value) {
+  if (!value) return null;
+  if (value && typeof value === 'object' && typeof value.toDate === 'function') return value.toDate();
+  if (value instanceof Date) return value;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [todayBirthdays, setTodayBirthdays] = useState([]);
+  const [todaySubscriptions, setTodaySubscriptions] = useState([]);
   const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
+  const [seenSubscriptionIds, setSeenSubscriptionIds] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingBirthdays, setLoadingBirthdays] = useState(false);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
   const [loadingPending, setLoadingPending] = useState(false);
   const [birthdaysError, setBirthdaysError] = useState('');
+  const [subscriptionsError, setSubscriptionsError] = useState('');
   const [pendingError, setPendingError] = useState('');
   const { user, isAdmin } = useAuth();
   const rootRef = useRef(null);
@@ -130,6 +150,65 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
 
   useEffect(() => {
     if (!user?.uid) {
+      setTodaySubscriptions([]);
+      setLoadingSubscriptions(false);
+      setSubscriptionsError('');
+      return;
+    }
+
+    const setupSubscriptionsListener = async () => {
+      try {
+        setLoadingSubscriptions(true);
+        setSubscriptionsError('');
+        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('../../services/firebase');
+        const q = query(collection(db, 'subscriptions'), where('userId', '==', user.uid));
+
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const list = snapshot.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((s) => s.active !== false)
+              .filter((s) => {
+                const due = toDate(s.nextDueDate);
+                if (!due) return false;
+                return isSameDay(new Date(due.getFullYear(), due.getMonth(), due.getDate()), todayStart);
+              });
+            setTodaySubscriptions(list);
+            setLoadingSubscriptions(false);
+          },
+          (error) => {
+            console.error('Errore caricamento abbonamenti di oggi:', error);
+            setTodaySubscriptions([]);
+            setLoadingSubscriptions(false);
+            setSubscriptionsError('Impossibile caricare abbonamenti in scadenza oggi.');
+          }
+        );
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Errore setup listener abbonamenti:', error);
+        setTodaySubscriptions([]);
+        setLoadingSubscriptions(false);
+        setSubscriptionsError('Impossibile inizializzare notifiche abbonamenti.');
+      }
+    };
+
+    let unsubscribe;
+    setupSubscriptionsListener().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
       setSeenBirthdayIds([]);
       return;
     }
@@ -139,6 +218,20 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
       setSeenBirthdayIds(Array.isArray(parsed) ? parsed : []);
     } catch {
       setSeenBirthdayIds([]);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setSeenSubscriptionIds([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`aurora_seen_subscriptions_${user.uid}_${getTodayKey()}`);
+      const parsed = JSON.parse(raw || '[]');
+      setSeenSubscriptionIds(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setSeenSubscriptionIds([]);
     }
   }, [user?.uid]);
 
@@ -155,15 +248,24 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   }, [menuOpen]);
 
   const unseenTodayBirthdays = todayBirthdays.filter((b) => !seenBirthdayIds.includes(b.id));
+  const unseenTodaySubscriptions = todaySubscriptions.filter((s) => !seenSubscriptionIds.includes(s.id));
 
-  const totalCount = pendingCount + unseenTodayBirthdays.length;
+  const totalCount = pendingCount + unseenTodayBirthdays.length + unseenTodaySubscriptions.length;
   const birthdayNames = todayBirthdays.map((b) => b.name).filter(Boolean);
+  const subscriptionNames = todaySubscriptions.map((s) => s.name).filter(Boolean);
   const titleParts = [];
   if (unseenTodayBirthdays.length > 0) {
     titleParts.push(
       unseenTodayBirthdays.length === 1
         ? `Oggi e' il compleanno di ${birthdayNames[0] || 'una persona'}`
         : `Oggi ci sono ${unseenTodayBirthdays.length} compleanni: ${birthdayNames.join(', ')}`
+    );
+  }
+  if (unseenTodaySubscriptions.length > 0) {
+    titleParts.push(
+      unseenTodaySubscriptions.length === 1
+        ? `Oggi scade ${subscriptionNames[0] || 'un abbonamento'}`
+        : `Oggi scadono ${unseenTodaySubscriptions.length} abbonamenti: ${subscriptionNames.join(', ')}`
     );
   }
   if (pendingCount > 0) {
@@ -191,6 +293,24 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     }
   };
 
+  const markTodaySubscriptionsAsSeen = () => {
+    if (todaySubscriptions.length > 0) {
+      const ids = todaySubscriptions.map((s) => s.id).filter(Boolean);
+      const merged = Array.from(new Set([...seenSubscriptionIds, ...ids]));
+      setSeenSubscriptionIds(merged);
+      try {
+        if (user?.uid) {
+          localStorage.setItem(
+            `aurora_seen_subscriptions_${user.uid}_${getTodayKey()}`,
+            JSON.stringify(merged)
+          );
+        }
+      } catch {
+        // ignore localStorage errors
+      }
+    }
+  };
+
   const markTodayBirthdaysAsUnseen = () => {
     if (!user?.uid) return;
     setSeenBirthdayIds([]);
@@ -201,9 +321,20 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     }
   };
 
+  const markTodaySubscriptionsAsUnseen = () => {
+    if (!user?.uid) return;
+    setSeenSubscriptionIds([]);
+    try {
+      localStorage.removeItem(`aurora_seen_subscriptions_${user.uid}_${getTodayKey()}`);
+    } catch {
+      // ignore localStorage errors
+    }
+  };
+
   const handleBellClick = () => {
     if (!menuOpen) {
       markTodayBirthdaysAsSeen();
+      markTodaySubscriptionsAsSeen();
     }
     setMenuOpen((prev) => !prev);
   };
@@ -212,6 +343,13 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     setMenuOpen(false);
     if (todayBirthdays.length > 0 && typeof onOpenBirthdays === 'function') {
       onOpenBirthdays();
+    }
+  };
+
+  const handleOpenSubscriptions = () => {
+    setMenuOpen(false);
+    if (todaySubscriptions.length > 0 && typeof onOpenSubscriptions === 'function') {
+      onOpenSubscriptions();
     }
   };
 
@@ -269,6 +407,37 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
             </div>
           ) : (
             <div className="notification-empty">Nessun compleanno oggi.</div>
+          )}
+
+          {loadingSubscriptions ? (
+            <div className="notification-empty">Caricamento abbonamenti oggi...</div>
+          ) : subscriptionsError ? (
+            <div className="notification-error">{subscriptionsError}</div>
+          ) : todaySubscriptions.length > 0 ? (
+            <div className="notification-block">
+              <div className="notification-block-title">Abbonamenti in scadenza oggi ({todaySubscriptions.length})</div>
+              <div className="notification-list">
+                {todaySubscriptions.map((s) => {
+                  const unseen = !seenSubscriptionIds.includes(s.id);
+                  return (
+                    <div className="notification-list-item" key={s.id}>
+                      <span>{s.name || 'Abbonamento'}</span>
+                      <span className={`notification-pill ${unseen ? 'new' : 'seen'}`}>{unseen ? 'Nuovo' : 'Visto'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="notification-actions-row">
+                <button type="button" className="notification-link-btn" onClick={handleOpenSubscriptions}>
+                  Apri abbonamenti
+                </button>
+                <button type="button" className="notification-link-btn" onClick={markTodaySubscriptionsAsUnseen}>
+                  Segna non letto
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="notification-empty">Nessun abbonamento in scadenza oggi.</div>
           )}
 
           {isAdmin && loadingPending && <div className="notification-empty">Caricamento notifiche admin...</div>}

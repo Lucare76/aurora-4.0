@@ -41,6 +41,7 @@ function Header({ setSidebarOpen, setActiveMenu }) {
         <div className="header-actions">
           <NotificationBadge
             onOpenBirthdays={() => setActiveMenu?.('birthdays')}
+            onOpenSubscriptions={() => setActiveMenu?.('subscriptions')}
             onOpenAdmin={() => setActiveMenu?.('admin')}
           />
         </div>
