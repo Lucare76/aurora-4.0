@@ -516,7 +516,7 @@ export default function SavingsGoals() {
             <p>Crea il tuo primo obiettivo per iniziare a risparmiare!</p>
           </div>
         ) : (
-          <div className="savings-goals-grid">
+          <div className={`savings-goals-grid ${goals.length === 1 ? "single-goal" : ""}`}>
             {goals.map((goal) => {
               const current = Number(goal.currentAmount) || 0;
               const target = Number(goal.targetAmount) || 1;
