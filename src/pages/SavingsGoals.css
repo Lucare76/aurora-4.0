@@ -83,6 +83,35 @@
   gap: 12px;
 }
 
+.autopilot-grid .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.autopilot-grid .form-group label {
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.autopilot-grid .form-group input,
+.autopilot-grid .form-group select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.82);
+  color: #e2e8f0;
+  outline: none;
+}
+
+.autopilot-grid .form-group input:focus,
+.autopilot-grid .form-group select:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
 .autopilot-preview {
   margin-top: 12px;
   display: flex;
