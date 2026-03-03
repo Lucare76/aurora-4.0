@@ -191,6 +191,13 @@ function Reports() {
   const formatEUR = useCallback((n) => {
     return formatCurrency(n, currencyCode, { decimals: 2 });
   }, [currencyCode]);
+  const formatNumber = useCallback((n, decimals = 2) => {
+    const value = Number(n) || 0;
+    return value.toLocaleString('it-IT', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  }, []);
 
   const loadSubscriptionsReport = useCallback(async () => {
     if (!user?.uid) return;
