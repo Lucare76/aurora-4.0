@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { FiBell } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { getDaysUntilBirthday } from '../../services/birthdaysService';
 
-function NotificationBadge() {
+function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   const [pendingCount, setPendingCount] = useState(0);
+  const [todayBirthdays, setTodayBirthdays] = useState([]);
   const { user, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -50,16 +52,85 @@ function NotificationBadge() {
     };
   }, [user, isAdmin]);
 
-  if (!isAdmin) return null;
+  useEffect(() => {
+    if (!user?.uid) {
+      setTodayBirthdays([]);
+      return;
+    }
+
+    const setupBirthdaysListener = async () => {
+      try {
+        const { collection, query, where, onSnapshot } = await import('firebase/firestore');
+        const { db } = await import('../../services/firebase');
+        const q = query(collection(db, 'birthdays'), where('userId', '==', user.uid));
+
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            const list = snapshot.docs
+              .map((d) => ({ id: d.id, ...d.data() }))
+              .filter((b) => getDaysUntilBirthday(b?.date) === 0);
+            setTodayBirthdays(list);
+          },
+          (error) => {
+            console.error('Errore caricamento compleanni di oggi:', error);
+            setTodayBirthdays([]);
+          }
+        );
+
+        return unsubscribe;
+      } catch (error) {
+        console.error('Errore setup listener compleanni:', error);
+        setTodayBirthdays([]);
+      }
+    };
+
+    let unsubscribe;
+    setupBirthdaysListener().then((unsub) => {
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      if (unsubscribe && typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [user?.uid]);
+
+  const totalCount = pendingCount + todayBirthdays.length;
+  const birthdayNames = todayBirthdays.map((b) => b.name).filter(Boolean);
+  const titleParts = [];
+  if (todayBirthdays.length > 0) {
+    titleParts.push(
+      todayBirthdays.length === 1
+        ? `Oggi e' il compleanno di ${birthdayNames[0] || 'una persona'}`
+        : `Oggi ci sono ${todayBirthdays.length} compleanni: ${birthdayNames.join(', ')}`
+    );
+  }
+  if (pendingCount > 0) {
+    titleParts.push(`${pendingCount} utenti in attesa di approvazione`);
+  }
+  if (titleParts.length === 0) {
+    titleParts.push('Nessuna notifica');
+  }
+
+  const handleClick = () => {
+    if (todayBirthdays.length > 0 && typeof onOpenBirthdays === 'function') {
+      onOpenBirthdays();
+      return;
+    }
+    if (pendingCount > 0 && typeof onOpenAdmin === 'function') {
+      onOpenAdmin();
+    }
+  };
 
   return (
     <button
       className="action-btn notification-btn"
       type="button"
-      title={pendingCount > 0 ? `${pendingCount} utenti in attesa di approvazione` : 'Nessuna notifica'}
+      onClick={handleClick}
+      title={titleParts.join(' | ')}
     >
       <FiBell />
-      {pendingCount > 0 && <span className="notification-badge">{pendingCount}</span>}
+      {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
     </button>
   );
 }

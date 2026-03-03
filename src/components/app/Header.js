@@ -3,7 +3,7 @@ import { FiMenu, FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBadge from './NotificationBadge';
 
-function Header({ setSidebarOpen }) {
+function Header({ setSidebarOpen, setActiveMenu }) {
   const { logout } = useAuth();
 
   const handleLogout = async () => {
@@ -39,7 +39,10 @@ function Header({ setSidebarOpen }) {
         </div>
 
         <div className="header-actions">
-          <NotificationBadge />
+          <NotificationBadge
+            onOpenBirthdays={() => setActiveMenu?.('birthdays')}
+            onOpenAdmin={() => setActiveMenu?.('admin')}
+          />
         </div>
       </div>
     </header>

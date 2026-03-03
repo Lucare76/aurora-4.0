@@ -69,7 +69,7 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
 
   return (
     <div className="main-content">
-      <Header setSidebarOpen={setSidebarOpen} />
+      <Header setSidebarOpen={setSidebarOpen} setActiveMenu={setActiveMenu} />
       <div className="content-area">{renderContent()}</div>
     </div>
   );
