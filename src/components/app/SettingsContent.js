@@ -50,6 +50,9 @@ function SettingsContent() {
     subscriptionsAutoCreateTransactionOnRenew: userSettings?.subscriptionsAutoCreateTransactionOnRenew ?? true,
     subscriptionsRecurringEnabled: userSettings?.subscriptionsRecurringEnabled ?? true,
     subscriptionsFixedEnabled: userSettings?.subscriptionsFixedEnabled ?? true,
+    bellShowBirthdays: userSettings?.bellShowBirthdays ?? true,
+    bellShowSubscriptions: userSettings?.bellShowSubscriptions ?? true,
+    bellShowUpcoming7Days: userSettings?.bellShowUpcoming7Days ?? true,
     familyModeEnabled: userSettings?.familyModeEnabled ?? false,
     familyBudgetsEnabled: userSettings?.familyBudgetsEnabled ?? false,
     familyCommentsEnabled: userSettings?.familyCommentsEnabled ?? false,
@@ -122,6 +125,9 @@ function SettingsContent() {
             subscriptionsAutoCreateTransactionOnRenew: data.subscriptionsAutoCreateTransactionOnRenew ?? true,
             subscriptionsRecurringEnabled: data.subscriptionsRecurringEnabled ?? true,
             subscriptionsFixedEnabled: data.subscriptionsFixedEnabled ?? true,
+            bellShowBirthdays: data.bellShowBirthdays ?? true,
+            bellShowSubscriptions: data.bellShowSubscriptions ?? true,
+            bellShowUpcoming7Days: data.bellShowUpcoming7Days ?? true,
             familyModeEnabled: data.familyModeEnabled ?? false,
             familyBudgetsEnabled: data.familyBudgetsEnabled ?? false,
             familyCommentsEnabled: data.familyCommentsEnabled ?? false,
@@ -152,6 +158,9 @@ function SettingsContent() {
             subscriptionsAutoCreateTransactionOnRenew: true,
             subscriptionsRecurringEnabled: true,
             subscriptionsFixedEnabled: true,
+            bellShowBirthdays: true,
+            bellShowSubscriptions: true,
+            bellShowUpcoming7Days: true,
             familyModeEnabled: false,
             familyBudgetsEnabled: false,
             familyCommentsEnabled: false,
@@ -233,6 +242,9 @@ function SettingsContent() {
           subscriptionsAutoCreateTransactionOnRenew: settings.subscriptionsAutoCreateTransactionOnRenew !== false,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
+          bellShowBirthdays: settings.bellShowBirthdays !== false,
+          bellShowSubscriptions: settings.bellShowSubscriptions !== false,
+          bellShowUpcoming7Days: settings.bellShowUpcoming7Days !== false,
           familyModeEnabled: !!settings.familyModeEnabled,
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
@@ -257,6 +269,9 @@ function SettingsContent() {
           subscriptionsAutoCreateTransactionOnRenew: settings.subscriptionsAutoCreateTransactionOnRenew !== false,
           subscriptionsRecurringEnabled: settings.subscriptionsRecurringEnabled !== false,
           subscriptionsFixedEnabled: settings.subscriptionsFixedEnabled !== false,
+          bellShowBirthdays: settings.bellShowBirthdays !== false,
+          bellShowSubscriptions: settings.bellShowSubscriptions !== false,
+          bellShowUpcoming7Days: settings.bellShowUpcoming7Days !== false,
           familyModeEnabled: !!settings.familyModeEnabled,
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
@@ -621,6 +636,39 @@ function SettingsContent() {
                 <span>Mostra rinnovi a scadenza fissa</span>
               </label>
               <small>Le notifiche vengono mostrate nel browser quando apri l'app.</small>
+            </div>
+          </div>
+
+          <div className="setting-section">
+            <h3>Campanella In-App</h3>
+            <p className="section-description">
+              Scegli quali promemoria mostrare nel centro notifiche della campanella.
+            </p>
+            <div className="setting-form">
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.bellShowBirthdays !== false}
+                  onChange={(e) => handleChange('bellShowBirthdays', e.target.checked)}
+                />
+                <span>Mostra compleanni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.bellShowSubscriptions !== false}
+                  onChange={(e) => handleChange('bellShowSubscriptions', e.target.checked)}
+                />
+                <span>Mostra abbonamenti in scadenza</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={settings.bellShowUpcoming7Days !== false}
+                  onChange={(e) => handleChange('bellShowUpcoming7Days', e.target.checked)}
+                />
+                <span>Mostra prossimi 7 giorni</span>
+              </label>
             </div>
           </div>
 

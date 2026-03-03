@@ -582,6 +582,12 @@ body {
   padding: 7px 8px;
 }
 
+.notification-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .notification-list-item-meta {
   color: #93c5fd;
   font-size: 11px;

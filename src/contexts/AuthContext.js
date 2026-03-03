@@ -34,7 +34,10 @@ export const AuthProvider = ({ children }) => {
     savingsTargetType: 'percent',
     savingsTargetPercent: 20,
     savingsTargetAmount: 0,
-    dashboardMobileMode: 'normal'
+    dashboardMobileMode: 'normal',
+    bellShowBirthdays: true,
+    bellShowSubscriptions: true,
+    bellShowUpcoming7Days: true
   });
 
   const setUserFromFirebaseUser = useCallback((firebaseUser) => {

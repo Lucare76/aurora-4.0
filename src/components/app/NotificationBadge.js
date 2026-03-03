@@ -2,9 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FiBell } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDaysUntilBirthday } from '../../services/birthdaysService';
+import { markSubscriptionPaid } from '../../services/subscriptionsService';
+import { createSubscriptionPayment } from '../../services/subscriptionPaymentsService';
 
 function getTodayKey() {
   const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getTomorrowKey() {
+  const now = new Date();
+  now.setDate(now.getDate() + 1);
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
@@ -43,6 +54,8 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   const [upcomingSubscriptions, setUpcomingSubscriptions] = useState([]);
   const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
   const [seenSubscriptionIds, setSeenSubscriptionIds] = useState([]);
+  const [snoozedBirthdayUntilById, setSnoozedBirthdayUntilById] = useState({});
+  const [snoozedSubscriptionUntilById, setSnoozedSubscriptionUntilById] = useState({});
   const [menuOpen, setMenuOpen] = useState(false);
   const [loadingBirthdays, setLoadingBirthdays] = useState(false);
   const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
@@ -52,7 +65,9 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   const [pendingError, setPendingError] = useState('');
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [historyItems, setHistoryItems] = useState([]);
-  const { user, isAdmin } = useAuth();
+  const [renewingSubscriptionId, setRenewingSubscriptionId] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+  const { user, isAdmin, userSettings } = useAuth();
   const rootRef = useRef(null);
 
   const appendHistory = (entry) => {
@@ -188,6 +203,34 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
 
   useEffect(() => {
     if (!user?.uid) {
+      setSnoozedBirthdayUntilById({});
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`aurora_snooze_birthdays_${user.uid}_${getTodayKey()}`);
+      const parsed = JSON.parse(raw || '{}');
+      setSnoozedBirthdayUntilById(parsed && typeof parsed === 'object' ? parsed : {});
+    } catch {
+      setSnoozedBirthdayUntilById({});
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setSnoozedSubscriptionUntilById({});
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`aurora_snooze_subscriptions_${user.uid}_${getTodayKey()}`);
+      const parsed = JSON.parse(raw || '{}');
+      setSnoozedSubscriptionUntilById(parsed && typeof parsed === 'object' ? parsed : {});
+    } catch {
+      setSnoozedSubscriptionUntilById({});
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) {
       setHistoryItems([]);
       return;
     }
@@ -310,22 +353,38 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [menuOpen]);
 
-  const unseenTodayBirthdays = todayBirthdays.filter((b) => !seenBirthdayIds.includes(b.id));
-  const unseenTodaySubscriptions = todaySubscriptions.filter((s) => !seenSubscriptionIds.includes(s.id));
+  const nowTs = Date.now();
+  const bellShowBirthdays = userSettings?.bellShowBirthdays !== false;
+  const bellShowSubscriptions = userSettings?.bellShowSubscriptions !== false;
+  const bellShowUpcoming7Days = userSettings?.bellShowUpcoming7Days !== false;
+
+  const unseenTodayBirthdays = todayBirthdays.filter((b) => {
+    if (seenBirthdayIds.includes(b.id)) return false;
+    const snoozeUntil = Number(snoozedBirthdayUntilById[b.id] || 0);
+    return !(snoozeUntil > nowTs);
+  });
+  const unseenTodaySubscriptions = todaySubscriptions.filter((s) => {
+    if (seenSubscriptionIds.includes(s.id)) return false;
+    const snoozeUntil = Number(snoozedSubscriptionUntilById[s.id] || 0);
+    return !(snoozeUntil > nowTs);
+  });
   const hasUpcoming = upcomingBirthdays.length > 0 || upcomingSubscriptions.length > 0;
 
-  const totalCount = pendingCount + unseenTodayBirthdays.length + unseenTodaySubscriptions.length;
-  const birthdayNames = todayBirthdays.map((b) => b.name).filter(Boolean);
-  const subscriptionNames = todaySubscriptions.map((s) => s.name).filter(Boolean);
+  const totalCount =
+    pendingCount +
+    (bellShowBirthdays ? unseenTodayBirthdays.length : 0) +
+    (bellShowSubscriptions ? unseenTodaySubscriptions.length : 0);
+  const birthdayNames = (bellShowBirthdays ? todayBirthdays : []).map((b) => b.name).filter(Boolean);
+  const subscriptionNames = (bellShowSubscriptions ? todaySubscriptions : []).map((s) => s.name).filter(Boolean);
   const titleParts = [];
-  if (unseenTodaySubscriptions.length > 0) {
+  if (bellShowSubscriptions && unseenTodaySubscriptions.length > 0) {
     titleParts.push(
       unseenTodaySubscriptions.length === 1
         ? `Oggi scade ${subscriptionNames[0] || 'un abbonamento'}`
         : `Oggi scadono ${unseenTodaySubscriptions.length} abbonamenti: ${subscriptionNames.join(', ')}`
     );
   }
-  if (unseenTodayBirthdays.length > 0) {
+  if (bellShowBirthdays && unseenTodayBirthdays.length > 0) {
     titleParts.push(
       unseenTodayBirthdays.length === 1
         ? `Oggi e' il compleanno di ${birthdayNames[0] || 'una persona'}`
@@ -391,6 +450,12 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     } catch {
       // ignore localStorage errors
     }
+    setSnoozedBirthdayUntilById({});
+    try {
+      localStorage.removeItem(`aurora_snooze_birthdays_${user.uid}_${getTodayKey()}`);
+    } catch {
+      // ignore localStorage errors
+    }
     appendHistory({
       type: 'birthday_unseen',
       label: 'Compleanni segnati non letti'
@@ -405,9 +470,61 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     } catch {
       // ignore localStorage errors
     }
+    setSnoozedSubscriptionUntilById({});
+    try {
+      localStorage.removeItem(`aurora_snooze_subscriptions_${user.uid}_${getTodayKey()}`);
+    } catch {
+      // ignore localStorage errors
+    }
     appendHistory({
       type: 'subscription_unseen',
       label: 'Abbonamenti segnati non letti'
+    });
+  };
+
+  const snoozeBirthdays = (mode) => {
+    if (!user?.uid || todayBirthdays.length === 0) return;
+    const until =
+      mode === 'tomorrow'
+        ? new Date(`${getTomorrowKey()}T00:00:00`).getTime()
+        : Date.now() + 60 * 60 * 1000;
+    const ids = todayBirthdays.map((b) => b.id).filter(Boolean);
+    const next = { ...snoozedBirthdayUntilById };
+    ids.forEach((id) => {
+      next[id] = until;
+    });
+    setSnoozedBirthdayUntilById(next);
+    try {
+      localStorage.setItem(`aurora_snooze_birthdays_${user.uid}_${getTodayKey()}`, JSON.stringify(next));
+    } catch {
+      // ignore localStorage errors
+    }
+    appendHistory({
+      type: 'birthday_snooze',
+      label: `Compleanni snoozati (${mode === 'tomorrow' ? 'domani' : '1h'})`
+    });
+  };
+
+  const snoozeSubscriptions = (mode) => {
+    if (!user?.uid || todaySubscriptions.length === 0) return;
+    const until =
+      mode === 'tomorrow'
+        ? new Date(`${getTomorrowKey()}T00:00:00`).getTime()
+        : Date.now() + 60 * 60 * 1000;
+    const ids = todaySubscriptions.map((s) => s.id).filter(Boolean);
+    const next = { ...snoozedSubscriptionUntilById };
+    ids.forEach((id) => {
+      next[id] = until;
+    });
+    setSnoozedSubscriptionUntilById(next);
+    try {
+      localStorage.setItem(`aurora_snooze_subscriptions_${user.uid}_${getTodayKey()}`, JSON.stringify(next));
+    } catch {
+      // ignore localStorage errors
+    }
+    appendHistory({
+      type: 'subscription_snooze',
+      label: `Abbonamenti snoozati (${mode === 'tomorrow' ? 'domani' : '1h'})`
     });
   };
 
@@ -452,10 +569,42 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     }
   };
 
-  const showSubscriptionsToday = notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'subscriptions';
-  const showBirthdaysToday = notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'birthdays';
+  const handleRenewSubscriptionNow = async (subscription) => {
+    if (!user?.uid || !subscription?.id || renewingSubscriptionId) return;
+    setRenewingSubscriptionId(subscription.id);
+    setActionMessage('');
+    try {
+      await createSubscriptionPayment(user.uid, {
+        subscriptionId: subscription.id,
+        subscriptionName: subscription.name || '',
+        ownerName: subscription.ownerName || '',
+        provider: subscription.provider || '',
+        amount: Math.abs(Number(subscription.amount) || 0),
+        currency: userSettings?.currency || 'EUR',
+        paidAt: new Date(),
+        method: 'renewal',
+        notes: 'Segnato come rinnovato da campanella'
+      });
+      await markSubscriptionPaid(subscription);
+      setActionMessage(`"${subscription.name || 'Abbonamento'}" segnato come rinnovato.`);
+      appendHistory({
+        type: 'subscription_renew',
+        label: `Rinnovato ${subscription.name || 'abbonamento'} da campanella`
+      });
+    } catch (e) {
+      setActionMessage(e?.message || 'Errore nel rinnovo abbonamento.');
+    } finally {
+      setRenewingSubscriptionId('');
+      setTimeout(() => setActionMessage(''), 2500);
+    }
+  };
+
+  const showSubscriptionsToday =
+    bellShowSubscriptions && (notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'subscriptions');
+  const showBirthdaysToday =
+    bellShowBirthdays && (notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'birthdays');
   const showAdmin = notificationFilter === 'all' || notificationFilter === 'admin';
-  const showUpcoming = notificationFilter === 'all' || notificationFilter === 'upcoming';
+  const showUpcoming = bellShowUpcoming7Days && (notificationFilter === 'all' || notificationFilter === 'upcoming');
 
   return (
     <div className="notification-root" ref={rootRef}>
@@ -478,9 +627,15 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
           <div className="notification-filter-row">
             <button type="button" className={`notification-filter-chip ${notificationFilter === 'all' ? 'active' : ''}`} onClick={() => setNotificationFilter('all')}>Tutte</button>
             <button type="button" className={`notification-filter-chip ${notificationFilter === 'urgent' ? 'active' : ''}`} onClick={() => setNotificationFilter('urgent')}>Urgenti</button>
-            <button type="button" className={`notification-filter-chip ${notificationFilter === 'subscriptions' ? 'active' : ''}`} onClick={() => setNotificationFilter('subscriptions')}>Abbonamenti</button>
-            <button type="button" className={`notification-filter-chip ${notificationFilter === 'birthdays' ? 'active' : ''}`} onClick={() => setNotificationFilter('birthdays')}>Compleanni</button>
-            <button type="button" className={`notification-filter-chip ${notificationFilter === 'upcoming' ? 'active' : ''}`} onClick={() => setNotificationFilter('upcoming')}>Prossimi 7g</button>
+            {bellShowSubscriptions && (
+              <button type="button" className={`notification-filter-chip ${notificationFilter === 'subscriptions' ? 'active' : ''}`} onClick={() => setNotificationFilter('subscriptions')}>Abbonamenti</button>
+            )}
+            {bellShowBirthdays && (
+              <button type="button" className={`notification-filter-chip ${notificationFilter === 'birthdays' ? 'active' : ''}`} onClick={() => setNotificationFilter('birthdays')}>Compleanni</button>
+            )}
+            {bellShowUpcoming7Days && (
+              <button type="button" className={`notification-filter-chip ${notificationFilter === 'upcoming' ? 'active' : ''}`} onClick={() => setNotificationFilter('upcoming')}>Prossimi 7g</button>
+            )}
             {isAdmin && <button type="button" className={`notification-filter-chip ${notificationFilter === 'admin' ? 'active' : ''}`} onClick={() => setNotificationFilter('admin')}>Admin</button>}
           </div>
 
@@ -497,7 +652,17 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
                   return (
                     <div className="notification-list-item" key={s.id}>
                       <span>{s.name || 'Abbonamento'}</span>
-                      <span className={`notification-pill ${unseen ? 'new' : 'seen'}`}>{unseen ? 'Nuovo' : 'Visto'}</span>
+                      <div className="notification-inline-actions">
+                        <span className={`notification-pill ${unseen ? 'new' : 'seen'}`}>{unseen ? 'Nuovo' : 'Visto'}</span>
+                        <button
+                          type="button"
+                          className="notification-link-btn"
+                          disabled={renewingSubscriptionId === s.id}
+                          onClick={() => handleRenewSubscriptionNow(s)}
+                        >
+                          {renewingSubscriptionId === s.id ? 'Rinnovo...' : 'Segna rinnovato'}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -505,6 +670,12 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
               <div className="notification-actions-row">
                 <button type="button" className="notification-link-btn" onClick={handleOpenSubscriptions}>
                   Apri abbonamenti
+                </button>
+                <button type="button" className="notification-link-btn" onClick={() => snoozeSubscriptions('1h')}>
+                  Ricordami 1h
+                </button>
+                <button type="button" className="notification-link-btn" onClick={() => snoozeSubscriptions('tomorrow')}>
+                  Ricordami domani
                 </button>
                 <button type="button" className="notification-link-btn" onClick={markTodaySubscriptionsAsUnseen}>
                   Segna non letto
@@ -537,6 +708,12 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
                 <button type="button" className="notification-link-btn" onClick={handleOpenBirthdays}>
                   Apri compleanni
                 </button>
+                <button type="button" className="notification-link-btn" onClick={() => snoozeBirthdays('1h')}>
+                  Ricordami 1h
+                </button>
+                <button type="button" className="notification-link-btn" onClick={() => snoozeBirthdays('tomorrow')}>
+                  Ricordami domani
+                </button>
                 <button type="button" className="notification-link-btn" onClick={markTodayBirthdaysAsUnseen}>
                   Segna non letto
                 </button>
@@ -562,17 +739,19 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
             </div>
           )}
 
+          {!!actionMessage && <div className="notification-empty">{actionMessage}</div>}
+
           {showUpcoming && hasUpcoming && (
             <div className="notification-block">
               <div className="notification-block-title">Prossimi 7 giorni</div>
               <div className="notification-list">
-                {upcomingSubscriptions.map((s) => (
+                {bellShowSubscriptions && upcomingSubscriptions.map((s) => (
                   <div className="notification-list-item" key={`up-sub-${s.id}`}>
                     <span>{s.name || 'Abbonamento'}</span>
                     <span className="notification-list-item-meta">Abbonamento tra {s.daysUntil}g</span>
                   </div>
                 ))}
-                {upcomingBirthdays.map((b) => (
+                {bellShowBirthdays && upcomingBirthdays.map((b) => (
                   <div className="notification-list-item" key={`up-bday-${b.id}`}>
                     <span>{b.name || 'Compleanno'}</span>
                     <span className="notification-list-item-meta">Compleanno tra {b.daysUntil}g</span>
@@ -580,12 +759,12 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
                 ))}
               </div>
               <div className="notification-actions-row">
-                {upcomingSubscriptions.length > 0 && (
+                {bellShowSubscriptions && upcomingSubscriptions.length > 0 && (
                   <button type="button" className="notification-link-btn" onClick={handleOpenSubscriptions}>
                     Apri abbonamenti
                   </button>
                 )}
-                {upcomingBirthdays.length > 0 && (
+                {bellShowBirthdays && upcomingBirthdays.length > 0 && (
                   <button type="button" className="notification-link-btn" onClick={handleOpenBirthdays}>
                     Apri compleanni
                   </button>
