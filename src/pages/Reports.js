@@ -196,14 +196,22 @@ function Reports() {
     if (!user?.uid) return;
     setSubscriptionsLoading(true);
     try {
-      const [subsData, paymentsData, logsData] = await Promise.all([
+      const [subsRes, paymentsRes, logsRes] = await Promise.allSettled([
         getSubscriptions(user.uid),
         getSubscriptionPayments(user.uid),
         getSubscriptionReconciliationLogs(user.uid)
       ]);
-      setSubscriptions(Array.isArray(subsData) ? subsData : []);
-      setSubscriptionPayments(Array.isArray(paymentsData) ? paymentsData : []);
-      setSubscriptionReconciliationLogs(Array.isArray(logsData) ? logsData : []);
+      const subsData = subsRes.status === 'fulfilled' && Array.isArray(subsRes.value) ? subsRes.value : [];
+      const paymentsData =
+        paymentsRes.status === 'fulfilled' && Array.isArray(paymentsRes.value) ? paymentsRes.value : [];
+      const logsData = logsRes.status === 'fulfilled' && Array.isArray(logsRes.value) ? logsRes.value : [];
+      setSubscriptions(subsData);
+      setSubscriptionPayments(paymentsData);
+      setSubscriptionReconciliationLogs(logsData);
+
+      if (logsRes.status === 'rejected') {
+        console.warn('Log riconciliazione non disponibili, report caricato comunque:', logsRes.reason);
+      }
     } catch (e) {
       console.error('Errore caricamento abbonamenti report:', e);
     } finally {
