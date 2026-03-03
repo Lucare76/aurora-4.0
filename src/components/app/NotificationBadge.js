@@ -3,9 +3,18 @@ import { FiBell } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDaysUntilBirthday } from '../../services/birthdaysService';
 
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [todayBirthdays, setTodayBirthdays] = useState([]);
+  const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
   const { user, isAdmin } = useAuth();
 
   useEffect(() => {
@@ -95,14 +104,30 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
     };
   }, [user?.uid]);
 
-  const totalCount = pendingCount + todayBirthdays.length;
+  useEffect(() => {
+    if (!user?.uid) {
+      setSeenBirthdayIds([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`aurora_seen_birthdays_${user.uid}_${getTodayKey()}`);
+      const parsed = JSON.parse(raw || '[]');
+      setSeenBirthdayIds(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setSeenBirthdayIds([]);
+    }
+  }, [user?.uid]);
+
+  const unseenTodayBirthdays = todayBirthdays.filter((b) => !seenBirthdayIds.includes(b.id));
+
+  const totalCount = pendingCount + unseenTodayBirthdays.length;
   const birthdayNames = todayBirthdays.map((b) => b.name).filter(Boolean);
   const titleParts = [];
-  if (todayBirthdays.length > 0) {
+  if (unseenTodayBirthdays.length > 0) {
     titleParts.push(
-      todayBirthdays.length === 1
+      unseenTodayBirthdays.length === 1
         ? `Oggi e' il compleanno di ${birthdayNames[0] || 'una persona'}`
-        : `Oggi ci sono ${todayBirthdays.length} compleanni: ${birthdayNames.join(', ')}`
+        : `Oggi ci sono ${unseenTodayBirthdays.length} compleanni: ${birthdayNames.join(', ')}`
     );
   }
   if (pendingCount > 0) {
@@ -113,6 +138,21 @@ function NotificationBadge({ onOpenBirthdays, onOpenAdmin }) {
   }
 
   const handleClick = () => {
+    if (todayBirthdays.length > 0) {
+      const ids = todayBirthdays.map((b) => b.id).filter(Boolean);
+      const merged = Array.from(new Set([...seenBirthdayIds, ...ids]));
+      setSeenBirthdayIds(merged);
+      try {
+        if (user?.uid) {
+          localStorage.setItem(
+            `aurora_seen_birthdays_${user.uid}_${getTodayKey()}`,
+            JSON.stringify(merged)
+          );
+        }
+      } catch {
+        // ignore localStorage errors
+      }
+    }
     if (todayBirthdays.length > 0 && typeof onOpenBirthdays === 'function') {
       onOpenBirthdays();
       return;
