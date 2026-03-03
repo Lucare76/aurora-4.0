@@ -169,18 +169,19 @@ export function getDaysUntilBirthday(birthdayDate) {
   if (!birthdayDate) return null;
 
   const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const [day, month] = birthdayDate.split('/').map(Number);
 
   const nextBirthday = new Date(
-    today.getFullYear(),
+    todayStart.getFullYear(),
     month - 1,
     day
   );
 
-  if (nextBirthday < today) {
-    nextBirthday.setFullYear(today.getFullYear() + 1);
+  if (nextBirthday < todayStart) {
+    nextBirthday.setFullYear(todayStart.getFullYear() + 1);
   }
 
-  const diffMs = nextBirthday - today;
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const diffMs = nextBirthday.getTime() - todayStart.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
