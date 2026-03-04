@@ -4,6 +4,7 @@ import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
 import { formatEntityLabel } from '../utils/text';
+import { analyzeDataQuality } from '../utils/dataQuality';
 import PageHeader from '../components/app/PageHeader';
 import AddTransactionForm from './AddTransactionForm';
 import EditTransactionForm from './EditTransactionForm';
@@ -324,32 +325,14 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   }, [transactions, isTransferTx, accountMap]);
 
   const [dedupeBusy, setDedupeBusy] = useState(false);
-  const duplicateSummary = useMemo(() => {
-    if (!transactions?.length) return { groups: 0, duplicates: 0 };
-
-    const groups = new Map();
-    for (const tx of transactions) {
-      if (isTransferTx(tx)) continue;
-      const amountRaw = Number(tx?.amount) || 0;
-      const type = tx?.type || (amountRaw >= 0 ? 'income' : 'expense');
-      const amountAbs = Math.abs(amountRaw).toFixed(2);
-      const accKey = String(tx?.accountId || tx?.accountName || '').trim().toLowerCase();
-      const key = `${dateKey(tx?.date)}|${type}|${amountAbs}|${normalizeDescKey(tx?.description)}|${accKey}`;
-      if (!groups.has(key)) groups.set(key, 0);
-      groups.set(key, groups.get(key) + 1);
-    }
-
-    let dupGroups = 0;
-    let dupCount = 0;
-    for (const count of groups.values()) {
-      if (count > 1) {
-        dupGroups += 1;
-        dupCount += (count - 1);
-      }
-    }
-
-    return { groups: dupGroups, duplicates: dupCount };
-  }, [transactions, isTransferTx, dateKey, normalizeDescKey]);
+  const qualitySummary = useMemo(
+    () => analyzeDataQuality(transactions, { isTransferTx, dateKey, normalizeDescKey }),
+    [transactions, isTransferTx, dateKey, normalizeDescKey]
+  );
+  const duplicateSummary = useMemo(
+    () => ({ groups: qualitySummary.duplicateGroups, duplicates: qualitySummary.duplicateCount }),
+    [qualitySummary.duplicateGroups, qualitySummary.duplicateCount]
+  );
 
   const handleRemoveDuplicates = useCallback(async () => {
     if (!transactions?.length || dedupeBusy) return;
@@ -882,6 +865,26 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         <div className="stat-item">
           <div className="stat-label">Uscite Totali</div>
           <div className="stat-value negative">{formatMoney(stats.totalExpenses)}</div>
+        </div>
+      </div>
+
+      <div className={`data-quality-guard level-${qualitySummary.severity}`}>
+        <div className="data-quality-head">
+          <strong>Data Quality Guard</strong>
+          <span>{qualitySummary.issueCount} criticita</span>
+        </div>
+        <div className="data-quality-chips">
+          <span className="dq-chip">Duplicati: {qualitySummary.duplicateCount}</span>
+          <span className="dq-chip">Senza categoria: {qualitySummary.missingCategory}</span>
+          <span className="dq-chip">Importi anomali: {qualitySummary.highExpenseCount}</span>
+        </div>
+        <div className="data-quality-actions">
+          <button className="secondary-btn hide-mobile" onClick={handleRemoveDuplicates} type="button" disabled={dedupeBusy || qualitySummary.duplicateCount === 0}>
+            {dedupeBusy ? 'Rimozione...' : 'Rimuovi duplicati'}
+          </button>
+          <button className="secondary-btn hide-mobile" onClick={handleRepairCategories} type="button" disabled={repairingCategories || qualitySummary.missingCategory === 0}>
+            {repairingCategories ? 'Riparazione...' : 'Ripara categorie'}
+          </button>
         </div>
       </div>
 

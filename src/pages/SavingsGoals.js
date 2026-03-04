@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";
 import { getCurrencySymbol } from "../utils/currency";
+import { buildGoalsCopilotPlan } from "../utils/goalsCopilot";
 import PageHeader from "../components/app/PageHeader";
 import {
   getSavingsGoals,
@@ -173,6 +174,16 @@ export default function SavingsGoals() {
     if (p <= 0 || monthlyIncome <= 0) return 0;
     return Number(((monthlyIncome * p) / 100).toFixed(2));
   }, [monthlyIncome, autopilot.percent]);
+
+  const goalsCopilot = useMemo(
+    () =>
+      buildGoalsCopilotPlan({
+        goals,
+        monthlyIncome,
+        savingsRatePct: Number(autopilot.percent) || 0
+      }),
+    [autopilot.percent, goals, monthlyIncome]
+  );
 
   const alreadyAppliedThisMonth = useMemo(() => {
     if (!autopilot.goalId) return false;
@@ -492,6 +503,9 @@ export default function SavingsGoals() {
             <div>Proiezione versamento: <strong>{cs} {fmt(projectedAutopilotAmount)}</strong></div>
             <div className={alreadyAppliedThisMonth ? "autopilot-pill danger" : "autopilot-pill ok"}>
               {alreadyAppliedThisMonth ? "Gia' applicato questo mese" : "Pronto per questo mese"}
+            </div>
+            <div className="autopilot-copilot-note">
+              Copilot: {goalsCopilot.note}
             </div>
           </div>
 

@@ -24,6 +24,7 @@ import SpendingHeatmap from '../components/reports/SpendingHeatmap';
 import InsightsPanel from '../components/reports/InsightsPanel';
 import PageHeader from '../components/app/PageHeader';
 import { formatEntityLabel } from '../utils/text';
+import { projectScenario } from '../utils/scenarioForecast';
 import { computeNextDueDate, getSubscriptions } from '../services/subscriptionsService';
 import { createSubscriptionPayment, getSubscriptionPayments } from '../services/subscriptionPaymentsService';
 import {
@@ -166,6 +167,7 @@ function Reports() {
 
   const [sortBy, setSortBy] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+  const [scenarioExpenseShift, setScenarioExpenseShift] = useState(0);
   const tabsScrollRef = useRef(null);
   const tabBtnRefs = useRef({});
   const [presetName, setPresetName] = useState('');
@@ -1414,6 +1416,16 @@ function Reports() {
     };
   }, [stats, expensesByCategory, filteredTransactions, parseDateInput, dateRange.end]);
 
+  const scenarioProjection = useMemo(
+    () =>
+      projectScenario({
+        income: overviewSignals.projectedIncome,
+        expenses: overviewSignals.projectedExpenses,
+        expenseShiftPct: scenarioExpenseShift
+      }),
+    [overviewSignals.projectedExpenses, overviewSignals.projectedIncome, scenarioExpenseShift]
+  );
+
   // -----------------------------
   // Actions: export CSV / print
   // -----------------------------
@@ -1769,6 +1781,25 @@ function Reports() {
           <div className="meta">
             {overviewSignals.inCurrentMonth ? 'Stimata su mese corrente' : 'Periodo non corrente'}
           </div>
+        </div>
+        <div className="reports-hero-card scenario">
+          <div className="label">Scenario (uscite)</div>
+          <div className={`value ${scenarioProjection.projectedNet >= 0 ? 'positive' : 'negative'}`}>
+            {formatEUR(scenarioProjection.projectedNet)}
+          </div>
+          <div className="meta">
+            Delta: {scenarioExpenseShift > 0 ? '+' : ''}{scenarioExpenseShift}% uscite
+          </div>
+          <input
+            className="scenario-slider"
+            type="range"
+            min="-30"
+            max="30"
+            step="1"
+            value={scenarioExpenseShift}
+            onChange={(e) => setScenarioExpenseShift(Number(e.target.value) || 0)}
+            aria-label="Scenario variazione uscite"
+          />
         </div>
       </div>
 

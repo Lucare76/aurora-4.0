@@ -138,6 +138,16 @@
   color: #fca5a5;
 }
 
+.autopilot-copilot-note {
+  width: 100%;
+  font-size: 0.84rem;
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
 .autopilot-actions {
   margin-top: 14px;
 }

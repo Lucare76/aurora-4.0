@@ -12,6 +12,9 @@ import {
   normalizeSubscriptionNotificationOffsets,
   SUBSCRIPTION_NOTIFICATION_OPTIONS
 } from '../../utils/subscriptionsNotifications';
+import { getFamilyPermissions } from '../../utils/familyWorkflow';
+import { getBackupCollections } from '../../utils/backupProfiles';
+import { clearRuntimeIssues, getRuntimeIssues } from '../../utils/reliability';
 
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
@@ -19,8 +22,10 @@ function SettingsContent() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [exporting, setExporting] = useState(false);
+  const [runtimeIssueCount, setRuntimeIssueCount] = useState(0);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [familyRolePreview, setFamilyRolePreview] = useState('owner');
   const hasLoadedOnceRef = useRef(false);
   const autoSaveTimerRef = useRef(null);
 
@@ -196,6 +201,10 @@ function SettingsContent() {
   }, [user]);
 
   useEffect(() => {
+    setRuntimeIssueCount(getRuntimeIssues().length);
+  }, []);
+
+  useEffect(() => {
     if (!user?.uid || !hasLoadedOnceRef.current) return;
 
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -348,6 +357,10 @@ function SettingsContent() {
   }, [settings.dashboardOrder]);
 
   const previewOrder = useMemo(() => buildDashboardPreview(settings), [settings]);
+  const familyPermissionsPreview = useMemo(
+    () => getFamilyPermissions(familyRolePreview, settings),
+    [familyRolePreview, settings]
+  );
 
   const handleResetDashboardDefaults = () => {
     setSettings((prev) => ({
@@ -418,7 +431,7 @@ function SettingsContent() {
     return value;
   };
 
-  const handleExportBackup = async () => {
+  const handleExportBackup = async (profile = 'full') => {
     if (!user?.uid || exporting) return;
     setExporting(true);
     try {
@@ -428,22 +441,12 @@ function SettingsContent() {
       const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.exists() ? serializeValue(userDoc.data()) : {};
 
-      const collections = [
-        'transactions',
-        'accounts',
-        'categories',
-        'budgets',
-        'savingsGoals',
-        'recurringTransactions',
-        'subscriptions',
-        'subscriptionPayments',
-        'subscriptionReconciliationLogs',
-        'birthdays'
-      ];
+      const collections = getBackupCollections(profile);
 
       const payload = {
         exportedAt: new Date().toISOString(),
         userId: user.uid,
+        profile,
         user: userData,
         data: {}
       };
@@ -462,7 +465,7 @@ function SettingsContent() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `aurora-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `aurora-backup-${profile}-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -471,6 +474,31 @@ function SettingsContent() {
     } finally {
       setExporting(false);
     }
+  };
+
+  const handleExportRuntimeLogs = () => {
+    try {
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        total: getRuntimeIssues().length,
+        logs: getRuntimeIssues()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `aurora-runtime-logs-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Errore export log runtime:', error);
+    }
+  };
+
+  const handleClearRuntimeLogs = () => {
+    clearRuntimeIssues();
+    setRuntimeIssueCount(0);
+    setMessage({ text: 'Log runtime puliti', type: 'success' });
   };
 
   if (loading) {
@@ -754,6 +782,33 @@ function SettingsContent() {
                 />
                 <span>Approvazioni interne al team</span>
               </label>
+              <div className="form-group">
+                <label htmlFor="familyRolePreview">Anteprima ruolo</label>
+                <select
+                  id="familyRolePreview"
+                  className="settings-select"
+                  value={familyRolePreview}
+                  onChange={(e) => setFamilyRolePreview(e.target.value)}
+                >
+                  <option value="owner">Owner</option>
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+              <div className="family-permission-preview">
+                <span className={`family-perm-chip ${familyPermissionsPreview.canEditTransactions ? 'on' : 'off'}`}>
+                  Modifica transazioni: {familyPermissionsPreview.canEditTransactions ? 'SI' : 'NO'}
+                </span>
+                <span className={`family-perm-chip ${familyPermissionsPreview.canApprove ? 'on' : 'off'}`}>
+                  Approvazioni: {familyPermissionsPreview.canApprove ? 'SI' : 'NO'}
+                </span>
+                <span className={`family-perm-chip ${familyPermissionsPreview.canComment ? 'on' : 'off'}`}>
+                  Commenti: {familyPermissionsPreview.canComment ? 'SI' : 'NO'}
+                </span>
+                <span className={`family-perm-chip ${familyPermissionsPreview.canManageBudgets ? 'on' : 'off'}`}>
+                  Budget condivisi: {familyPermissionsPreview.canManageBudgets ? 'SI' : 'NO'}
+                </span>
+              </div>
               <small>Puoi attivare queste opzioni solo se ti servono.</small>
             </div>
           </div>
@@ -1042,6 +1097,18 @@ function SettingsContent() {
                   {user?.uid?.substring(0, 20)}...
                 </span>
               </div>
+              <div className="info-row">
+                <span className="info-label">Log runtime locali:</span>
+                <span className="info-value">{runtimeIssueCount}</span>
+              </div>
+              <div className="settings-inline-actions">
+                <button type="button" className="btn-secondary-settings" onClick={handleExportRuntimeLogs}>
+                  Esporta log runtime
+                </button>
+                <button type="button" className="btn-secondary-settings" onClick={handleClearRuntimeLogs}>
+                  Pulisci log runtime
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1069,16 +1136,19 @@ function SettingsContent() {
 
           <div className="setting-section">
             <h3>Backup Dati</h3>
-            <p className="section-description">Esporta tutti i tuoi dati in un file JSON.</p>
+            <p className="section-description">Esporta backup completo o selettivo in JSON.</p>
             <div className="setting-form">
-              <button
-                onClick={handleExportBackup}
-                disabled={exporting}
-                className="btn-save-settings"
-                type="button"
-              >
-                {exporting ? 'Esportazione...' : 'Esporta Backup'}
-              </button>
+              <div className="settings-inline-actions">
+                <button onClick={() => handleExportBackup('full')} disabled={exporting} className="btn-save-settings" type="button">
+                  {exporting ? 'Esportazione...' : 'Backup completo'}
+                </button>
+                <button onClick={() => handleExportBackup('finance')} disabled={exporting} className="btn-secondary-settings" type="button">
+                  Solo finanza
+                </button>
+                <button onClick={() => handleExportBackup('planner')} disabled={exporting} className="btn-secondary-settings" type="button">
+                  Solo planner
+                </button>
+              </div>
             </div>
           </div>
         </div>

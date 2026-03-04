@@ -1,4 +1,5 @@
 import React from "react";
+import { logRuntimeIssue } from "../utils/reliability";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -13,6 +14,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     // Log utile in dev
     console.error("ErrorBoundary caught:", error, info);
+    logRuntimeIssue(error, "error_boundary");
   }
 
   handleReload = () => {
