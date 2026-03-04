@@ -2,7 +2,9 @@ export const DASHBOARD_SECTIONS = [
   { id: 'header', label: 'Buongiorno', required: true },
   { id: 'financial', label: 'Saldo totale + Cash Flow', required: true },
   { id: 'story', label: 'Story del mese', required: true },
+  { id: 'focusToday', label: 'Focus Oggi', required: false },
   { id: 'subscriptionsDue', label: 'Abbonamenti in scadenza', required: false },
+  { id: 'subscriptionsOverdue', label: 'Abbonamenti scaduti', required: false },
   { id: 'smartInsights', label: 'Insights intelligenti', required: false },
   { id: 'forecast', label: 'Forecast 30/60/90 giorni', required: false },
   { id: 'insightsBase', label: 'Insights (card standard)', required: false },
@@ -18,6 +20,8 @@ export const OPTIONAL_SECTION_IDS = DASHBOARD_SECTIONS.filter((s) => !s.required
 
 export const DASHBOARD_VISIBILITY_FIELDS = {
   subscriptionsDue: 'dashboardShowSubscriptionsDue',
+  focusToday: 'dashboardShowFocusToday',
+  subscriptionsOverdue: 'dashboardShowSubscriptionsOverdue',
   smartInsights: 'dashboardShowSmartInsights',
   forecast: 'dashboardShowForecast',
   insightsBase: 'dashboardShowInsightsBase',

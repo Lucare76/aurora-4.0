@@ -98,7 +98,7 @@ export default function Budgets() {
         const budget = Number(b?.amount) || 0;
 
         const pct = budget > 0 ? (spent / budget) * 100 : 0;
-        const state = budget <= 0 ? "none" : pct >= 100 ? "over" : pct >= 75 ? "warn" : "ok";
+        const state = budget <= 0 ? "none" : pct >= 100 ? "over" : pct >= 85 ? "warn-high" : pct >= 70 ? "warn" : "ok";
 
         const now = new Date();
         const daysInMonth = new Date(year, month, 0).getDate();
@@ -146,6 +146,17 @@ export default function Budgets() {
     const riskCount = rows.filter((r) => r.forecastState === "risk").length;
     return { totalBudget, totalSpent, totalProjected, riskCount };
   }, [rows]);
+
+  const dailyBudgetSummary = useMemo(() => {
+    const now = new Date();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month;
+    const isPastMonth = now.getFullYear() > year || (now.getFullYear() === year && now.getMonth() + 1 > month);
+    const daysRemaining = isPastMonth ? 0 : isCurrentMonth ? Math.max(0, daysInMonth - now.getDate() + 1) : daysInMonth;
+    const remaining = forecastSummary.totalBudget - forecastSummary.totalSpent;
+    const perDay = daysRemaining > 0 ? remaining / daysRemaining : 0;
+    return { daysRemaining, remaining, perDay, isPastMonth };
+  }, [forecastSummary.totalBudget, forecastSummary.totalSpent, month, year]);
 
   const activeBudgetCount = useMemo(() => rows.filter((r) => r.budget > 0).length, [rows]);
 
@@ -287,11 +298,37 @@ export default function Budgets() {
             <div className="label">Categorie a Rischio</div>
             <div className="value">{forecastSummary.riskCount}</div>
           </div>
+          <div
+            className={`budget-summary-card ${
+              dailyBudgetSummary.remaining < 0 ? "risk" : dailyBudgetSummary.perDay > 0 ? "ok" : ""
+            }`}
+          >
+            <div className="label">Spendibile al giorno</div>
+            <div className="value">
+              {dailyBudgetSummary.daysRemaining > 0
+                ? formatCurrency(dailyBudgetSummary.perDay, userSettings?.currency || "EUR")
+                : formatCurrency(0, userSettings?.currency || "EUR")}
+            </div>
+            <div className="label">
+              {dailyBudgetSummary.isPastMonth
+                ? "Mese chiuso"
+                : `${dailyBudgetSummary.daysRemaining} giorni residui`}
+            </div>
+          </div>
         </div>
 
         <div className="budgets-grid">
           {rows.map((r) => {
-            const badge = r.state === "over" ? "Superato" : r.state === "warn" ? "Oltre 75%" : r.state === "ok" ? "OK" : "-";
+            const badge =
+              r.state === "over"
+                ? "Superato"
+                : r.state === "warn-high"
+                ? "Oltre 85%"
+                : r.state === "warn"
+                ? "Oltre 70%"
+                : r.state === "ok"
+                ? "OK"
+                : "-";
             const pctShown = r.budget > 0 ? Math.min(r.pct, 100) : 0;
 
             return (
@@ -332,6 +369,26 @@ export default function Budgets() {
                         onClick={() => handleSave(r.category.id, r.dynamicSuggested, r.category.name)}
                       >
                         Usa suggerito ({formatCurrency(r.dynamicSuggested, userSettings?.currency || "EUR")})
+                      </button>
+                    )}
+                    {r.spent > 0 && (
+                      <button
+                        type="button"
+                        className="budget-suggest-btn secondary"
+                        onClick={() => handleSave(r.category.id, Math.ceil(r.spent), r.category.name)}
+                        disabled={saving}
+                      >
+                        Allinea a speso ({formatCurrency(Math.ceil(r.spent), userSettings?.currency || "EUR")})
+                      </button>
+                    )}
+                    {r.projected > 0 && (
+                      <button
+                        type="button"
+                        className="budget-suggest-btn secondary"
+                        onClick={() => handleSave(r.category.id, Math.ceil(r.projected), r.category.name)}
+                        disabled={saving}
+                      >
+                        Usa forecast ({formatCurrency(Math.ceil(r.projected), userSettings?.currency || "EUR")})
                       </button>
                     )}
                     {r.budgetId && (

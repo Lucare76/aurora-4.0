@@ -34,7 +34,9 @@ function SettingsContent() {
     savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
     dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal',
     dashboardOrder: normalizeDashboardOrder(userSettings?.dashboardOrder),
+    dashboardShowFocusToday: userSettings?.dashboardShowFocusToday ?? false,
     dashboardShowSubscriptionsDue: userSettings?.dashboardShowSubscriptionsDue ?? false,
+    dashboardShowSubscriptionsOverdue: userSettings?.dashboardShowSubscriptionsOverdue ?? false,
     dashboardShowSmartInsights: userSettings?.dashboardShowSmartInsights ?? false,
     dashboardShowForecast: userSettings?.dashboardShowForecast ?? false,
     dashboardShowInsightsBase: userSettings?.dashboardShowInsightsBase ?? false,
@@ -53,17 +55,21 @@ function SettingsContent() {
     bellShowBirthdays: userSettings?.bellShowBirthdays ?? true,
     bellShowSubscriptions: userSettings?.bellShowSubscriptions ?? true,
     bellShowUpcoming7Days: userSettings?.bellShowUpcoming7Days ?? true,
+    bellSubscriptionReminderDays: Number(userSettings?.bellSubscriptionReminderDays) || 7,
     familyModeEnabled: userSettings?.familyModeEnabled ?? false,
     familyBudgetsEnabled: userSettings?.familyBudgetsEnabled ?? false,
     familyCommentsEnabled: userSettings?.familyCommentsEnabled ?? false,
-    familyApprovalsEnabled: userSettings?.familyApprovalsEnabled ?? false
+    familyApprovalsEnabled: userSettings?.familyApprovalsEnabled ?? false,
+    onboardingDisabled: userSettings?.onboardingDisabled ?? false
   });
 
   const dashboardSettingsPayload = useMemo(
     () => ({
       dashboardMobileMode: settings.dashboardMobileMode || 'normal',
       dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
+      dashboardShowFocusToday: settings.dashboardShowFocusToday === true,
       dashboardShowSubscriptionsDue: settings.dashboardShowSubscriptionsDue === true,
+      dashboardShowSubscriptionsOverdue: settings.dashboardShowSubscriptionsOverdue === true,
       dashboardShowSmartInsights: settings.dashboardShowSmartInsights === true,
       dashboardShowForecast: settings.dashboardShowForecast === true,
       dashboardShowInsightsBase: settings.dashboardShowInsightsBase === true,
@@ -78,8 +84,10 @@ function SettingsContent() {
       settings.dashboardShowActions,
       settings.dashboardShowBirthdays,
       settings.dashboardShowBudgetAlerts,
+      settings.dashboardShowFocusToday,
       settings.dashboardShowForecast,
       settings.dashboardShowInsightsBase,
+      settings.dashboardShowSubscriptionsOverdue,
       settings.dashboardShowSubscriptionsDue,
       settings.dashboardShowSmartInsights,
       settings.dashboardShowTop5
@@ -109,7 +117,9 @@ function SettingsContent() {
             savingsTargetAmount: data.savingsTargetAmount ?? 0,
             dashboardMobileMode: data.dashboardMobileMode || 'normal',
             dashboardOrder: normalizeDashboardOrder(data.dashboardOrder),
+            dashboardShowFocusToday: data.dashboardShowFocusToday ?? false,
             dashboardShowSubscriptionsDue: data.dashboardShowSubscriptionsDue ?? false,
+            dashboardShowSubscriptionsOverdue: data.dashboardShowSubscriptionsOverdue ?? false,
             dashboardShowSmartInsights: data.dashboardShowSmartInsights ?? false,
             dashboardShowForecast: data.dashboardShowForecast ?? false,
             dashboardShowInsightsBase: data.dashboardShowInsightsBase ?? false,
@@ -128,10 +138,12 @@ function SettingsContent() {
             bellShowBirthdays: data.bellShowBirthdays ?? true,
             bellShowSubscriptions: data.bellShowSubscriptions ?? true,
             bellShowUpcoming7Days: data.bellShowUpcoming7Days ?? true,
+            bellSubscriptionReminderDays: Number(data.bellSubscriptionReminderDays) || 7,
             familyModeEnabled: data.familyModeEnabled ?? false,
             familyBudgetsEnabled: data.familyBudgetsEnabled ?? false,
             familyCommentsEnabled: data.familyCommentsEnabled ?? false,
-            familyApprovalsEnabled: data.familyApprovalsEnabled ?? false
+            familyApprovalsEnabled: data.familyApprovalsEnabled ?? false,
+            onboardingDisabled: data.onboardingDisabled ?? false
           });
         } else {
           setSettings({
@@ -144,7 +156,9 @@ function SettingsContent() {
             savingsTargetAmount: 0,
             dashboardMobileMode: 'normal',
             dashboardOrder: normalizeDashboardOrder(null),
+            dashboardShowFocusToday: false,
             dashboardShowSubscriptionsDue: false,
+            dashboardShowSubscriptionsOverdue: false,
             dashboardShowSmartInsights: false,
             dashboardShowForecast: false,
             dashboardShowInsightsBase: false,
@@ -161,10 +175,12 @@ function SettingsContent() {
             bellShowBirthdays: true,
             bellShowSubscriptions: true,
             bellShowUpcoming7Days: true,
+            bellSubscriptionReminderDays: 7,
             familyModeEnabled: false,
             familyBudgetsEnabled: false,
             familyCommentsEnabled: false,
-            familyApprovalsEnabled: false
+            familyApprovalsEnabled: false,
+            onboardingDisabled: false
           });
         }
       } catch (error) {
@@ -233,6 +249,7 @@ function SettingsContent() {
           savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           ...dashboardSettingsPayload,
+          dashboardShowFocusToday: settings.dashboardShowFocusToday === true,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
           subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets),
           subscriptionsNotificationsDays: Math.max(
@@ -245,10 +262,12 @@ function SettingsContent() {
           bellShowBirthdays: settings.bellShowBirthdays !== false,
           bellShowSubscriptions: settings.bellShowSubscriptions !== false,
           bellShowUpcoming7Days: settings.bellShowUpcoming7Days !== false,
+          bellSubscriptionReminderDays: Number(settings.bellSubscriptionReminderDays) || 7,
           familyModeEnabled: !!settings.familyModeEnabled,
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
-          familyApprovalsEnabled: !!settings.familyApprovalsEnabled
+          familyApprovalsEnabled: !!settings.familyApprovalsEnabled,
+          onboardingDisabled: !!settings.onboardingDisabled
         })
       ]);
 
@@ -260,6 +279,7 @@ function SettingsContent() {
           savingsTargetPercent: Number(settings.savingsTargetPercent) || 0,
           savingsTargetAmount: Number(settings.savingsTargetAmount) || 0,
           ...dashboardSettingsPayload,
+          dashboardShowFocusToday: settings.dashboardShowFocusToday === true,
           subscriptionsNotificationsEnabled: !!settings.subscriptionsNotificationsEnabled,
           subscriptionsNotificationOffsets: normalizeSubscriptionNotificationOffsets(settings.subscriptionsNotificationOffsets),
           subscriptionsNotificationsDays: Math.max(
@@ -272,10 +292,12 @@ function SettingsContent() {
           bellShowBirthdays: settings.bellShowBirthdays !== false,
           bellShowSubscriptions: settings.bellShowSubscriptions !== false,
           bellShowUpcoming7Days: settings.bellShowUpcoming7Days !== false,
+          bellSubscriptionReminderDays: Number(settings.bellSubscriptionReminderDays) || 7,
           familyModeEnabled: !!settings.familyModeEnabled,
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
-          familyApprovalsEnabled: !!settings.familyApprovalsEnabled
+          familyApprovalsEnabled: !!settings.familyApprovalsEnabled,
+          onboardingDisabled: !!settings.onboardingDisabled
         }));
       }
 
@@ -295,6 +317,11 @@ function SettingsContent() {
 
   const handleChange = (field, value) => {
     setSettings((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleReopenOnboarding = () => {
+    window.dispatchEvent(new Event('aurora_onboarding_open'));
+    setMessage({ text: 'Guida rapida aperta', type: 'success' });
   };
 
   const toggleSubscriptionNotificationOffset = (day) => {
@@ -326,7 +353,9 @@ function SettingsContent() {
     setSettings((prev) => ({
       ...prev,
       dashboardOrder: normalizeDashboardOrder(null),
+      dashboardShowFocusToday: false,
       dashboardShowSubscriptionsDue: false,
+      dashboardShowSubscriptionsOverdue: false,
       dashboardShowSmartInsights: false,
       dashboardShowForecast: false,
       dashboardShowInsightsBase: false,
@@ -667,8 +696,23 @@ function SettingsContent() {
                   checked={settings.bellShowUpcoming7Days !== false}
                   onChange={(e) => handleChange('bellShowUpcoming7Days', e.target.checked)}
                 />
-                <span>Mostra prossimi 7 giorni</span>
+                <span>Mostra prossimi giorni</span>
               </label>
+              <div className="form-group">
+                <label htmlFor="bellSubscriptionReminderDays">Finestra promemoria campanella</label>
+                <select
+                  id="bellSubscriptionReminderDays"
+                  value={Number(settings.bellSubscriptionReminderDays) || 7}
+                  onChange={(e) => handleChange('bellSubscriptionReminderDays', Number(e.target.value) || 7)}
+                  className="settings-select"
+                >
+                  <option value={3}>3 giorni</option>
+                  <option value={7}>7 giorni</option>
+                  <option value={14}>14 giorni</option>
+                  <option value={30}>30 giorni</option>
+                </select>
+                <small>Controlla quanti giorni futuri mostrare nella campanella (abbonamenti e compleanni).</small>
+              </div>
             </div>
           </div>
 
@@ -854,10 +898,26 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
+                  checked={!!settings.dashboardShowFocusToday}
+                  onChange={(e) => handleChange('dashboardShowFocusToday', e.target.checked)}
+                />
+                <span>Focus Oggi</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
                   checked={!!settings.dashboardShowSubscriptionsDue}
                   onChange={(e) => handleChange('dashboardShowSubscriptionsDue', e.target.checked)}
                 />
                 <span>Abbonamenti in scadenza</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSubscriptionsOverdue}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionsOverdue', e.target.checked)}
+                />
+                <span>Abbonamenti scaduti</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -981,6 +1041,28 @@ function SettingsContent() {
                 <span className="info-value" style={{ fontSize: '0.85rem', opacity: 0.8 }}>
                   {user?.uid?.substring(0, 20)}...
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="setting-section">
+            <h3>Onboarding</h3>
+            <p className="section-description">
+              Gestisci la guida rapida mostrata alla prima apertura.
+            </p>
+            <div className="setting-form">
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!settings.onboardingDisabled}
+                  onChange={(e) => handleChange('onboardingDisabled', !e.target.checked)}
+                />
+                <span>Mostra guida rapida iniziale</span>
+              </label>
+              <div className="settings-inline-actions">
+                <button type="button" className="btn-secondary-settings" onClick={handleReopenOnboarding}>
+                  Rivedi guida adesso
+                </button>
               </div>
             </div>
           </div>

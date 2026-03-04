@@ -82,7 +82,7 @@
 
 .budget-forecast-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -114,6 +114,11 @@
   background: linear-gradient(180deg, rgba(127, 29, 29, 0.28), rgba(15, 23, 42, 0.42));
 }
 
+.budget-summary-card.ok {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: linear-gradient(180deg, rgba(20, 83, 45, 0.25), rgba(15, 23, 42, 0.42));
+}
+
 .budgets-grid {
   display: grid;
   gap: 12px;
@@ -132,6 +137,10 @@
 
 .budget-row-card.warn {
   border-color: rgba(245, 158, 11, 0.65);
+}
+
+.budget-row-card.warn-high {
+  border-color: rgba(249, 115, 22, 0.68);
 }
 
 .budget-row-card.ok {
@@ -220,6 +229,16 @@
   background: rgba(59, 130, 246, 0.28);
 }
 
+.budget-suggest-btn.secondary {
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+}
+
+.budget-suggest-btn.secondary:hover {
+  background: rgba(30, 41, 59, 0.75);
+}
+
 .budget-progress-wrap {
   margin-top: 12px;
 }
@@ -243,6 +262,10 @@
 
 .budget-progress-fill.warn {
   background: linear-gradient(90deg, #f59e0b, #ea580c);
+}
+
+.budget-progress-fill.warn-high {
+  background: linear-gradient(90deg, #f97316, #ea580c);
 }
 
 .budget-progress-fill.over {

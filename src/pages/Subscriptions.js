@@ -42,12 +42,15 @@ export default function Subscriptions() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bulkRenewing, setBulkRenewing] = useState(false);
   const [editingId, setEditingId] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentOwnerFilter, setPaymentOwnerFilter] = useState('all');
   const [paymentProviderFilter, setPaymentProviderFilter] = useState('all');
+  const [paymentSearchTerm, setPaymentSearchTerm] = useState('');
   const [message, setMessage] = useState({ text: '', type: '' });
   const [form, setForm] = useState({
     name: '',
@@ -329,14 +332,109 @@ export default function Subscriptions() {
   }, [loadPayments, user?.uid, userSettings?.currency]);
 
   const filteredItems = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
     return items.filter((item) => {
       const days = getDaysTo(item.nextDueDate);
-      if (statusFilter === 'active') return item.active !== false;
-      if (statusFilter === 'paused') return item.active === false;
-      if (statusFilter === 'soon') return item.active !== false && days != null && days >= 0 && days <= reminderDays;
-      return true;
+      const matchesStatus =
+        statusFilter === 'active'
+          ? item.active !== false
+          : statusFilter === 'paused'
+          ? item.active === false
+          : statusFilter === 'soon'
+          ? item.active !== false && days != null && days >= 0 && days <= reminderDays
+          : statusFilter === 'overdue'
+          ? item.active !== false && days != null && days < 0
+          : true;
+      if (!matchesStatus) return false;
+      if (!q) return true;
+      const haystack = [item.name, item.ownerName, item.provider]
+        .map((v) => String(v || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(q);
     });
-  }, [items, reminderDays, statusFilter]);
+  }, [items, reminderDays, searchTerm, statusFilter]);
+
+  const overdueActiveItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const days = getDaysTo(item.nextDueDate);
+        return item.active !== false && days != null && days < 0;
+      }),
+    [items]
+  );
+
+  const handleBulkRenewOverdue = useCallback(async () => {
+    if (!user?.uid || bulkRenewing || saving || overdueActiveItems.length === 0) return;
+    if (!window.confirm(`Confermi il rinnovo di ${overdueActiveItems.length} abbonamenti scaduti?`)) return;
+
+    setBulkRenewing(true);
+    let success = 0;
+    let failed = 0;
+
+    for (const item of overdueActiveItems) {
+      try {
+        if (userSettings?.subscriptionsAutoCreateTransactionOnRenew !== false) {
+          const targetAccountId = item?.accountId || accounts[0]?.id || null;
+          if (!targetAccountId) throw new Error('Nessun conto disponibile');
+          const txPayload = {
+            description: `Rinnovo abbonamento: ${item.name}`,
+            amount: Math.abs(Number(item?.amount) || 0),
+            type: 'expense',
+            accountId: targetAccountId,
+            date: new Date(),
+            isSubscriptionPayment: true,
+            subscriptionId: item.id,
+            subscriptionName: item.name,
+            ownerName: item.ownerName || '',
+            provider: item.provider || ''
+          };
+          if (subscriptionExpenseCategory?.id) {
+            txPayload.categoryId = subscriptionExpenseCategory.id;
+          } else {
+            txPayload.category = 'Abbonamenti';
+          }
+          await createTransaction(txPayload);
+        }
+
+        await createSubscriptionPayment(user.uid, {
+          subscriptionId: item.id,
+          subscriptionName: item.name,
+          ownerName: item.ownerName || '',
+          provider: item.provider || '',
+          amount: Number(item.amount) || 0,
+          currency: userSettings?.currency || 'EUR',
+          paidAt: new Date(),
+          method: 'renewal',
+          notes: 'Rinnovo massivo abbonamenti scaduti'
+        });
+        await markSubscriptionPaid(item);
+        success += 1;
+      } catch (e) {
+        console.error('Errore rinnovo massivo abbonamento:', e);
+        failed += 1;
+      }
+    }
+
+    if (failed === 0) {
+      setMessage({ text: `Rinnovati ${success} abbonamenti scaduti`, type: 'success' });
+    } else {
+      setMessage({ text: `Rinnovati ${success}, errori su ${failed}`, type: 'error' });
+    }
+    setBulkRenewing(false);
+    await Promise.all([loadItems(), loadPayments()]);
+  }, [
+    accounts,
+    bulkRenewing,
+    createTransaction,
+    loadItems,
+    loadPayments,
+    overdueActiveItems,
+    saving,
+    subscriptionExpenseCategory?.id,
+    user?.uid,
+    userSettings?.currency,
+    userSettings?.subscriptionsAutoCreateTransactionOnRenew
+  ]);
 
   const paymentOwners = useMemo(() => {
     const set = new Set();
@@ -357,12 +455,19 @@ export default function Subscriptions() {
   }, [payments]);
 
   const filteredPayments = useMemo(() => {
+    const q = paymentSearchTerm.trim().toLowerCase();
     return payments.filter((p) => {
       if (paymentOwnerFilter !== 'all' && String(p?.ownerName || '') !== paymentOwnerFilter) return false;
       if (paymentProviderFilter !== 'all' && String(p?.provider || '') !== paymentProviderFilter) return false;
+      if (q) {
+        const haystack = [p?.subscriptionName, p?.ownerName, p?.provider]
+          .map((v) => String(v || '').toLowerCase())
+          .join(' ');
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [payments, paymentOwnerFilter, paymentProviderFilter]);
+  }, [paymentSearchTerm, paymentOwnerFilter, paymentProviderFilter, payments]);
 
   const paymentStats = useMemo(() => {
     const now = new Date();
@@ -437,8 +542,28 @@ export default function Subscriptions() {
           <button type="button" className={statusFilter === 'soon' ? 'active' : ''} onClick={() => setStatusFilter('soon')}>
             In scadenza ({reminderDays}g)
           </button>
+          <button type="button" className={statusFilter === 'overdue' ? 'active' : ''} onClick={() => setStatusFilter('overdue')}>
+            Scaduti
+          </button>
           <button type="button" className={statusFilter === 'active' ? 'active' : ''} onClick={() => setStatusFilter('active')}>Attivi</button>
           <button type="button" className={statusFilter === 'paused' ? 'active' : ''} onClick={() => setStatusFilter('paused')}>In pausa</button>
+        </div>
+        <input
+          type="text"
+          className="subscriptions-search"
+          placeholder="Cerca nome/intestatario/fornitore..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="subscriptions-toolbar-actions">
+          <button
+            type="button"
+            className="sub-btn ghost"
+            onClick={handleBulkRenewOverdue}
+            disabled={saving || bulkRenewing || overdueActiveItems.length === 0}
+          >
+            {bulkRenewing ? 'Rinnovo massivo...' : `Rinnova scaduti (${overdueActiveItems.length})`}
+          </button>
         </div>
       </div>
 
@@ -508,6 +633,13 @@ export default function Subscriptions() {
         </div>
 
         <div className="subscriptions-history-filters">
+          <input
+            type="text"
+            className="subscriptions-search"
+            placeholder="Cerca nello storico..."
+            value={paymentSearchTerm}
+            onChange={(e) => setPaymentSearchTerm(e.target.value)}
+          />
           <select value={paymentOwnerFilter} onChange={(e) => setPaymentOwnerFilter(e.target.value)}>
             <option value="all">Intestatari: tutti</option>
             {paymentOwners.map((owner) => (

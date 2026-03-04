@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import Header from './Header';
 import DashboardContent from './DashboardContent';
 import SettingsContent from './SettingsContent';
+import QuickAddFab from './QuickAddFab';
 
 const Reports = lazy(() => import('../../pages/Reports'));
 const Importa = lazy(() => import('../../pages/Importa'));
@@ -71,6 +72,7 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
     <div className="main-content">
       <Header setSidebarOpen={setSidebarOpen} setActiveMenu={setActiveMenu} />
       <div className="content-area">{renderContent()}</div>
+      <QuickAddFab setActiveMenu={setActiveMenu} />
     </div>
   );
 }

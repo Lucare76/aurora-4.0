@@ -35,9 +35,14 @@ export const AuthProvider = ({ children }) => {
     savingsTargetPercent: 20,
     savingsTargetAmount: 0,
     dashboardMobileMode: 'normal',
+    dashboardShowFocusToday: false,
+    dashboardShowSubscriptionsOverdue: false,
+    onboardingCompleted: false,
+    onboardingDisabled: false,
     bellShowBirthdays: true,
     bellShowSubscriptions: true,
-    bellShowUpcoming7Days: true
+    bellShowUpcoming7Days: true,
+    bellSubscriptionReminderDays: 7
   });
 
   const setUserFromFirebaseUser = useCallback((firebaseUser) => {
@@ -220,7 +225,15 @@ export const AuthProvider = ({ children }) => {
               savingsTargetType: data.savingsTargetType || 'percent',
               savingsTargetPercent: data.savingsTargetPercent ?? 20,
               savingsTargetAmount: data.savingsTargetAmount ?? 0,
-              dashboardMobileMode: data.dashboardMobileMode || 'normal'
+              dashboardMobileMode: data.dashboardMobileMode || 'normal',
+              dashboardShowFocusToday: data.dashboardShowFocusToday === true,
+              dashboardShowSubscriptionsOverdue: data.dashboardShowSubscriptionsOverdue === true,
+              onboardingCompleted: data.onboardingCompleted === true,
+              onboardingDisabled: data.onboardingDisabled === true,
+              bellShowBirthdays: data.bellShowBirthdays ?? true,
+              bellShowSubscriptions: data.bellShowSubscriptions ?? true,
+              bellShowUpcoming7Days: data.bellShowUpcoming7Days ?? true,
+              bellSubscriptionReminderDays: Number(data.bellSubscriptionReminderDays) || 7
             }));
           }
         } catch (e) {
@@ -233,7 +246,15 @@ export const AuthProvider = ({ children }) => {
           savingsTargetType: 'percent',
           savingsTargetPercent: 20,
           savingsTargetAmount: 0,
-          dashboardMobileMode: 'normal'
+          dashboardMobileMode: 'normal',
+          dashboardShowFocusToday: false,
+          dashboardShowSubscriptionsOverdue: false,
+          onboardingCompleted: false,
+          onboardingDisabled: false,
+          bellShowBirthdays: true,
+          bellShowSubscriptions: true,
+          bellShowUpcoming7Days: true,
+          bellSubscriptionReminderDays: 7
         });
       }
 

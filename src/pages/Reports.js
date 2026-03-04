@@ -1,5 +1,5 @@
 ﻿// src/pages/Reports.js
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
@@ -141,6 +141,7 @@ function Reports() {
       end: todayISO
     };
   });
+  const [activePeriodPreset, setActivePeriodPreset] = useState('thisMonth');
 
   const [activeTab, setActiveTab] = useState('overview');
   const [subscriptions, setSubscriptions] = useState([]);
@@ -165,6 +166,8 @@ function Reports() {
 
   const [sortBy, setSortBy] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+  const tabsScrollRef = useRef(null);
+  const tabBtnRefs = useRef({});
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState(() => {
     try {
@@ -188,6 +191,13 @@ function Reports() {
     (value) => formatEntityLabel(value),
     []
   );
+
+  useEffect(() => {
+    const container = tabsScrollRef.current;
+    const btn = tabBtnRefs.current?.[activeTab];
+    if (!container || !btn) return;
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [activeTab]);
   const formatEUR = useCallback((n) => {
     return formatCurrency(n, currencyCode, { decimals: 2 });
   }, [currencyCode]);
@@ -1233,6 +1243,7 @@ function Reports() {
       if (preset === 'thisMonth') {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         setDateRange({ start: toISO(start), end: toISO(now) });
+        setActivePeriodPreset('thisMonth');
         return;
       }
 
@@ -1240,12 +1251,32 @@ function Reports() {
         const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const end = new Date(now.getFullYear(), now.getMonth(), 0);
         setDateRange({ start: toISO(start), end: toISO(end) });
+        setActivePeriodPreset('lastMonth');
         return;
       }
 
       if (preset === 'thisYear') {
         const start = new Date(now.getFullYear(), 0, 1);
         setDateRange({ start: toISO(start), end: toISO(now) });
+        setActivePeriodPreset('thisYear');
+        return;
+      }
+
+      if (preset === 'last30') {
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const start = new Date(end);
+        start.setDate(start.getDate() - 29);
+        setDateRange({ start: toISO(start), end: toISO(end) });
+        setActivePeriodPreset('last30');
+        return;
+      }
+
+      if (preset === 'last90') {
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const start = new Date(end);
+        start.setDate(start.getDate() - 89);
+        setDateRange({ start: toISO(start), end: toISO(end) });
+        setActivePeriodPreset('last90');
       }
     },
     []
@@ -1666,6 +1697,7 @@ function Reports() {
   const applyPreset = useCallback((item) => {
     if (!item) return;
     setDateRange(item.dateRange || dateRange);
+    setActivePeriodPreset('custom');
     setFilterType(item.filterType || 'all');
     setFilterAccount(item.filterAccount || 'all');
     setFilterCategory(item.filterCategory || 'all');
@@ -1752,26 +1784,38 @@ function Reports() {
               <input
                 type="date"
                 value={dateRange.start}
-                onChange={(e) => setDateRange((p) => ({ ...p, start: e.target.value }))}
+                onChange={(e) => {
+                  setDateRange((p) => ({ ...p, start: e.target.value }));
+                  setActivePeriodPreset('custom');
+                }}
                 className="date-input"
               />
               <span className="date-separator">al</span>
               <input
                 type="date"
                 value={dateRange.end}
-                onChange={(e) => setDateRange((p) => ({ ...p, end: e.target.value }))}
+                onChange={(e) => {
+                  setDateRange((p) => ({ ...p, end: e.target.value }));
+                  setActivePeriodPreset('custom');
+                }}
                 className="date-input"
               />
             </div>
             <div className="period-presets">
-              <button type="button" className="period-chip" onClick={() => setPeriodPreset('thisMonth')}>
+              <button type="button" className={`period-chip ${activePeriodPreset === 'thisMonth' ? 'active' : ''}`} onClick={() => setPeriodPreset('thisMonth')}>
                 Questo mese
               </button>
-              <button type="button" className="period-chip" onClick={() => setPeriodPreset('lastMonth')}>
+              <button type="button" className={`period-chip ${activePeriodPreset === 'lastMonth' ? 'active' : ''}`} onClick={() => setPeriodPreset('lastMonth')}>
                 Mese scorso
               </button>
-              <button type="button" className="period-chip" onClick={() => setPeriodPreset('thisYear')}>
+              <button type="button" className={`period-chip ${activePeriodPreset === 'thisYear' ? 'active' : ''}`} onClick={() => setPeriodPreset('thisYear')}>
                 Quest'anno
+              </button>
+              <button type="button" className={`period-chip ${activePeriodPreset === 'last30' ? 'active' : ''}`} onClick={() => setPeriodPreset('last30')}>
+                Ultimi 30g
+              </button>
+              <button type="button" className={`period-chip ${activePeriodPreset === 'last90' ? 'active' : ''}`} onClick={() => setPeriodPreset('last90')}>
+                Ultimi 90g
               </button>
             </div>
           </div>
@@ -2000,26 +2044,26 @@ function Reports() {
         )}
 
         {/* Tabs */}
-        <div className="report-type-tabs">
-          <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+        <div className="report-type-tabs" ref={tabsScrollRef}>
+          <button ref={(el) => { tabBtnRefs.current.overview = el; }} className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
             <FiPieChart /> Riepilogo
           </button>
-          <button className={`tab-btn ${activeTab === 'trends' ? 'active' : ''}`} onClick={() => setActiveTab('trends')}>
+          <button ref={(el) => { tabBtnRefs.current.trends = el; }} className={`tab-btn ${activeTab === 'trends' ? 'active' : ''}`} onClick={() => setActiveTab('trends')}>
             <FiTrendingUp /> Tendenze
           </button>
-          <button className={`tab-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
+          <button ref={(el) => { tabBtnRefs.current.categories = el; }} className={`tab-btn ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>
             <FiBarChart2 /> Categorie
           </button>
-          <button className={`tab-btn ${activeTab === 'subcategories' ? 'active' : ''}`} onClick={() => setActiveTab('subcategories')}>
+          <button ref={(el) => { tabBtnRefs.current.subcategories = el; }} className={`tab-btn ${activeTab === 'subcategories' ? 'active' : ''}`} onClick={() => setActiveTab('subcategories')}>
             <FiTrendingUp /> Sottocategorie
           </button>
-          <button className={`tab-btn ${activeTab === 'accounts' ? 'active' : ''}`} onClick={() => setActiveTab('accounts')}>
+          <button ref={(el) => { tabBtnRefs.current.accounts = el; }} className={`tab-btn ${activeTab === 'accounts' ? 'active' : ''}`} onClick={() => setActiveTab('accounts')}>
             <FiBarChart2 /> Conti
           </button>
-          <button className={`tab-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
+          <button ref={(el) => { tabBtnRefs.current.transactions = el; }} className={`tab-btn ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => setActiveTab('transactions')}>
             <FiBarChart2 /> Transazioni
           </button>
-          <button className={`tab-btn ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => setActiveTab('subscriptions')}>
+          <button ref={(el) => { tabBtnRefs.current.subscriptions = el; }} className={`tab-btn ${activeTab === 'subscriptions' ? 'active' : ''}`} onClick={() => setActiveTab('subscriptions')}>
             <FiRepeat /> Abbonamenti
           </button>
         </div>

@@ -57,7 +57,23 @@
 .subscriptions-toolbar {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.subscriptions-search {
+  min-width: 260px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.subscriptions-toolbar-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .filters {
@@ -247,9 +263,13 @@
 
 .subscriptions-history-filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 10px;
+}
+
+.subscriptions-history-filters .subscriptions-search {
+  min-width: 0;
 }
 
 .subscriptions-history-filters select {
@@ -324,5 +344,19 @@
 
   .subscriptions-history-filters {
     grid-template-columns: 1fr;
+  }
+
+  .subscriptions-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .subscriptions-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .subscriptions-toolbar-actions {
+    justify-content: flex-start;
   }
 }

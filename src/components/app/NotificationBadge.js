@@ -5,6 +5,8 @@ import { getDaysUntilBirthday } from '../../services/birthdaysService';
 import { markSubscriptionPaid } from '../../services/subscriptionsService';
 import { createSubscriptionPayment } from '../../services/subscriptionPaymentsService';
 
+const BELL_SUBSCRIPTION_WINDOW_OPTIONS = [3, 7, 14, 30];
+
 function getTodayKey() {
   const now = new Date();
   const y = now.getFullYear();
@@ -46,10 +48,17 @@ function getDaysUntilDate(targetDate) {
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function normalizeBellSubscriptionWindowDays(value) {
+  const parsed = Number(value);
+  if (BELL_SUBSCRIPTION_WINDOW_OPTIONS.includes(parsed)) return parsed;
+  return 7;
+}
+
 function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [todayBirthdays, setTodayBirthdays] = useState([]);
   const [todaySubscriptions, setTodaySubscriptions] = useState([]);
+  const [overdueSubscriptions, setOverdueSubscriptions] = useState([]);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [upcomingSubscriptions, setUpcomingSubscriptions] = useState([]);
   const [seenBirthdayIds, setSeenBirthdayIds] = useState([]);
@@ -66,9 +75,16 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [historyItems, setHistoryItems] = useState([]);
   const [renewingSubscriptionId, setRenewingSubscriptionId] = useState('');
+  const [renewingAllOverdue, setRenewingAllOverdue] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
   const { user, isAdmin, userSettings } = useAuth();
   const rootRef = useRef(null);
+  const bellShowBirthdays = userSettings?.bellShowBirthdays !== false;
+  const bellShowSubscriptions = userSettings?.bellShowSubscriptions !== false;
+  const bellShowUpcoming7Days = userSettings?.bellShowUpcoming7Days !== false;
+  const bellSubscriptionReminderDays = normalizeBellSubscriptionWindowDays(
+    userSettings?.bellSubscriptionReminderDays
+  );
 
   const appendHistory = (entry) => {
     if (!user?.uid) return;
@@ -166,7 +182,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
               .filter((b) => Number.isFinite(b.daysUntil));
             const todayList = all.filter((b) => b.daysUntil === 0);
             const upcomingList = all
-              .filter((b) => b.daysUntil > 0 && b.daysUntil <= 7)
+              .filter((b) => b.daysUntil > 0 && b.daysUntil <= bellSubscriptionReminderDays)
               .sort((a, b) => a.daysUntil - b.daysUntil);
             setTodayBirthdays(todayList);
             setUpcomingBirthdays(upcomingList);
@@ -199,7 +215,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     return () => {
       if (unsubscribe && typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [user?.uid]);
+  }, [bellSubscriptionReminderDays, user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -246,6 +262,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   useEffect(() => {
     if (!user?.uid) {
       setTodaySubscriptions([]);
+      setOverdueSubscriptions([]);
       setLoadingSubscriptions(false);
       setSubscriptionsError('');
       return;
@@ -276,16 +293,21 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
               .filter((s) => s.dueDate && Number.isFinite(s.daysUntil));
 
             const todayList = all.filter((s) => isSameDay(s.dueDate, todayStart));
+            const overdueList = all
+              .filter((s) => s.daysUntil < 0)
+              .sort((a, b) => b.daysUntil - a.daysUntil);
             const upcomingList = all
-              .filter((s) => s.daysUntil > 0 && s.daysUntil <= 7)
+              .filter((s) => s.daysUntil > 0 && s.daysUntil <= bellSubscriptionReminderDays)
               .sort((a, b) => a.daysUntil - b.daysUntil);
 
+            setOverdueSubscriptions(overdueList);
             setTodaySubscriptions(todayList);
             setUpcomingSubscriptions(upcomingList);
             setLoadingSubscriptions(false);
           },
           (error) => {
             console.error('Errore caricamento abbonamenti di oggi:', error);
+            setOverdueSubscriptions([]);
             setTodaySubscriptions([]);
             setUpcomingSubscriptions([]);
             setLoadingSubscriptions(false);
@@ -296,6 +318,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
         return unsubscribe;
       } catch (error) {
         console.error('Errore setup listener abbonamenti:', error);
+        setOverdueSubscriptions([]);
         setTodaySubscriptions([]);
         setUpcomingSubscriptions([]);
         setLoadingSubscriptions(false);
@@ -311,7 +334,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     return () => {
       if (unsubscribe && typeof unsubscribe === 'function') unsubscribe();
     };
-  }, [user?.uid]);
+  }, [bellSubscriptionReminderDays, user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -354,34 +377,41 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   }, [menuOpen]);
 
   const nowTs = Date.now();
-  const bellShowBirthdays = userSettings?.bellShowBirthdays !== false;
-  const bellShowSubscriptions = userSettings?.bellShowSubscriptions !== false;
-  const bellShowUpcoming7Days = userSettings?.bellShowUpcoming7Days !== false;
 
   const unseenTodayBirthdays = todayBirthdays.filter((b) => {
     if (seenBirthdayIds.includes(b.id)) return false;
     const snoozeUntil = Number(snoozedBirthdayUntilById[b.id] || 0);
     return !(snoozeUntil > nowTs);
   });
-  const unseenTodaySubscriptions = todaySubscriptions.filter((s) => {
+  const dueNowSubscriptions = [...overdueSubscriptions, ...todaySubscriptions];
+  const unseenDueNowSubscriptions = dueNowSubscriptions.filter((s) => {
     if (seenSubscriptionIds.includes(s.id)) return false;
     const snoozeUntil = Number(snoozedSubscriptionUntilById[s.id] || 0);
     return !(snoozeUntil > nowTs);
   });
-  const hasUpcoming = upcomingBirthdays.length > 0 || upcomingSubscriptions.length > 0;
+  const hasUpcoming =
+    (bellShowBirthdays && upcomingBirthdays.length > 0) ||
+    (bellShowSubscriptions && upcomingSubscriptions.length > 0);
 
   const totalCount =
     pendingCount +
     (bellShowBirthdays ? unseenTodayBirthdays.length : 0) +
-    (bellShowSubscriptions ? unseenTodaySubscriptions.length : 0);
+    (bellShowSubscriptions ? unseenDueNowSubscriptions.length : 0);
   const birthdayNames = (bellShowBirthdays ? todayBirthdays : []).map((b) => b.name).filter(Boolean);
-  const subscriptionNames = (bellShowSubscriptions ? todaySubscriptions : []).map((s) => s.name).filter(Boolean);
+  const subscriptionNames = (bellShowSubscriptions ? dueNowSubscriptions : []).map((s) => s.name).filter(Boolean);
   const titleParts = [];
-  if (bellShowSubscriptions && unseenTodaySubscriptions.length > 0) {
+  if (bellShowSubscriptions && overdueSubscriptions.length > 0) {
     titleParts.push(
-      unseenTodaySubscriptions.length === 1
+      overdueSubscriptions.length === 1
+        ? `Abbonamento scaduto: ${overdueSubscriptions[0]?.name || 'abbonamento'}`
+        : `${overdueSubscriptions.length} abbonamenti scaduti`
+    );
+  }
+  if (bellShowSubscriptions && unseenDueNowSubscriptions.length > 0) {
+    titleParts.push(
+      unseenDueNowSubscriptions.length === 1
         ? `Oggi scade ${subscriptionNames[0] || 'un abbonamento'}`
-        : `Oggi scadono ${unseenTodaySubscriptions.length} abbonamenti: ${subscriptionNames.join(', ')}`
+        : `Hai ${unseenDueNowSubscriptions.length} abbonamenti urgenti: ${subscriptionNames.join(', ')}`
     );
   }
   if (bellShowBirthdays && unseenTodayBirthdays.length > 0) {
@@ -421,8 +451,8 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   };
 
   const markTodaySubscriptionsAsSeen = () => {
-    if (todaySubscriptions.length > 0) {
-      const ids = todaySubscriptions.map((s) => s.id).filter(Boolean);
+    if (dueNowSubscriptions.length > 0) {
+      const ids = dueNowSubscriptions.map((s) => s.id).filter(Boolean);
       const merged = Array.from(new Set([...seenSubscriptionIds, ...ids]));
       setSeenSubscriptionIds(merged);
       try {
@@ -437,7 +467,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
       }
       appendHistory({
         type: 'subscription_seen',
-        label: `Segnati visti ${todaySubscriptions.length} abbonamenti`
+        label: `Segnati visti ${dueNowSubscriptions.length} abbonamenti urgenti`
       });
     }
   };
@@ -506,12 +536,12 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
   };
 
   const snoozeSubscriptions = (mode) => {
-    if (!user?.uid || todaySubscriptions.length === 0) return;
+    if (!user?.uid || dueNowSubscriptions.length === 0) return;
     const until =
       mode === 'tomorrow'
         ? new Date(`${getTomorrowKey()}T00:00:00`).getTime()
         : Date.now() + 60 * 60 * 1000;
-    const ids = todaySubscriptions.map((s) => s.id).filter(Boolean);
+    const ids = dueNowSubscriptions.map((s) => s.id).filter(Boolean);
     const next = { ...snoozedSubscriptionUntilById };
     ids.forEach((id) => {
       next[id] = until;
@@ -549,7 +579,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
 
   const handleOpenSubscriptions = () => {
     setMenuOpen(false);
-    if (todaySubscriptions.length > 0 && typeof onOpenSubscriptions === 'function') {
+    if (dueNowSubscriptions.length > 0 && typeof onOpenSubscriptions === 'function') {
       appendHistory({
         type: 'open_subscriptions',
         label: 'Aperta sezione abbonamenti'
@@ -599,12 +629,64 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
     }
   };
 
+  const handleRenewAllOverdue = async () => {
+    if (!user?.uid || overdueSubscriptions.length === 0 || renewingAllOverdue || renewingSubscriptionId) return;
+    const confirmed = window.confirm(
+      `Confermi il rinnovo di ${overdueSubscriptions.length} abbonamenti scaduti?`
+    );
+    if (!confirmed) return;
+
+    setRenewingAllOverdue(true);
+    setActionMessage('');
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const subscription of overdueSubscriptions) {
+      try {
+        await createSubscriptionPayment(user.uid, {
+          subscriptionId: subscription.id,
+          subscriptionName: subscription.name || '',
+          ownerName: subscription.ownerName || '',
+          provider: subscription.provider || '',
+          amount: Math.abs(Number(subscription.amount) || 0),
+          currency: userSettings?.currency || 'EUR',
+          paidAt: new Date(),
+          method: 'renewal',
+          notes: 'Rinnovo massivo abbonamenti scaduti da campanella'
+        });
+        await markSubscriptionPaid(subscription);
+        successCount += 1;
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    if (successCount > 0) {
+      appendHistory({
+        type: 'subscription_renew_bulk',
+        label: `Rinnovati ${successCount} abbonamenti scaduti`
+      });
+    }
+
+    if (failedCount === 0) {
+      setActionMessage(`Rinnovati ${successCount} abbonamenti scaduti.`);
+    } else {
+      setActionMessage(`Rinnovati ${successCount}, errori su ${failedCount}.`);
+    }
+
+    setRenewingAllOverdue(false);
+    setTimeout(() => setActionMessage(''), 3500);
+  };
+
   const showSubscriptionsToday =
-    bellShowSubscriptions && (notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'subscriptions');
+    bellShowSubscriptions &&
+    (notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'subscriptions' || notificationFilter === 'overdue');
   const showBirthdaysToday =
     bellShowBirthdays && (notificationFilter === 'all' || notificationFilter === 'urgent' || notificationFilter === 'birthdays');
   const showAdmin = notificationFilter === 'all' || notificationFilter === 'admin';
   const showUpcoming = bellShowUpcoming7Days && (notificationFilter === 'all' || notificationFilter === 'upcoming');
+  const showOnlyOverdue = notificationFilter === 'overdue';
+  const visibleSubscriptions = showOnlyOverdue ? overdueSubscriptions : dueNowSubscriptions;
 
   return (
     <div className="notification-root" ref={rootRef}>
@@ -613,6 +695,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
         type="button"
         onClick={handleBellClick}
         title={titleParts.join(' | ')}
+        data-onboarding-target="bell"
       >
         <FiBell />
         {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
@@ -630,11 +713,14 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
             {bellShowSubscriptions && (
               <button type="button" className={`notification-filter-chip ${notificationFilter === 'subscriptions' ? 'active' : ''}`} onClick={() => setNotificationFilter('subscriptions')}>Abbonamenti</button>
             )}
+            {bellShowSubscriptions && (
+              <button type="button" className={`notification-filter-chip ${notificationFilter === 'overdue' ? 'active' : ''}`} onClick={() => setNotificationFilter('overdue')}>Scaduti</button>
+            )}
             {bellShowBirthdays && (
               <button type="button" className={`notification-filter-chip ${notificationFilter === 'birthdays' ? 'active' : ''}`} onClick={() => setNotificationFilter('birthdays')}>Compleanni</button>
             )}
             {bellShowUpcoming7Days && (
-              <button type="button" className={`notification-filter-chip ${notificationFilter === 'upcoming' ? 'active' : ''}`} onClick={() => setNotificationFilter('upcoming')}>Prossimi 7g</button>
+              <button type="button" className={`notification-filter-chip ${notificationFilter === 'upcoming' ? 'active' : ''}`} onClick={() => setNotificationFilter('upcoming')}>Prossimi {bellSubscriptionReminderDays}g</button>
             )}
             {isAdmin && <button type="button" className={`notification-filter-chip ${notificationFilter === 'admin' ? 'active' : ''}`} onClick={() => setNotificationFilter('admin')}>Admin</button>}
           </div>
@@ -643,17 +729,28 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
             <div className="notification-empty">Caricamento abbonamenti oggi...</div>
           ) : subscriptionsError ? (
             <div className="notification-error">{subscriptionsError}</div>
-          ) : todaySubscriptions.length > 0 ? (
+          ) : visibleSubscriptions.length > 0 ? (
             <div className="notification-block">
-              <div className="notification-block-title">Abbonamenti in scadenza oggi ({todaySubscriptions.length})</div>
+              <div className="notification-block-title">
+                {showOnlyOverdue
+                  ? `Abbonamenti scaduti (${overdueSubscriptions.length})`
+                  : `Abbonamenti urgenti (${dueNowSubscriptions.length})`}
+              </div>
               <div className="notification-list">
-                {todaySubscriptions.map((s) => {
+                {visibleSubscriptions.map((s) => {
                   const unseen = !seenSubscriptionIds.includes(s.id);
                   return (
                     <div className="notification-list-item" key={s.id}>
-                      <span>{s.name || 'Abbonamento'}</span>
+                      <div className="notification-item-main">
+                        <span>{s.name || 'Abbonamento'}</span>
+                        {s.daysUntil < 0 && (
+                          <span className="notification-list-item-meta">Scaduto da {Math.abs(s.daysUntil)}g</span>
+                        )}
+                      </div>
                       <div className="notification-inline-actions">
-                        <span className={`notification-pill ${unseen ? 'new' : 'seen'}`}>{unseen ? 'Nuovo' : 'Visto'}</span>
+                        <span className={`notification-pill ${s.daysUntil < 0 ? 'danger' : unseen ? 'new' : 'seen'}`}>
+                          {s.daysUntil < 0 ? 'Scaduto' : unseen ? 'Nuovo' : 'Visto'}
+                        </span>
                         <button
                           type="button"
                           className="notification-link-btn"
@@ -671,6 +768,16 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
                 <button type="button" className="notification-link-btn" onClick={handleOpenSubscriptions}>
                   Apri abbonamenti
                 </button>
+                {overdueSubscriptions.length > 0 && (
+                  <button
+                    type="button"
+                    className="notification-link-btn"
+                    disabled={renewingAllOverdue || !!renewingSubscriptionId}
+                    onClick={handleRenewAllOverdue}
+                  >
+                    {renewingAllOverdue ? 'Rinnovo massivo...' : 'Rinnova tutti gli scaduti'}
+                  </button>
+                )}
                 <button type="button" className="notification-link-btn" onClick={() => snoozeSubscriptions('1h')}>
                   Ricordami 1h
                 </button>
@@ -683,7 +790,9 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
               </div>
             </div>
           ) : (
-            <div className="notification-empty">Nessun abbonamento in scadenza oggi.</div>
+            <div className="notification-empty">
+              {showOnlyOverdue ? 'Nessun abbonamento scaduto.' : 'Nessun abbonamento urgente.'}
+            </div>
           ))}
 
           {showBirthdaysToday && (loadingBirthdays ? (
@@ -743,7 +852,7 @@ function NotificationBadge({ onOpenBirthdays, onOpenSubscriptions, onOpenAdmin }
 
           {showUpcoming && hasUpcoming && (
             <div className="notification-block">
-              <div className="notification-block-title">Prossimi 7 giorni</div>
+              <div className="notification-block-title">Prossimi {bellSubscriptionReminderDays} giorni</div>
               <div className="notification-list">
                 {bellShowSubscriptions && upcomingSubscriptions.map((s) => (
                   <div className="notification-list-item" key={`up-sub-${s.id}`}>

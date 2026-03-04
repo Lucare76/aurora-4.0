@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import MainContent from './MainContent';
 import Login from './Login';
 import PendingApproval from './PendingApproval';
+import OnboardingTour from './OnboardingTour';
 
 function AppContent() {
   const MENU_STORAGE_KEY = 'aurora_active_menu';
@@ -11,7 +12,7 @@ function AppContent() {
   const [activeMenu, setActiveMenu] = useState('dashboard');
   const [pendingFilter, setPendingFilter] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, loading: authLoading, userApprovalStatus, logout } = useAuth();
+  const { user, userSettings, setUserSettings, loading: authLoading, userApprovalStatus, logout } = useAuth();
 
   useEffect(() => {
     try {
@@ -68,6 +69,13 @@ function AppContent() {
         pendingFilter={pendingFilter}
         setPendingFilter={setPendingFilter}
         setSidebarOpen={setSidebarOpen}
+      />
+      <OnboardingTour
+        user={user}
+        userSettings={userSettings}
+        setUserSettings={setUserSettings}
+        activeMenu={activeMenu}
+        setActiveMenu={setActiveMenu}
       />
     </div>
   );

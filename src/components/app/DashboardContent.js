@@ -17,6 +17,14 @@ import {
 
 const InsightsSection = React.lazy(() => import('./InsightsSection'));
 
+function getTodayKey() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const { user, userSettings } = useAuth();
   const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
@@ -52,6 +60,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const [budgets, setBudgets] = useState([]);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
   const [budgetsError, setBudgetsError] = useState('');
+  const [dismissedFocusIds, setDismissedFocusIds] = useState([]);
   const [storyCollapsed, setStoryCollapsed] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
@@ -651,6 +660,10 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     () => dueSubscriptions.filter((s) => s.daysTo <= subscriptionsReminderDays),
     [dueSubscriptions, subscriptionsReminderDays]
   );
+  const overdueSubscriptions = useMemo(
+    () => dueSubscriptions.filter((s) => s.daysTo < 0),
+    [dueSubscriptions]
+  );
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -658,7 +671,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
 
     const targetOffsets = new Set([0, ...subscriptionNotificationOffsets]);
     const matched = dueSubscriptions.filter((s) => targetOffsets.has(s.daysTo));
-    if (matched.length === 0) return;
+    const severeOverdue = dueSubscriptions.filter((s) => s.daysTo <= -7);
+    if (matched.length === 0 && severeOverdue.length === 0) return;
 
     const storageKey = `aurora_subs_notified_v1_${user.uid}`;
     let sent = {};
@@ -675,6 +689,13 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
       if (sent[dedupeKey]) return;
       sent[dedupeKey] = Date.now();
       toNotify.push(s);
+    });
+    severeOverdue.forEach((s) => {
+      const dueIso = s?.dueDate instanceof Date ? s.dueDate.toISOString().slice(0, 10) : 'na';
+      const dedupeKey = `${s.id}|${dueIso}|overdue7`;
+      if (sent[dedupeKey]) return;
+      sent[dedupeKey] = Date.now();
+      toNotify.push({ ...s, _severeOverdue: true });
     });
 
     if (toNotify.length === 0) return;
@@ -693,6 +714,9 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     if (typeof window === 'undefined' || !('Notification' in window)) return;
 
     const makeBody = (s) => {
+      if (s?._severeOverdue) {
+        return `${s.name} (${s.ownerName || 'tu'}) - Scaduto da oltre 7 giorni`;
+      }
       const dueLabel =
         s.daysTo < 0
           ? `Scaduto da ${Math.abs(s.daysTo)} giorni`
@@ -707,7 +731,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     const sendBrowserNotifications = () => {
       toNotify.forEach((s) => {
         try {
-          new Notification('Promemoria abbonamento', { body: makeBody(s) });
+          const title = s?._severeOverdue ? 'Abbonamento molto scaduto' : 'Promemoria abbonamento';
+          new Notification(title, { body: makeBody(s) });
         } catch (e) {
           console.error('Errore notifica browser abbonamenti:', e);
         }
@@ -742,13 +767,15 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
       const s = dueSubscriptionsSoon[0];
       const dueLabel =
         s.daysTo < 0 ? `${Math.abs(s.daysTo)} gg fa` : s.daysTo === 0 ? 'oggi' : s.daysTo === 1 ? 'domani' : `tra ${s.daysTo} gg`;
+      const subPriority = s.daysTo < 0 ? 390 : s.daysTo === 0 ? 360 : s.daysTo <= 2 ? 300 : 240;
       items.push({
         id: 'subscription-due',
         title: 'Abbonamento in scadenza',
         detail: `${s.name} (${s.ownerName || 'tu'}) ${dueLabel}`,
         cta: 'Apri Abbonamenti',
         menu: 'subscriptions',
-        level: s.daysTo < 0 ? 'danger' : s.daysTo <= 2 ? 'warn' : 'info'
+        level: s.daysTo < 0 ? 'danger' : s.daysTo <= 2 ? 'warn' : 'info',
+        priority: subPriority
       });
     }
 
@@ -778,7 +805,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
           detail: `${s.name} +${cs} ${formatNumber(delta)} (${formatNumber(pct)}%)`,
           cta: 'Controlla Abbonamenti',
           menu: 'subscriptions',
-          level: pct >= 15 ? 'danger' : 'warn'
+          level: pct >= 15 ? 'danger' : 'warn',
+          priority: pct >= 15 ? 280 : 220
         });
       }
     }
@@ -790,7 +818,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         detail: `Uscite ${cs} ${formatNumber(monthlyExpenses)} vs entrate ${cs} ${formatNumber(monthlyIncome)}`,
         cta: 'Apri Reports',
         menu: 'reports',
-        level: 'danger'
+        level: 'danger',
+        priority: 380
       });
     }
 
@@ -802,7 +831,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         cta: 'Apri Transazioni',
         menu: 'transactions',
         filter: 'uncategorized',
-        level: 'warn'
+        level: 'warn',
+        priority: 230
       });
     }
 
@@ -814,7 +844,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         detail: `${criticalBudget.label}: ${Math.round((criticalBudget.pct || 0) * 100)}% utilizzato`,
         cta: 'Apri Budget',
         menu: 'budgets',
-        level: criticalBudget.level === 'over' ? 'danger' : 'warn'
+        level: criticalBudget.level === 'over' ? 'danger' : 'warn',
+        priority: criticalBudget.level === 'over' ? 370 : 300
       });
     }
 
@@ -826,7 +857,8 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         detail: `${nearBirthday.name} ${nearBirthday.daysUntil === 0 ? 'oggi' : `tra ${nearBirthday.daysUntil} giorni`}`,
         cta: 'Apri Compleanni',
         menu: 'birthdays',
-        level: 'info'
+        level: 'info',
+        priority: 180
       });
     }
 
@@ -837,11 +869,19 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
         detail: 'Nessuna urgenza: puoi registrare nuove operazioni o controllare i report.',
         cta: 'Aggiungi Transazione',
         menu: 'transactions',
-        level: 'ok'
+        level: 'ok',
+        priority: 50
       });
     }
 
-    return items.slice(0, 4);
+    return items
+      .sort((a, b) => {
+        const p = (Number(b?.priority) || 0) - (Number(a?.priority) || 0);
+        if (p !== 0) return p;
+        const levelRank = { danger: 4, warn: 3, info: 2, ok: 1 };
+        return (levelRank[b?.level] || 0) - (levelRank[a?.level] || 0);
+      })
+      .slice(0, 4);
   }, [
     monthlyIncome,
     monthlyExpenses,
@@ -915,7 +955,61 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts === true;
   const showActions = userSettings?.dashboardShowActions === true;
   const showBirthdays = userSettings?.dashboardShowBirthdays === true;
+  const showFocusToday = userSettings?.dashboardShowFocusToday === true;
   const showSubscriptionsDue = userSettings?.dashboardShowSubscriptionsDue === true;
+  const showSubscriptionsOverdue = userSettings?.dashboardShowSubscriptionsOverdue === true;
+  const focusTodayItems = todayActions.slice(0, 3);
+  const visibleFocusTodayItems = focusTodayItems.filter((a) => !dismissedFocusIds.includes(a.id));
+
+  const getPriorityLabel = (priority) => {
+    const p = Number(priority) || 0;
+    if (p >= 300) return 'Alta';
+    if (p >= 180) return 'Media';
+    return 'Bassa';
+  };
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setDismissedFocusIds([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(`aurora_focus_today_dismissed_${user.uid}_${getTodayKey()}`);
+      const parsed = JSON.parse(raw || '[]');
+      setDismissedFocusIds(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setDismissedFocusIds([]);
+    }
+  }, [user?.uid]);
+
+  const dismissFocusItem = useCallback(
+    (id) => {
+      if (!id || !user?.uid) return;
+      setDismissedFocusIds((prev) => {
+        const next = Array.from(new Set([...prev, id]));
+        try {
+          localStorage.setItem(
+            `aurora_focus_today_dismissed_${user.uid}_${getTodayKey()}`,
+            JSON.stringify(next)
+          );
+        } catch {
+          // ignore localStorage errors
+        }
+        return next;
+      });
+    },
+    [user?.uid]
+  );
+
+  const resetDismissedFocus = useCallback(() => {
+    if (!user?.uid) return;
+    setDismissedFocusIds([]);
+    try {
+      localStorage.removeItem(`aurora_focus_today_dismissed_${user.uid}_${getTodayKey()}`);
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [user?.uid]);
 
   const optionalSectionOrder = useMemo(() => {
     const ids = normalizeDashboardOrder(userSettings?.dashboardOrder)
@@ -1099,6 +1193,51 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
           </div>
         </div>
 
+        {showFocusToday && (
+        <div className="section section-focus-today" style={{ order: optionalSectionOrder.focusToday ?? 999 }} data-onboarding-target="focus">
+          <div className="focus-today-head">
+            <h2 className="section-title">Focus Oggi</h2>
+            <span className="focus-today-badge">{visibleFocusTodayItems.length} priorita</span>
+          </div>
+          <div className="focus-today-list">
+            {visibleFocusTodayItems.length === 0 ? (
+              <div className="empty-state">
+                <p>Hai completato tutte le priorita di oggi.</p>
+                <button type="button" className="today-action-btn" onClick={resetDismissedFocus}>
+                  Mostra di nuovo
+                </button>
+              </div>
+            ) : visibleFocusTodayItems.map((a, idx) => (
+              <div key={`focus-${a.id}`} className={`focus-today-item ${a.level}`}>
+                <div className="focus-today-rank">{idx + 1}</div>
+                <div className="focus-today-main">
+                  <div className="focus-today-title">{a.title}</div>
+                  <div className={`focus-today-priority ${getPriorityLabel(a.priority).toLowerCase()}`}>
+                    Priorita {getPriorityLabel(a.priority)}
+                  </div>
+                  <div className="focus-today-detail">{a.detail}</div>
+                </div>
+                <div className="focus-today-actions">
+                  <button
+                    type="button"
+                    className="today-action-btn"
+                    onClick={() => {
+                      if (a.filter) setPendingFilter(a.filter);
+                      setActiveMenu(a.menu);
+                    }}
+                  >
+                    {a.cta}
+                  </button>
+                  <button type="button" className="today-action-btn focus-dismiss-btn" onClick={() => dismissFocusItem(a.id)}>
+                    Completa
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        )}
+
         {showForecast && (
         <div className="section forecast-3090" style={{ order: optionalSectionOrder.forecast ?? 999 }}>
           <h2 className="section-title">Forecast 30/60/90 giorni</h2>
@@ -1168,6 +1307,47 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
                   </div>
                 );
               })}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" className="today-action-btn" onClick={() => setActiveMenu('subscriptions')}>
+                  Gestisci abbonamenti
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+
+        {showSubscriptionsOverdue && (
+        <div className="section section-subscriptions-due" style={{ order: optionalSectionOrder.subscriptionsOverdue ?? 999 }}>
+          <h2 className="section-title">Abbonamenti scaduti</h2>
+          {overdueSubscriptions.length === 0 ? (
+            <div className="empty-state">
+              <p>Nessun abbonamento scaduto al momento.</p>
+              <button
+                type="button"
+                className="today-action-btn"
+                style={{ marginTop: 10 }}
+                onClick={() => setActiveMenu('subscriptions')}
+              >
+                Apri Abbonamenti
+              </button>
+            </div>
+          ) : (
+            <div className="subscriptions-due-list">
+              {overdueSubscriptions.slice(0, 6).map((s) => (
+                <div key={s.id} className="subscription-due-card" data-level="danger">
+                  <div className="subscription-due-main">
+                    <div className="subscription-due-title">
+                      {s.name}
+                      <span className="subscription-due-owner">{s.ownerName || 'tu'}</span>
+                    </div>
+                    <div className="subscription-due-meta">
+                      {cs} {formatNumber(Math.abs(Number(s.amount) || 0))} - {s.dueDate?.toLocaleDateString('it-IT')}
+                    </div>
+                  </div>
+                  <div className="subscription-due-badge">Scaduto da {Math.abs(s.daysTo)} gg</div>
+                </div>
+              ))}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <button type="button" className="today-action-btn" onClick={() => setActiveMenu('subscriptions')}>
                   Gestisci abbonamenti
