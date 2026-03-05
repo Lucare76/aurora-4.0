@@ -14,7 +14,7 @@ import {
 } from '../../utils/subscriptionsNotifications';
 import { getFamilyPermissions } from '../../utils/familyWorkflow';
 import { getBackupCollections } from '../../utils/backupProfiles';
-import { parseBackupJson, reviveBackupValue, summarizeBackupPayload } from '../../utils/backupRestore';
+import { hasBackupConflict, parseBackupJson, reviveBackupValue, summarizeBackupPayload } from '../../utils/backupRestore';
 import { clearRuntimeIssues, getRuntimeIssues } from '../../utils/reliability';
 
 function SettingsContent() {
@@ -24,10 +24,13 @@ function SettingsContent() {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [restoreDryRunBusy, setRestoreDryRunBusy] = useState(false);
   const [runtimeIssueCount, setRuntimeIssueCount] = useState(0);
   const [restoreProfile, setRestoreProfile] = useState('full');
+  const [restoreMode, setRestoreMode] = useState('merge');
   const [restorePayload, setRestorePayload] = useState(null);
   const [restoreSummary, setRestoreSummary] = useState(null);
+  const [restorePlan, setRestorePlan] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [familyRolePreview, setFamilyRolePreview] = useState('owner');
@@ -490,17 +493,115 @@ function SettingsContent() {
       const summary = summarizeBackupPayload(parsed, restoreProfile);
       setRestorePayload(parsed);
       setRestoreSummary(summary);
+      setRestorePlan(null);
       setMessage({ text: `Backup caricato: ${summary.total} record trovati`, type: 'success' });
     } catch (error) {
       console.error('Errore parsing backup:', error);
       setRestorePayload(null);
       setRestoreSummary(null);
+      setRestorePlan(null);
       setMessage({ text: 'File backup non valido', type: 'error' });
+    }
+  };
+
+  const handleAnalyzeRestorePlan = async () => {
+    if (!user?.uid || !restorePayload || restoreDryRunBusy) return;
+    setRestoreDryRunBusy(true);
+    try {
+      const { db } = await import('../../services/firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const collections = getBackupCollections(restoreProfile);
+      let toCreate = 0;
+      let toUpdate = 0;
+      let conflicts = 0;
+      let skipped = 0;
+      const byCollection = [];
+
+      for (const colName of collections) {
+        const rows = Array.isArray(restorePayload?.data?.[colName]) ? restorePayload.data[colName] : [];
+        let colCreate = 0;
+        let colUpdate = 0;
+        let colConflicts = 0;
+        let colSkipped = 0;
+
+        for (const row of rows) {
+          const rowId = row?.id;
+          if (!rowId) {
+            if (restoreMode === 'merge' || restoreMode === 'createOnly') {
+              colCreate += 1;
+            } else {
+              colSkipped += 1;
+            }
+            continue;
+          }
+          const snap = await getDoc(doc(db, colName, String(rowId)));
+          if (!snap.exists()) {
+            if (restoreMode === 'merge' || restoreMode === 'createOnly') {
+              colCreate += 1;
+            } else {
+              colSkipped += 1;
+            }
+            continue;
+          }
+          if (restoreMode === 'createOnly') {
+            colSkipped += 1;
+            continue;
+          }
+          const { id, ...dataOnly } = row || {};
+          const incoming = reviveBackupValue(dataOnly);
+          incoming.userId = user.uid;
+          const conflict = hasBackupConflict(snap.data(), incoming);
+          if (restoreMode === 'conflictsOnly' && !conflict) {
+            colSkipped += 1;
+            continue;
+          }
+          colUpdate += 1;
+          if (conflict) {
+            colConflicts += 1;
+          }
+        }
+
+        toCreate += colCreate;
+        toUpdate += colUpdate;
+        conflicts += colConflicts;
+        skipped += colSkipped;
+        byCollection.push({
+          collection: colName,
+          toCreate: colCreate,
+          toUpdate: colUpdate,
+          conflicts: colConflicts,
+          skipped: colSkipped,
+          count: rows.length
+        });
+      }
+
+      setRestorePlan({
+        total: toCreate + toUpdate + skipped,
+        toCreate,
+        toUpdate,
+        conflicts,
+        skipped,
+        byCollection
+      });
+      setMessage({
+        text: `Analisi completata: ${toCreate} nuovi, ${toUpdate} aggiornamenti, ${skipped} saltati`,
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Errore analisi restore plan:', error);
+      setMessage({ text: `Errore analisi: ${error.message}`, type: 'error' });
+      setRestorePlan(null);
+    } finally {
+      setRestoreDryRunBusy(false);
     }
   };
 
   const handleRestoreBackup = async () => {
     if (!user?.uid || !restorePayload || restoring) return;
+    if (!restorePlan) {
+      setMessage({ text: 'Esegui prima Analizza conflitti', type: 'error' });
+      return;
+    }
     const summary = summarizeBackupPayload(restorePayload, restoreProfile);
     if (summary.total === 0) {
       setMessage({ text: 'Nessun dato da ripristinare per il profilo selezionato', type: 'error' });
@@ -508,14 +609,22 @@ function SettingsContent() {
     }
     const proceed = window.confirm(
       `Ripristino profilo "${restoreProfile}" con ${summary.total} record.\n` +
-      'Confermi il ripristino? (upsert: aggiorna/esegue merge, non cancella dati esistenti)'
+      `Nuovi: ${restorePlan.toCreate} | Aggiornamenti: ${restorePlan.toUpdate} | Conflitti: ${restorePlan.conflicts} | Saltati: ${restorePlan.skipped}\n` +
+      `Modalita: ${
+        restoreMode === 'createOnly'
+          ? 'Solo nuovi (no overwrite)'
+          : restoreMode === 'conflictsOnly'
+            ? 'Aggiorna solo conflitti'
+            : 'Merge (upsert)'
+      }\n` +
+      'Confermi il ripristino?'
     );
     if (!proceed) return;
 
     setRestoring(true);
     try {
       const { db } = await import('../../services/firebase');
-      const { doc, setDoc } = await import('firebase/firestore');
+      const { doc, getDoc, setDoc } = await import('firebase/firestore');
 
       const collections = getBackupCollections(restoreProfile);
       let written = 0;
@@ -523,6 +632,19 @@ function SettingsContent() {
         const rows = Array.isArray(restorePayload?.data?.[colName]) ? restorePayload.data[colName] : [];
         for (const row of rows) {
           const rowId = row?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          if (row?.id) {
+            const exists = await getDoc(doc(db, colName, String(rowId)));
+            if (restoreMode === 'createOnly' && exists.exists()) continue;
+            if (restoreMode === 'conflictsOnly') {
+              if (!exists.exists()) continue;
+              const { id, ...dataOnly } = row || {};
+              const incoming = reviveBackupValue(dataOnly);
+              incoming.userId = user.uid;
+              if (!hasBackupConflict(exists.data(), incoming)) continue;
+            }
+          } else if (restoreMode === 'conflictsOnly') {
+            continue;
+          }
           const { id, ...dataOnly } = row || {};
           const revived = reviveBackupValue(dataOnly);
           revived.userId = user.uid;
@@ -542,7 +664,8 @@ function SettingsContent() {
   useEffect(() => {
     if (!restorePayload) return;
     setRestoreSummary(summarizeBackupPayload(restorePayload, restoreProfile));
-  }, [restorePayload, restoreProfile]);
+    setRestorePlan(null);
+  }, [restoreMode, restorePayload, restoreProfile]);
 
   const handleExportRuntimeLogs = () => {
     try {
@@ -1223,12 +1346,31 @@ function SettingsContent() {
                 <select
                   id="restoreProfile"
                   value={restoreProfile}
-                  onChange={(e) => setRestoreProfile(e.target.value)}
+                  onChange={(e) => {
+                    setRestoreProfile(e.target.value);
+                    setRestorePlan(null);
+                  }}
                   className="settings-select"
                 >
                   <option value="full">Completo</option>
                   <option value="finance">Solo finanza</option>
                   <option value="planner">Solo planner</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="restoreMode">Modalita ripristino</label>
+                <select
+                  id="restoreMode"
+                  value={restoreMode}
+                  onChange={(e) => {
+                    setRestoreMode(e.target.value);
+                    setRestorePlan(null);
+                  }}
+                  className="settings-select"
+                >
+                  <option value="merge">Merge (aggiorna esistenti)</option>
+                  <option value="createOnly">Solo nuovi (non sovrascrive)</option>
+                  <option value="conflictsOnly">Aggiorna solo conflitti</option>
                 </select>
               </div>
               <div className="form-group">
@@ -1256,14 +1398,39 @@ function SettingsContent() {
               )}
               <div className="settings-inline-actions">
                 <button
+                  onClick={handleAnalyzeRestorePlan}
+                  disabled={restoreDryRunBusy || !restorePayload}
+                  className="btn-secondary-settings"
+                  type="button"
+                >
+                  {restoreDryRunBusy ? 'Analisi...' : 'Analizza conflitti'}
+                </button>
+                <button
                   onClick={handleRestoreBackup}
-                  disabled={restoring || !restorePayload}
+                  disabled={restoring || !restorePayload || !restorePlan}
                   className="btn-secondary-settings"
                   type="button"
                 >
                   {restoring ? 'Ripristino...' : 'Ripristina ora'}
                 </button>
               </div>
+              {restorePlan && (
+                <div className="dashboard-order">
+                  <div className="dashboard-order-title">
+                    Dry-run: nuovi {restorePlan.toCreate}, aggiornamenti {restorePlan.toUpdate}, conflitti {restorePlan.conflicts}, saltati {restorePlan.skipped}
+                  </div>
+                  <div className="dashboard-order-list">
+                    {restorePlan.byCollection.map((row) => (
+                      <div key={`${row.collection}-plan`} className="dashboard-order-item locked">
+                        <span className="order-label">
+                          {row.collection}: +{row.toCreate} / ~{row.toUpdate} / !{row.conflicts} / -{row.skipped}
+                        </span>
+                        <span className="order-badge">{row.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1053,36 +1053,6 @@
   }
 }
 
-.fab-add-transaction {
-  display: none;
-}
-
-@media (max-width: 768px) {
-  .fab-add-transaction {
-    display: inline-flex;
-    position: fixed;
-    right: 16px;
-    bottom: 16px;
-    width: 54px;
-    height: 54px;
-    border-radius: 999px;
-    border: none;
-    background: linear-gradient(135deg, #22c55e, #16a34a);
-    color: #ffffff;
-    font-size: 28px;
-    font-weight: 800;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 12px 24px rgba(22, 163, 74, 0.35);
-    z-index: 30;
-    cursor: pointer;
-  }
-
-  .fab-add-transaction:active {
-    transform: scale(0.96);
-  }
-}
-
 @media (max-width: 480px) {
   .header-content h1 { font-size: 1.9rem; }
   .transactions-page { padding: 12px; }

@@ -1231,15 +1231,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
           })}
       </div>
 
-      <button
-        type="button"
-        className="fab-add-transaction"
-        onClick={() => setShowForm(true)}
-        aria-label="Aggiungi transazione"
-      >
-        +
-      </button>
-
       {canLoadMore && (
         <div className="load-more-wrap" ref={loadMoreRef}>
           <button type="button" className="secondary-btn load-more-btn" onClick={handleLoadMore}>

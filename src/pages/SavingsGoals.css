@@ -585,6 +585,18 @@
     align-items: flex-start;
   }
 
+  .savings-header .app-page-header-actions {
+    width: 100%;
+  }
+
+  .savings-header .btn-new-goal {
+    width: 100%;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
   .autopilot-grid {
     grid-template-columns: 1fr;
   }

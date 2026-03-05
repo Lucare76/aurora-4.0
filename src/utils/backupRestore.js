@@ -53,3 +53,25 @@ export function summarizeBackupPayload(payload, profile = 'full') {
   return { collections: summary, total };
 }
 
+function normalizeForCompare(value) {
+  if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((item) => normalizeForCompare(item));
+  if (value && typeof value === 'object') {
+    const out = {};
+    Object.keys(value)
+      .sort()
+      .forEach((key) => {
+        if (['userId', 'createdAt', 'updatedAt'].includes(key)) return;
+        out[key] = normalizeForCompare(value[key]);
+      });
+    return out;
+  }
+  return value;
+}
+
+export function hasBackupConflict(existingDoc = {}, incomingDoc = {}) {
+  const a = JSON.stringify(normalizeForCompare(existingDoc));
+  const b = JSON.stringify(normalizeForCompare(incomingDoc));
+  return a !== b;
+}

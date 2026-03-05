@@ -1,4 +1,4 @@
-import { parseBackupJson, reviveBackupValue, summarizeBackupPayload } from './backupRestore';
+import { hasBackupConflict, parseBackupJson, reviveBackupValue, summarizeBackupPayload } from './backupRestore';
 
 describe('backupRestore utils', () => {
   it('parses backup json and summarizes profile', () => {
@@ -27,5 +27,17 @@ describe('backupRestore utils', () => {
     expect(value.createdAt instanceof Date).toBe(true);
     expect(typeof value.description).toBe('string');
   });
-});
 
+  it('detects meaningful conflict and ignores metadata fields', () => {
+    const noConflict = hasBackupConflict(
+      { id: 't1', amount: 10, userId: 'old', updatedAt: '2026-01-01T00:00:00.000Z' },
+      { id: 't1', amount: 10, userId: 'new', updatedAt: '2026-02-01T00:00:00.000Z' }
+    );
+    const conflict = hasBackupConflict(
+      { id: 't1', amount: 10 },
+      { id: 't1', amount: 20 }
+    );
+    expect(noConflict).toBe(false);
+    expect(conflict).toBe(true);
+  });
+});

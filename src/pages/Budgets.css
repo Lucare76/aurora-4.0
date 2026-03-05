@@ -102,7 +102,7 @@
 
 .budget-summary-card .value {
   margin-top: 6px;
-  font-size: 30px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1.05;
   color: #f8fafc;
@@ -156,7 +156,7 @@
 
 .budget-row-title {
   font-weight: 800;
-  font-size: 24px;
+  font-size: 18px;
   line-height: 1.1;
   color: #f8fafc;
   text-transform: none;
@@ -177,22 +177,25 @@
 .budget-row-meta {
   color: #cbd5e1;
   margin-top: 6px;
-  font-size: 17px;
+  font-size: 14px;
 }
 
 .budget-row-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .budget-input {
   width: 150px;
-  padding: 9px 11px;
+  height: 38px;
+  padding: 8px 11px;
   border-radius: 10px;
   border: 1px solid rgba(148, 163, 184, 0.42);
   background: rgba(2, 6, 23, 0.55);
   color: #f8fafc;
+  font-size: 14px;
 }
 
 .budget-input:focus {
@@ -206,8 +209,11 @@
   background: rgba(239, 68, 68, 0.15);
   color: #fecaca;
   border-radius: 10px;
-  padding: 8px 10px;
+  height: 38px;
+  padding: 0 12px;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .budget-remove-btn:hover {
@@ -219,10 +225,12 @@
   background: rgba(59, 130, 246, 0.18);
   color: #bfdbfe;
   border-radius: 10px;
-  padding: 8px 10px;
+  height: 38px;
+  padding: 0 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 1;
 }
 
 .budget-suggest-btn:hover {
@@ -314,11 +322,11 @@
   }
 
   .budget-summary-card .value {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .budget-row-title {
-    font-size: 22px;
+    font-size: 17px;
   }
 }
 
@@ -343,11 +351,11 @@
   }
 
   .budget-row-title {
-    font-size: 21px;
+    font-size: 16px;
   }
 
   .budget-row-meta {
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .budget-input {
