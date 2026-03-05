@@ -3,7 +3,10 @@ import { FiPlus, FiX, FiDollarSign, FiTarget, FiPieChart, FiCreditCard, FiGrid }
 
 function QuickAddFab({ setActiveMenu }) {
   const [open, setOpen] = useState(false);
+  const [hiddenOnScroll, setHiddenOnScroll] = useState(false);
   const rootRef = useRef(null);
+  const lastScrollYRef = useRef(0);
+  const tickingRef = useRef(false);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -41,6 +44,47 @@ function QuickAddFab({ setActiveMenu }) {
     return () => document.removeEventListener('keydown', onShortcut);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    lastScrollYRef.current = window.scrollY || 0;
+
+    const evaluateScroll = () => {
+      const isMobile = window.innerWidth <= 768;
+      const y = window.scrollY || 0;
+      const delta = y - lastScrollYRef.current;
+
+      if (!isMobile || open) {
+        setHiddenOnScroll(false);
+      } else if (y < 80) {
+        setHiddenOnScroll(false);
+      } else if (delta > 8) {
+        setHiddenOnScroll(true);
+      } else if (delta < -8) {
+        setHiddenOnScroll(false);
+      }
+
+      lastScrollYRef.current = y;
+      tickingRef.current = false;
+    };
+
+    const onScroll = () => {
+      if (tickingRef.current) return;
+      tickingRef.current = true;
+      window.requestAnimationFrame(evaluateScroll);
+    };
+
+    const onResize = () => {
+      if (window.innerWidth > 768) setHiddenOnScroll(false);
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [open]);
+
   const quickActions = [
     { id: 'quick-tx', label: 'Nuova Transazione', icon: FiDollarSign, menu: 'transactions' },
     { id: 'quick-account', label: 'Nuovo Conto', icon: FiCreditCard, menu: 'accounts' },
@@ -50,7 +94,11 @@ function QuickAddFab({ setActiveMenu }) {
   ];
 
   return (
-    <div className="quick-add-root" ref={rootRef} data-onboarding-target="quickadd">
+    <div
+      className={`quick-add-root ${hiddenOnScroll && !open ? 'fab-hidden' : ''}`}
+      ref={rootRef}
+      data-onboarding-target="quickadd"
+    >
       {open && (
         <div className="quick-add-menu">
           <div className="quick-add-shortcut-hint">Scorciatoia: Shift + A</div>

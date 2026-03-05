@@ -14,6 +14,7 @@ import {
 } from '../../utils/subscriptionsNotifications';
 import { getFamilyPermissions } from '../../utils/familyWorkflow';
 import { getBackupCollections } from '../../utils/backupProfiles';
+import { parseBackupJson, reviveBackupValue, summarizeBackupPayload } from '../../utils/backupRestore';
 import { clearRuntimeIssues, getRuntimeIssues } from '../../utils/reliability';
 
 function SettingsContent() {
@@ -22,7 +23,11 @@ function SettingsContent() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [runtimeIssueCount, setRuntimeIssueCount] = useState(0);
+  const [restoreProfile, setRestoreProfile] = useState('full');
+  const [restorePayload, setRestorePayload] = useState(null);
+  const [restoreSummary, setRestoreSummary] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [familyRolePreview, setFamilyRolePreview] = useState('owner');
@@ -475,6 +480,69 @@ function SettingsContent() {
       setExporting(false);
     }
   };
+
+  const handleBackupFileSelected = async (event) => {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = parseBackupJson(text);
+      const summary = summarizeBackupPayload(parsed, restoreProfile);
+      setRestorePayload(parsed);
+      setRestoreSummary(summary);
+      setMessage({ text: `Backup caricato: ${summary.total} record trovati`, type: 'success' });
+    } catch (error) {
+      console.error('Errore parsing backup:', error);
+      setRestorePayload(null);
+      setRestoreSummary(null);
+      setMessage({ text: 'File backup non valido', type: 'error' });
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!user?.uid || !restorePayload || restoring) return;
+    const summary = summarizeBackupPayload(restorePayload, restoreProfile);
+    if (summary.total === 0) {
+      setMessage({ text: 'Nessun dato da ripristinare per il profilo selezionato', type: 'error' });
+      return;
+    }
+    const proceed = window.confirm(
+      `Ripristino profilo "${restoreProfile}" con ${summary.total} record.\n` +
+      'Confermi il ripristino? (upsert: aggiorna/esegue merge, non cancella dati esistenti)'
+    );
+    if (!proceed) return;
+
+    setRestoring(true);
+    try {
+      const { db } = await import('../../services/firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
+
+      const collections = getBackupCollections(restoreProfile);
+      let written = 0;
+      for (const colName of collections) {
+        const rows = Array.isArray(restorePayload?.data?.[colName]) ? restorePayload.data[colName] : [];
+        for (const row of rows) {
+          const rowId = row?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const { id, ...dataOnly } = row || {};
+          const revived = reviveBackupValue(dataOnly);
+          revived.userId = user.uid;
+          await setDoc(doc(db, colName, String(rowId)), revived, { merge: true });
+          written += 1;
+        }
+      }
+      setMessage({ text: `Ripristino completato: ${written} record aggiornati`, type: 'success' });
+    } catch (error) {
+      console.error('Errore ripristino backup:', error);
+      setMessage({ text: `Errore ripristino: ${error.message}`, type: 'error' });
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!restorePayload) return;
+    setRestoreSummary(summarizeBackupPayload(restorePayload, restoreProfile));
+  }, [restorePayload, restoreProfile]);
 
   const handleExportRuntimeLogs = () => {
     try {
@@ -1147,6 +1215,53 @@ function SettingsContent() {
                 </button>
                 <button onClick={() => handleExportBackup('planner')} disabled={exporting} className="btn-secondary-settings" type="button">
                   Solo planner
+                </button>
+              </div>
+              <hr style={{ borderColor: 'rgba(148,163,184,0.2)', margin: '12px 0' }} />
+              <div className="form-group">
+                <label htmlFor="restoreProfile">Profilo ripristino</label>
+                <select
+                  id="restoreProfile"
+                  value={restoreProfile}
+                  onChange={(e) => setRestoreProfile(e.target.value)}
+                  className="settings-select"
+                >
+                  <option value="full">Completo</option>
+                  <option value="finance">Solo finanza</option>
+                  <option value="planner">Solo planner</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="restoreBackupFile">Importa backup JSON</label>
+                <input
+                  id="restoreBackupFile"
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleBackupFileSelected}
+                  className="settings-input"
+                />
+              </div>
+              {restoreSummary && (
+                <div className="dashboard-order">
+                  <div className="dashboard-order-title">Anteprima ripristino ({restoreSummary.total})</div>
+                  <div className="dashboard-order-list">
+                    {restoreSummary.collections.map((item) => (
+                      <div key={item.collection} className="dashboard-order-item locked">
+                        <span className="order-label">{item.collection}</span>
+                        <span className="order-badge">{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="settings-inline-actions">
+                <button
+                  onClick={handleRestoreBackup}
+                  disabled={restoring || !restorePayload}
+                  className="btn-secondary-settings"
+                  type="button"
+                >
+                  {restoring ? 'Ripristino...' : 'Ripristina ora'}
                 </button>
               </div>
             </div>
