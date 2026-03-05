@@ -33,6 +33,9 @@ function SettingsContent() {
   const [restorePlan, setRestorePlan] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+  const [isMobileSettings, setIsMobileSettings] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 768
+  );
   const [familyRolePreview, setFamilyRolePreview] = useState('owner');
   const hasLoadedOnceRef = useRef(false);
   const autoSaveTimerRef = useRef(null);
@@ -210,6 +213,13 @@ function SettingsContent() {
 
   useEffect(() => {
     setRuntimeIssueCount(getRuntimeIssues().length);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onResize = () => setIsMobileSettings(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   useEffect(() => {
@@ -416,6 +426,26 @@ function SettingsContent() {
     next.splice(index, 0, moved);
     setDragIndex(null);
     setDragOverIndex(null);
+    handleChange('dashboardOrder', next);
+  };
+
+  const moveDashboardSection = (index, direction) => {
+    const source = orderedDashboardSections[index];
+    if (!source || source.required) return;
+    const step = direction === 'up' ? -1 : 1;
+    let targetIndex = index + step;
+    while (targetIndex >= 0 && targetIndex < orderedDashboardSections.length) {
+      const target = orderedDashboardSections[targetIndex];
+      if (target && !target.required) break;
+      targetIndex += step;
+    }
+    if (targetIndex < 0 || targetIndex >= orderedDashboardSections.length || targetIndex === index) return;
+    const target = orderedDashboardSections[targetIndex];
+    if (!target || target.required) return;
+
+    const next = [...normalizeDashboardOrder(settings.dashboardOrder)];
+    const [moved] = next.splice(index, 1);
+    next.splice(targetIndex, 0, moved);
     handleChange('dashboardOrder', next);
   };
 
@@ -1228,7 +1258,7 @@ function SettingsContent() {
                     <div
                       key={section.id}
                       className={`dashboard-order-item ${section.required ? 'locked' : ''} ${dragIndex === index ? 'dragging' : ''}`}
-                      draggable={!section.required}
+                      draggable={!section.required && !isMobileSettings}
                       onDragStart={(e) => handleDragStart(index, e)}
                       onDragOver={(e) => {
                         e.preventDefault();
@@ -1244,11 +1274,36 @@ function SettingsContent() {
                     >
                       <span className="drag-handle">↕</span>
                       <span className="order-label">{section.label}</span>
-                      {section.required && <span className="order-badge">Sempre visibile</span>}
+                      {section.required ? (
+                        <span className="order-badge">Sempre visibile</span>
+                      ) : (
+                        <div className="order-mobile-actions">
+                          <button
+                            type="button"
+                            className="order-move-btn"
+                            onClick={() => moveDashboardSection(index, 'up')}
+                            aria-label={`Sposta su ${section.label}`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            className="order-move-btn"
+                            onClick={() => moveDashboardSection(index, 'down')}
+                            aria-label={`Sposta giu ${section.label}`}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-                <small>Trascina le sezioni per cambiare l’ordine nella dashboard.</small>
+                <small>
+                  {isMobileSettings
+                    ? 'Su mobile usa i pulsanti su/giu per cambiare ordine.'
+                    : 'Trascina le sezioni per cambiare l’ordine nella dashboard.'}
+                </small>
               </div>
               <div className="dashboard-order">
                 <div className="dashboard-order-title">Anteprima live ordine</div>

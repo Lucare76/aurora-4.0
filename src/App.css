@@ -4780,15 +4780,46 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.5);
 }
 
+.order-mobile-actions {
+  display: none;
+}
+
+.order-move-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(30, 41, 59, 0.82);
+  color: #dbeafe;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.order-move-btn:hover {
+  background: rgba(37, 99, 235, 0.24);
+  border-color: rgba(129, 140, 248, 0.75);
+}
+
 @media (max-width: 768px) {
   .dashboard-order-item {
-    grid-template-columns: 20px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    cursor: default;
   }
 
   .order-badge {
-    grid-column: 2;
+    grid-column: 3;
     justify-self: start;
     margin-top: 2px;
+  }
+
+  .order-mobile-actions {
+    display: inline-flex;
+    gap: 6px;
+  }
+
+  .drag-handle {
+    opacity: 0.65;
   }
 }
 
