@@ -1,0 +1,73 @@
+{
+  "exportedAt": "2026-03-05T12:00:00.000Z",
+  "userId": "fixture-user",
+  "profile": "finance",
+  "data": {
+    "transactions": [
+      {
+        "id": "tx-existing-1",
+        "userId": "fixture-user",
+        "description": "Spesa test aggiornata",
+        "amount": -25.5,
+        "type": "expense",
+        "accountId": "acc-existing-1",
+        "categoryId": "cat-grocery",
+        "date": "2026-03-04T10:30:00.000Z",
+        "updatedAt": "2026-03-05T12:00:00.000Z"
+      },
+      {
+        "id": "tx-new-1",
+        "userId": "fixture-user",
+        "description": "Nuova transazione test",
+        "amount": -11.2,
+        "type": "expense",
+        "accountId": "acc-new-1",
+        "categoryId": "cat-transport",
+        "date": "2026-03-05T08:00:00.000Z",
+        "createdAt": "2026-03-05T12:00:00.000Z"
+      }
+    ],
+    "accounts": [
+      {
+        "id": "acc-existing-1",
+        "userId": "fixture-user",
+        "name": "Conto Principale Aggiornato",
+        "balance": 1450.25,
+        "type": "checking",
+        "updatedAt": "2026-03-05T12:00:00.000Z"
+      },
+      {
+        "id": "acc-new-1",
+        "userId": "fixture-user",
+        "name": "Conto QA Nuovo",
+        "balance": 200,
+        "type": "cash",
+        "createdAt": "2026-03-05T12:00:00.000Z"
+      }
+    ],
+    "categories": [
+      {
+        "id": "cat-grocery",
+        "userId": "fixture-user",
+        "name": "Spesa",
+        "type": "expense"
+      },
+      {
+        "id": "cat-transport",
+        "userId": "fixture-user",
+        "name": "Trasporti",
+        "type": "expense"
+      }
+    ],
+    "budgets": [
+      {
+        "id": "budget-qa-1",
+        "userId": "fixture-user",
+        "year": 2026,
+        "month": 3,
+        "categoryId": "cat-grocery",
+        "amount": 300
+      }
+    ]
+  }
+}

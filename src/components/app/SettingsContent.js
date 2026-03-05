@@ -25,12 +25,14 @@ function SettingsContent() {
   const [exporting, setExporting] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreDryRunBusy, setRestoreDryRunBusy] = useState(false);
+  const [undoingRestore, setUndoingRestore] = useState(false);
   const [runtimeIssueCount, setRuntimeIssueCount] = useState(0);
   const [restoreProfile, setRestoreProfile] = useState('full');
   const [restoreMode, setRestoreMode] = useState('merge');
   const [restorePayload, setRestorePayload] = useState(null);
   const [restoreSummary, setRestoreSummary] = useState(null);
   const [restorePlan, setRestorePlan] = useState(null);
+  const [lastRestoreSnapshot, setLastRestoreSnapshot] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [isMobileSettings, setIsMobileSettings] = useState(
@@ -39,6 +41,7 @@ function SettingsContent() {
   const [familyRolePreview, setFamilyRolePreview] = useState('owner');
   const hasLoadedOnceRef = useRef(false);
   const autoSaveTimerRef = useRef(null);
+  const restoreSnapshotStorageKey = user?.uid ? `aurora_last_restore_snapshot_${user.uid}` : '';
 
   const [settings, setSettings] = useState({
     reminderEmail: '',
@@ -214,6 +217,19 @@ function SettingsContent() {
   useEffect(() => {
     setRuntimeIssueCount(getRuntimeIssues().length);
   }, []);
+
+  useEffect(() => {
+    if (!restoreSnapshotStorageKey) {
+      setLastRestoreSnapshot(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(restoreSnapshotStorageKey);
+      setLastRestoreSnapshot(raw ? JSON.parse(raw) : null);
+    } catch {
+      setLastRestoreSnapshot(null);
+    }
+  }, [restoreSnapshotStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -658,19 +674,21 @@ function SettingsContent() {
 
       const collections = getBackupCollections(restoreProfile);
       let written = 0;
+      const snapshotEntries = [];
       for (const colName of collections) {
         const rows = Array.isArray(restorePayload?.data?.[colName]) ? restorePayload.data[colName] : [];
         for (const row of rows) {
           const rowId = row?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const docRef = doc(db, colName, String(rowId));
+          const existing = await getDoc(docRef);
           if (row?.id) {
-            const exists = await getDoc(doc(db, colName, String(rowId)));
-            if (restoreMode === 'createOnly' && exists.exists()) continue;
+            if (restoreMode === 'createOnly' && existing.exists()) continue;
             if (restoreMode === 'conflictsOnly') {
-              if (!exists.exists()) continue;
+              if (!existing.exists()) continue;
               const { id, ...dataOnly } = row || {};
               const incoming = reviveBackupValue(dataOnly);
               incoming.userId = user.uid;
-              if (!hasBackupConflict(exists.data(), incoming)) continue;
+              if (!hasBackupConflict(existing.data(), incoming)) continue;
             }
           } else if (restoreMode === 'conflictsOnly') {
             continue;
@@ -678,9 +696,26 @@ function SettingsContent() {
           const { id, ...dataOnly } = row || {};
           const revived = reviveBackupValue(dataOnly);
           revived.userId = user.uid;
-          await setDoc(doc(db, colName, String(rowId)), revived, { merge: true });
+          snapshotEntries.push({
+            collection: colName,
+            id: String(rowId),
+            existed: existing.exists(),
+            previousData: existing.exists() ? serializeValue(existing.data()) : null
+          });
+          await setDoc(docRef, revived, { merge: true });
           written += 1;
         }
+      }
+      const snapshot = {
+        at: new Date().toISOString(),
+        mode: restoreMode,
+        profile: restoreProfile,
+        written,
+        entries: snapshotEntries
+      };
+      setLastRestoreSnapshot(snapshot);
+      if (restoreSnapshotStorageKey) {
+        localStorage.setItem(restoreSnapshotStorageKey, JSON.stringify(snapshot));
       }
       setMessage({ text: `Ripristino completato: ${written} record aggiornati`, type: 'success' });
     } catch (error) {
@@ -688,6 +723,43 @@ function SettingsContent() {
       setMessage({ text: `Errore ripristino: ${error.message}`, type: 'error' });
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const handleUndoLastRestore = async () => {
+    if (!user?.uid || !lastRestoreSnapshot?.entries?.length || undoingRestore) return;
+    const proceed = window.confirm(
+      `Annullare ultimo ripristino del ${new Date(lastRestoreSnapshot.at).toLocaleString('it-IT')}?\n` +
+      `Record coinvolti: ${lastRestoreSnapshot.entries.length}`
+    );
+    if (!proceed) return;
+    setUndoingRestore(true);
+    try {
+      const { db } = await import('../../services/firebase');
+      const { doc, deleteDoc, setDoc } = await import('firebase/firestore');
+      let reverted = 0;
+      for (let i = lastRestoreSnapshot.entries.length - 1; i >= 0; i -= 1) {
+        const item = lastRestoreSnapshot.entries[i];
+        const ref = doc(db, item.collection, item.id);
+        if (item.existed) {
+          const restored = reviveBackupValue(item.previousData || {});
+          restored.userId = user.uid;
+          await setDoc(ref, restored);
+        } else {
+          await deleteDoc(ref);
+        }
+        reverted += 1;
+      }
+      setMessage({ text: `Rollback completato: ${reverted} record ripristinati`, type: 'success' });
+      setLastRestoreSnapshot(null);
+      if (restoreSnapshotStorageKey) {
+        localStorage.removeItem(restoreSnapshotStorageKey);
+      }
+    } catch (error) {
+      console.error('Errore rollback restore:', error);
+      setMessage({ text: `Errore rollback: ${error.message}`, type: 'error' });
+    } finally {
+      setUndoingRestore(false);
     }
   };
 
@@ -1468,7 +1540,20 @@ function SettingsContent() {
                 >
                   {restoring ? 'Ripristino...' : 'Ripristina ora'}
                 </button>
+                <button
+                  onClick={handleUndoLastRestore}
+                  disabled={undoingRestore || !lastRestoreSnapshot}
+                  className="btn-secondary-settings"
+                  type="button"
+                >
+                  {undoingRestore ? 'Rollback...' : 'Annulla ultimo ripristino'}
+                </button>
               </div>
+              {lastRestoreSnapshot && (
+                <small>
+                  Ultimo restore: {new Date(lastRestoreSnapshot.at).toLocaleString('it-IT')} - {lastRestoreSnapshot.written} record
+                </small>
+              )}
               {restorePlan && (
                 <div className="dashboard-order">
                   <div className="dashboard-order-title">
