@@ -1559,6 +1559,24 @@ function SettingsContent() {
                   <div className="dashboard-order-title">
                     Dry-run: nuovi {restorePlan.toCreate}, aggiornamenti {restorePlan.toUpdate}, conflitti {restorePlan.conflicts}, saltati {restorePlan.skipped}
                   </div>
+                  <div className="restore-plan-chips">
+                    <span className="restore-plan-chip create">+ Nuovi: {restorePlan.toCreate}</span>
+                    <span className="restore-plan-chip update">~ Aggiornamenti: {restorePlan.toUpdate}</span>
+                    <span className={`restore-plan-chip ${restorePlan.conflicts > 0 ? 'conflict' : 'safe'}`}>
+                      ! Conflitti: {restorePlan.conflicts}
+                    </span>
+                    <span className="restore-plan-chip skip">- Saltati: {restorePlan.skipped}</span>
+                  </div>
+                  {restorePlan.conflicts >= 5 && (
+                    <div className="restore-plan-alert danger">
+                      Attenzione: conflitti elevati ({restorePlan.conflicts}). Valuta prima modalita "Solo nuovi" o "Solo conflitti".
+                    </div>
+                  )}
+                  {restorePlan.conflicts > 0 && restorePlan.conflicts < 5 && (
+                    <div className="restore-plan-alert warn">
+                      Conflitti rilevati: controlla i dettagli per collezione prima del ripristino.
+                    </div>
+                  )}
                   <div className="dashboard-order-list">
                     {restorePlan.byCollection.map((row) => (
                       <div key={`${row.collection}-plan`} className="dashboard-order-item locked">
