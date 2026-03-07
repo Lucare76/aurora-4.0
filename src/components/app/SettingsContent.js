@@ -53,6 +53,35 @@ function SettingsContent() {
     savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
     dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal',
     dashboardOrder: normalizeDashboardOrder(userSettings?.dashboardOrder),
+    dashboardShowMonthClose: userSettings?.dashboardShowMonthClose ?? true,
+    dashboardShowAnomalies: userSettings?.dashboardShowAnomalies ?? false,
+    dashboardShowLiquidityRadar: userSettings?.dashboardShowLiquidityRadar ?? false,
+    dashboardShowWeeklyPulse: userSettings?.dashboardShowWeeklyPulse ?? false,
+    dashboardShowAgenda14: userSettings?.dashboardShowAgenda14 ?? false,
+    dashboardShowMonthEndStress: userSettings?.dashboardShowMonthEndStress ?? false,
+    dashboardShowGoalsPriority: userSettings?.dashboardShowGoalsPriority ?? false,
+    dashboardShowDataQuality: userSettings?.dashboardShowDataQuality ?? false,
+    dashboardShowAccountRisk: userSettings?.dashboardShowAccountRisk ?? false,
+    dashboardShowDailyPace: userSettings?.dashboardShowDailyPace ?? false,
+    dashboardShowIncomeRunRate: userSettings?.dashboardShowIncomeRunRate ?? false,
+    dashboardShowTrend14: userSettings?.dashboardShowTrend14 ?? false,
+    dashboardShowTopCategories7: userSettings?.dashboardShowTopCategories7 ?? false,
+    dashboardShowWeekendSpend: userSettings?.dashboardShowWeekendSpend ?? false,
+    dashboardShowSubscriptionBurden: userSettings?.dashboardShowSubscriptionBurden ?? false,
+    dashboardShowNoSpend: userSettings?.dashboardShowNoSpend ?? false,
+    dashboardShowBurnRate7: userSettings?.dashboardShowBurnRate7 ?? false,
+    dashboardShowWeeklyMissions: userSettings?.dashboardShowWeeklyMissions ?? false,
+    dashboardShowIncomeConcentration: userSettings?.dashboardShowIncomeConcentration ?? false,
+    dashboardShowCashCrunch14: userSettings?.dashboardShowCashCrunch14 ?? false,
+    dashboardShowExpenseVolatility: userSettings?.dashboardShowExpenseVolatility ?? false,
+    dashboardShowSavingsTarget: userSettings?.dashboardShowSavingsTarget ?? false,
+    dashboardShowCommitments30: userSettings?.dashboardShowCommitments30 ?? false,
+    dashboardShowDailySpike: userSettings?.dashboardShowDailySpike ?? false,
+    dashboardShowRolling30: userSettings?.dashboardShowRolling30 ?? false,
+    dashboardShowEmergencyFund: userSettings?.dashboardShowEmergencyFund ?? false,
+    dashboardShowCategorizationScore: userSettings?.dashboardShowCategorizationScore ?? false,
+    dashboardShowSpendingMomentum: userSettings?.dashboardShowSpendingMomentum ?? false,
+    dashboardShowSubscriptionHealth: userSettings?.dashboardShowSubscriptionHealth ?? false,
     dashboardShowFocusToday: userSettings?.dashboardShowFocusToday ?? false,
     dashboardShowSubscriptionsDue: userSettings?.dashboardShowSubscriptionsDue ?? false,
     dashboardShowSubscriptionsOverdue: userSettings?.dashboardShowSubscriptionsOverdue ?? false,
@@ -86,6 +115,35 @@ function SettingsContent() {
     () => ({
       dashboardMobileMode: settings.dashboardMobileMode || 'normal',
       dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
+      dashboardShowMonthClose: settings.dashboardShowMonthClose !== false,
+      dashboardShowAnomalies: settings.dashboardShowAnomalies === true,
+      dashboardShowLiquidityRadar: settings.dashboardShowLiquidityRadar === true,
+      dashboardShowWeeklyPulse: settings.dashboardShowWeeklyPulse === true,
+      dashboardShowAgenda14: settings.dashboardShowAgenda14 === true,
+      dashboardShowMonthEndStress: settings.dashboardShowMonthEndStress === true,
+      dashboardShowGoalsPriority: settings.dashboardShowGoalsPriority === true,
+      dashboardShowDataQuality: settings.dashboardShowDataQuality === true,
+      dashboardShowAccountRisk: settings.dashboardShowAccountRisk === true,
+      dashboardShowDailyPace: settings.dashboardShowDailyPace === true,
+      dashboardShowIncomeRunRate: settings.dashboardShowIncomeRunRate === true,
+      dashboardShowTrend14: settings.dashboardShowTrend14 === true,
+      dashboardShowTopCategories7: settings.dashboardShowTopCategories7 === true,
+      dashboardShowWeekendSpend: settings.dashboardShowWeekendSpend === true,
+      dashboardShowSubscriptionBurden: settings.dashboardShowSubscriptionBurden === true,
+      dashboardShowNoSpend: settings.dashboardShowNoSpend === true,
+      dashboardShowBurnRate7: settings.dashboardShowBurnRate7 === true,
+      dashboardShowWeeklyMissions: settings.dashboardShowWeeklyMissions === true,
+      dashboardShowIncomeConcentration: settings.dashboardShowIncomeConcentration === true,
+      dashboardShowCashCrunch14: settings.dashboardShowCashCrunch14 === true,
+      dashboardShowExpenseVolatility: settings.dashboardShowExpenseVolatility === true,
+      dashboardShowSavingsTarget: settings.dashboardShowSavingsTarget === true,
+      dashboardShowCommitments30: settings.dashboardShowCommitments30 === true,
+      dashboardShowDailySpike: settings.dashboardShowDailySpike === true,
+      dashboardShowRolling30: settings.dashboardShowRolling30 === true,
+      dashboardShowEmergencyFund: settings.dashboardShowEmergencyFund === true,
+      dashboardShowCategorizationScore: settings.dashboardShowCategorizationScore === true,
+      dashboardShowSpendingMomentum: settings.dashboardShowSpendingMomentum === true,
+      dashboardShowSubscriptionHealth: settings.dashboardShowSubscriptionHealth === true,
       dashboardShowFocusToday: settings.dashboardShowFocusToday === true,
       dashboardShowSubscriptionsDue: settings.dashboardShowSubscriptionsDue === true,
       dashboardShowSubscriptionsOverdue: settings.dashboardShowSubscriptionsOverdue === true,
@@ -100,6 +158,35 @@ function SettingsContent() {
     [
       settings.dashboardMobileMode,
       settings.dashboardOrder,
+      settings.dashboardShowAnomalies,
+      settings.dashboardShowLiquidityRadar,
+      settings.dashboardShowWeeklyPulse,
+      settings.dashboardShowAgenda14,
+      settings.dashboardShowMonthEndStress,
+      settings.dashboardShowGoalsPriority,
+      settings.dashboardShowDataQuality,
+      settings.dashboardShowAccountRisk,
+      settings.dashboardShowDailyPace,
+      settings.dashboardShowIncomeRunRate,
+      settings.dashboardShowTrend14,
+      settings.dashboardShowTopCategories7,
+      settings.dashboardShowWeekendSpend,
+      settings.dashboardShowSubscriptionBurden,
+      settings.dashboardShowNoSpend,
+      settings.dashboardShowBurnRate7,
+      settings.dashboardShowWeeklyMissions,
+      settings.dashboardShowIncomeConcentration,
+      settings.dashboardShowCashCrunch14,
+      settings.dashboardShowExpenseVolatility,
+      settings.dashboardShowSavingsTarget,
+      settings.dashboardShowCommitments30,
+      settings.dashboardShowDailySpike,
+      settings.dashboardShowRolling30,
+      settings.dashboardShowEmergencyFund,
+      settings.dashboardShowCategorizationScore,
+      settings.dashboardShowSpendingMomentum,
+      settings.dashboardShowSubscriptionHealth,
+      settings.dashboardShowMonthClose,
       settings.dashboardShowActions,
       settings.dashboardShowBirthdays,
       settings.dashboardShowBudgetAlerts,
@@ -136,6 +223,35 @@ function SettingsContent() {
             savingsTargetAmount: data.savingsTargetAmount ?? 0,
             dashboardMobileMode: data.dashboardMobileMode || 'normal',
             dashboardOrder: normalizeDashboardOrder(data.dashboardOrder),
+            dashboardShowMonthClose: data.dashboardShowMonthClose ?? true,
+            dashboardShowAnomalies: data.dashboardShowAnomalies ?? false,
+            dashboardShowLiquidityRadar: data.dashboardShowLiquidityRadar ?? false,
+            dashboardShowWeeklyPulse: data.dashboardShowWeeklyPulse ?? false,
+            dashboardShowAgenda14: data.dashboardShowAgenda14 ?? false,
+            dashboardShowMonthEndStress: data.dashboardShowMonthEndStress ?? false,
+            dashboardShowGoalsPriority: data.dashboardShowGoalsPriority ?? false,
+            dashboardShowDataQuality: data.dashboardShowDataQuality ?? false,
+            dashboardShowAccountRisk: data.dashboardShowAccountRisk ?? false,
+            dashboardShowDailyPace: data.dashboardShowDailyPace ?? false,
+            dashboardShowIncomeRunRate: data.dashboardShowIncomeRunRate ?? false,
+            dashboardShowTrend14: data.dashboardShowTrend14 ?? false,
+            dashboardShowTopCategories7: data.dashboardShowTopCategories7 ?? false,
+            dashboardShowWeekendSpend: data.dashboardShowWeekendSpend ?? false,
+            dashboardShowSubscriptionBurden: data.dashboardShowSubscriptionBurden ?? false,
+            dashboardShowNoSpend: data.dashboardShowNoSpend ?? false,
+            dashboardShowBurnRate7: data.dashboardShowBurnRate7 ?? false,
+            dashboardShowWeeklyMissions: data.dashboardShowWeeklyMissions ?? false,
+            dashboardShowIncomeConcentration: data.dashboardShowIncomeConcentration ?? false,
+            dashboardShowCashCrunch14: data.dashboardShowCashCrunch14 ?? false,
+            dashboardShowExpenseVolatility: data.dashboardShowExpenseVolatility ?? false,
+            dashboardShowSavingsTarget: data.dashboardShowSavingsTarget ?? false,
+            dashboardShowCommitments30: data.dashboardShowCommitments30 ?? false,
+            dashboardShowDailySpike: data.dashboardShowDailySpike ?? false,
+            dashboardShowRolling30: data.dashboardShowRolling30 ?? false,
+            dashboardShowEmergencyFund: data.dashboardShowEmergencyFund ?? false,
+            dashboardShowCategorizationScore: data.dashboardShowCategorizationScore ?? false,
+            dashboardShowSpendingMomentum: data.dashboardShowSpendingMomentum ?? false,
+            dashboardShowSubscriptionHealth: data.dashboardShowSubscriptionHealth ?? false,
             dashboardShowFocusToday: data.dashboardShowFocusToday ?? false,
             dashboardShowSubscriptionsDue: data.dashboardShowSubscriptionsDue ?? false,
             dashboardShowSubscriptionsOverdue: data.dashboardShowSubscriptionsOverdue ?? false,
@@ -175,6 +291,35 @@ function SettingsContent() {
             savingsTargetAmount: 0,
             dashboardMobileMode: 'normal',
             dashboardOrder: normalizeDashboardOrder(null),
+            dashboardShowMonthClose: true,
+            dashboardShowAnomalies: false,
+            dashboardShowLiquidityRadar: false,
+            dashboardShowWeeklyPulse: false,
+            dashboardShowAgenda14: false,
+            dashboardShowMonthEndStress: false,
+            dashboardShowGoalsPriority: false,
+            dashboardShowDataQuality: false,
+            dashboardShowAccountRisk: false,
+            dashboardShowDailyPace: false,
+            dashboardShowIncomeRunRate: false,
+            dashboardShowTrend14: false,
+            dashboardShowTopCategories7: false,
+            dashboardShowWeekendSpend: false,
+            dashboardShowSubscriptionBurden: false,
+            dashboardShowNoSpend: false,
+            dashboardShowBurnRate7: false,
+            dashboardShowWeeklyMissions: false,
+            dashboardShowIncomeConcentration: false,
+            dashboardShowCashCrunch14: false,
+            dashboardShowExpenseVolatility: false,
+            dashboardShowSavingsTarget: false,
+            dashboardShowCommitments30: false,
+            dashboardShowDailySpike: false,
+            dashboardShowRolling30: false,
+            dashboardShowEmergencyFund: false,
+            dashboardShowCategorizationScore: false,
+            dashboardShowSpendingMomentum: false,
+            dashboardShowSubscriptionHealth: false,
             dashboardShowFocusToday: false,
             dashboardShowSubscriptionsDue: false,
             dashboardShowSubscriptionsOverdue: false,
@@ -400,6 +545,35 @@ function SettingsContent() {
     setSettings((prev) => ({
       ...prev,
       dashboardOrder: normalizeDashboardOrder(null),
+      dashboardShowMonthClose: true,
+      dashboardShowAnomalies: false,
+      dashboardShowLiquidityRadar: false,
+      dashboardShowWeeklyPulse: false,
+      dashboardShowAgenda14: false,
+      dashboardShowMonthEndStress: false,
+      dashboardShowGoalsPriority: false,
+      dashboardShowDataQuality: false,
+      dashboardShowAccountRisk: false,
+      dashboardShowDailyPace: false,
+      dashboardShowIncomeRunRate: false,
+      dashboardShowTrend14: false,
+      dashboardShowTopCategories7: false,
+      dashboardShowWeekendSpend: false,
+      dashboardShowSubscriptionBurden: false,
+      dashboardShowNoSpend: false,
+      dashboardShowBurnRate7: false,
+      dashboardShowWeeklyMissions: false,
+      dashboardShowIncomeConcentration: false,
+      dashboardShowCashCrunch14: false,
+      dashboardShowExpenseVolatility: false,
+      dashboardShowSavingsTarget: false,
+      dashboardShowCommitments30: false,
+      dashboardShowDailySpike: false,
+      dashboardShowRolling30: false,
+      dashboardShowEmergencyFund: false,
+      dashboardShowCategorizationScore: false,
+      dashboardShowSpendingMomentum: false,
+      dashboardShowSubscriptionHealth: false,
       dashboardShowFocusToday: false,
       dashboardShowSubscriptionsDue: false,
       dashboardShowSubscriptionsOverdue: false,
@@ -1243,6 +1417,238 @@ function SettingsContent() {
                   Ripristina default dashboard
                 </button>
               </div>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowMonthClose}
+                  onChange={(e) => handleChange('dashboardShowMonthClose', e.target.checked)}
+                />
+                <span>Assistente chiusura mese</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowAnomalies}
+                  onChange={(e) => handleChange('dashboardShowAnomalies', e.target.checked)}
+                />
+                <span>Anomalie transazioni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowLiquidityRadar}
+                  onChange={(e) => handleChange('dashboardShowLiquidityRadar', e.target.checked)}
+                />
+                <span>Radar liquidita</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowWeeklyPulse}
+                  onChange={(e) => handleChange('dashboardShowWeeklyPulse', e.target.checked)}
+                />
+                <span>Pulse settimanale</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowAgenda14}
+                  onChange={(e) => handleChange('dashboardShowAgenda14', e.target.checked)}
+                />
+                <span>Agenda 14 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowMonthEndStress}
+                  onChange={(e) => handleChange('dashboardShowMonthEndStress', e.target.checked)}
+                />
+                <span>Stress test fine mese</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowGoalsPriority}
+                  onChange={(e) => handleChange('dashboardShowGoalsPriority', e.target.checked)}
+                />
+                <span>Obiettivo prioritario</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowDataQuality}
+                  onChange={(e) => handleChange('dashboardShowDataQuality', e.target.checked)}
+                />
+                <span>Qualita dati</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowAccountRisk}
+                  onChange={(e) => handleChange('dashboardShowAccountRisk', e.target.checked)}
+                />
+                <span>Conti a rischio</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowDailyPace}
+                  onChange={(e) => handleChange('dashboardShowDailyPace', e.target.checked)}
+                />
+                <span>Pace giornaliero spese</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowIncomeRunRate}
+                  onChange={(e) => handleChange('dashboardShowIncomeRunRate', e.target.checked)}
+                />
+                <span>Stato entrate</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowTrend14}
+                  onChange={(e) => handleChange('dashboardShowTrend14', e.target.checked)}
+                />
+                <span>Trend 14 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowTopCategories7}
+                  onChange={(e) => handleChange('dashboardShowTopCategories7', e.target.checked)}
+                />
+                <span>Top categorie 7 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowWeekendSpend}
+                  onChange={(e) => handleChange('dashboardShowWeekendSpend', e.target.checked)}
+                />
+                <span>Weekend spend alert</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSubscriptionBurden}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionBurden', e.target.checked)}
+                />
+                <span>Peso abbonamenti</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowNoSpend}
+                  onChange={(e) => handleChange('dashboardShowNoSpend', e.target.checked)}
+                />
+                <span>No-spend streak</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowBurnRate7}
+                  onChange={(e) => handleChange('dashboardShowBurnRate7', e.target.checked)}
+                />
+                <span>Burn rate 7 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowWeeklyMissions}
+                  onChange={(e) => handleChange('dashboardShowWeeklyMissions', e.target.checked)}
+                />
+                <span>Missioni settimanali</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowIncomeConcentration}
+                  onChange={(e) => handleChange('dashboardShowIncomeConcentration', e.target.checked)}
+                />
+                <span>Concentrazione entrate</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowCashCrunch14}
+                  onChange={(e) => handleChange('dashboardShowCashCrunch14', e.target.checked)}
+                />
+                <span>Rischio cassa 14 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowExpenseVolatility}
+                  onChange={(e) => handleChange('dashboardShowExpenseVolatility', e.target.checked)}
+                />
+                <span>Variabilita spese 30g</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSavingsTarget}
+                  onChange={(e) => handleChange('dashboardShowSavingsTarget', e.target.checked)}
+                />
+                <span>Obiettivo risparmio mese</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowCommitments30}
+                  onChange={(e) => handleChange('dashboardShowCommitments30', e.target.checked)}
+                />
+                <span>Impegni 30 giorni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowDailySpike}
+                  onChange={(e) => handleChange('dashboardShowDailySpike', e.target.checked)}
+                />
+                <span>Picco spesa giornaliera</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowRolling30}
+                  onChange={(e) => handleChange('dashboardShowRolling30', e.target.checked)}
+                />
+                <span>Confronto 30g vs 30g</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowEmergencyFund}
+                  onChange={(e) => handleChange('dashboardShowEmergencyFund', e.target.checked)}
+                />
+                <span>Copertura fondo emergenza</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowCategorizationScore}
+                  onChange={(e) => handleChange('dashboardShowCategorizationScore', e.target.checked)}
+                />
+                <span>Indice categorizzazione 30g</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSpendingMomentum}
+                  onChange={(e) => handleChange('dashboardShowSpendingMomentum', e.target.checked)}
+                />
+                <span>Momentum spese 7g</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSubscriptionHealth}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionHealth', e.target.checked)}
+                />
+                <span>Salute abbonamenti</span>
+              </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
