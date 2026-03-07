@@ -1,6 +1,7 @@
 // src/pages/Categories.js
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
+import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
 import { doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { formatEntityLabel } from '../utils/text';
@@ -39,6 +40,7 @@ function useIsMobile(breakpoint = 768) {
 
 const Categories = () => {
   const { categories, transactions = [], addCategory, updateCategory, deleteCategory } = useFinancial();
+  const { user } = useAuth();
   const allCategories = useMemo(() => {
   return Array.isArray(categories) ? categories : [];
 }, [categories]);
@@ -108,6 +110,16 @@ const Categories = () => {
     const arr = category?.subCategories || [];
     return arr.map((sub) => (typeof sub === 'string' ? sub : sub?.name)).filter(Boolean);
   };
+
+  const getTransactionRef = useCallback(
+    (tx) => {
+      if (!tx?.id) return null;
+      const uid = tx.userId || user?.uid;
+      if (!uid) return null;
+      return doc(db, 'users', uid, 'transactions', tx.id);
+    },
+    [user?.uid]
+  );
 
   /* Accordion su mobile (apre 1 sola categoria alla volta) */
   const toggleCategory = useCallback(
@@ -227,6 +239,10 @@ const Categories = () => {
 
   const handleUppercaseDescriptions = async () => {
     if (cleanupBusy) return;
+    if (!user?.uid) {
+      alert('Devi essere autenticato per eseguire questa operazione.');
+      return;
+    }
     const toUpdate = (transactions || []).filter((t) => {
       const current = String(t?.description || '');
       if (!current.trim()) return false;
@@ -249,8 +265,10 @@ const Categories = () => {
 
       for (const t of toUpdate) {
         const nextDesc = String(t.description || '').toLocaleUpperCase('it-IT').trim();
+        const txRef = getTransactionRef(t);
+        if (!txRef) continue;
         if (!nextDesc) continue;
-        batch.update(doc(db, 'transactions', t.id), { description: nextDesc });
+        batch.update(txRef, { description: nextDesc });
         count++;
         updated++;
 
@@ -273,6 +291,10 @@ const Categories = () => {
 
   const handleMergeDuplicateCategories = async () => {
     if (cleanupBusy) return;
+    if (!user?.uid) {
+      alert('Devi essere autenticato per eseguire questa operazione.');
+      return;
+    }
     if (!allCategories.length) return;
 
     const groups = new Map();
@@ -347,9 +369,11 @@ const Categories = () => {
         for (const dup of duplicates) {
           const txs = txByCategory.get(dup.id) || [];
           for (const t of txs) {
+            const txRef = getTransactionRef(t);
+            if (!txRef) continue;
             const subKey = normalizeKey(t.subCategoryName || '');
             const mapped = canonicalSubMap.get(subKey);
-            batch.update(doc(db, 'transactions', t.id), {
+            batch.update(txRef, {
               categoryId: canonical.id,
               categoryName: canonical.name,
               subCategoryId: mapped?.id || null,

@@ -773,6 +773,10 @@ function Reports() {
         const relatedSub =
           subscriptionsWithDerived.find((s) => s.id === payment.subscriptionId) ||
           filteredSubscriptions.find((s) => s.id === payment.subscriptionId);
+        const amount = Math.abs(Number(payment.amount) || 0);
+        if (amount <= 0) {
+          throw new Error('Importo pagamento non valido');
+        }
         const accountId = relatedSub?.accountId || accounts[0]?.id || null;
         if (!accountId) {
           throw new Error('Nessun conto disponibile per creare la transazione');
@@ -780,7 +784,7 @@ function Reports() {
 
         const txPayload = {
           description: `Pagamento abbonamento: ${payment.subscriptionName || relatedSub?.name || 'Abbonamento'}`,
-          amount: Math.abs(Number(payment.amount) || 0),
+          amount,
           type: 'expense',
           accountId,
           date: payment.paidAt || new Date(),
@@ -804,7 +808,7 @@ function Reports() {
           subscriptionId: payment.subscriptionId || relatedSub?.id || '',
           subscriptionName: payment.subscriptionName || relatedSub?.name || '',
           sourceId: payment.id || '',
-          amount: Math.abs(Number(payment.amount) || 0),
+          amount,
           currency: payment.currency || userSettings?.currency || 'EUR',
           actionAt: payment.paidAt || new Date(),
           notes: 'Creata transazione da pagamento mancante'
@@ -938,13 +942,18 @@ function Reports() {
             subscriptionsWithDerived.find((s) => s.id === payment.subscriptionId) ||
             filteredSubscriptions.find((s) => s.id === payment.subscriptionId);
           const accountId = relatedSub?.accountId || accounts[0]?.id || null;
+          const amount = Math.abs(Number(payment.amount) || 0);
+          if (amount <= 0) {
+            failed += 1;
+            continue;
+          }
           if (!accountId) {
             failed += 1;
             continue;
           }
           const txPayload = {
             description: `Pagamento abbonamento: ${payment.subscriptionName || relatedSub?.name || 'Abbonamento'}`,
-            amount: Math.abs(Number(payment.amount) || 0),
+            amount,
             type: 'expense',
             accountId,
             date: payment.paidAt || new Date(),
@@ -967,7 +976,7 @@ function Reports() {
             subscriptionId: payment.subscriptionId || relatedSub?.id || '',
             subscriptionName: payment.subscriptionName || relatedSub?.name || '',
             sourceId: payment.id || '',
-            amount: Math.abs(Number(payment.amount) || 0),
+            amount,
             currency: payment.currency || userSettings?.currency || 'EUR',
             actionAt: payment.paidAt || new Date(),
             notes: 'Bulk: creata transazione da pagamento mancante'

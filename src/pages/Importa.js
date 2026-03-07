@@ -1,5 +1,5 @@
 // src/pages/Importa.js
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { parseBancoPostaExcel } from "../utils/bancopostaExcelParser";
 import { parseAmexCsv } from "../utils/amexCsvParser";
 import { parseNotafacileFile, autoMapNotafacileTransactions } from "../services/notafacileImportService";
@@ -104,7 +104,7 @@ export default function Importa() {
     return { transactions: mapped, appliedCategories, appliedAccounts };
   };
 
-  useMemo(() => {
+  useEffect(() => {
     if (selectedAccountId) return;
     const amex = accounts.find(
       (a) =>

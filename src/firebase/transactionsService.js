@@ -12,6 +12,61 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
+const UPDATE_TIMEOUT_MS = 12000;
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const withTimeout = async (promise, ms) => {
+  let timeoutId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const err = new Error(`Timeout updateTransaction dopo ${ms}ms`);
+      err.code = 'deadline-exceeded';
+      reject(err);
+    }, ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+const isRetryableError = (error) => {
+  const code = String(error?.code || '').toLowerCase();
+  const msg = String(error?.message || '').toLowerCase();
+  return (
+    code.includes('unavailable') ||
+    code.includes('deadline-exceeded') ||
+    code.includes('aborted') ||
+    code.includes('resource-exhausted') ||
+    msg.includes('network') ||
+    msg.includes('failed to fetch')
+  );
+};
+const normalizeUpdateData = (data = {}) => {
+  const next = { ...data };
+  if (Object.prototype.hasOwnProperty.call(next, 'amount')) {
+    const n = Number(next.amount);
+    if (!Number.isFinite(n)) {
+      const err = new Error('Importo non valido');
+      err.code = 'invalid-argument';
+      throw err;
+    }
+    next.amount = n;
+  }
+  if (Object.prototype.hasOwnProperty.call(next, 'date')) {
+    const d = next.date instanceof Date ? next.date : new Date(next.date);
+    if (Number.isNaN(d.getTime())) {
+      const err = new Error('Data non valida');
+      err.code = 'invalid-argument';
+      throw err;
+    }
+    next.date = d;
+  }
+  if (typeof next.description === 'string') {
+    next.description = next.description.trim().slice(0, 240);
+  }
+  return next;
+};
+
 // SERVICIO PER GLI ACCOUNT
 export const accountsService = {
   // Crea un nuovo account
@@ -133,10 +188,52 @@ export const transactionsService = {
 
   // MODIFICA UNA TRANSAZIONE
   updateTransaction: async (userId, transactionId, updateData) => {
+    if (!userId) {
+      const err = new Error('userId mancante');
+      err.httpStatus = 401;
+      throw err;
+    }
+    if (!transactionId) {
+      const err = new Error('transactionId mancante');
+      err.httpStatus = 422;
+      throw err;
+    }
     try {
-      await updateDoc(doc(db, "users", userId, "transactions", transactionId), updateData);
+      const payload = normalizeUpdateData(updateData);
+      const txRef = doc(db, "users", userId, "transactions", transactionId);
+      const maxRetries = 1;
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        try {
+          await withTimeout(updateDoc(txRef, payload), UPDATE_TIMEOUT_MS);
+          return;
+        } catch (error) {
+          if (attempt < maxRetries && isRetryableError(error)) {
+            console.warn('[firebase.transactionsService.updateTransaction] retry', {
+              txId: transactionId,
+              attempt: attempt + 1,
+              code: error?.code || null
+            });
+            await wait(300 * (attempt + 1));
+            continue;
+          }
+          throw error;
+        }
+      }
     } catch (error) {
-      console.error("Errore modifica transazione:", error);
+      const code = String(error?.code || '').toLowerCase();
+      const httpStatus = code.includes('unauthenticated')
+        ? 401
+        : code.includes('permission-denied')
+        ? 403
+        : (code.includes('invalid-argument') || code.includes('failed-precondition'))
+        ? 422
+        : 500;
+      console.error('[firebase.transactionsService.updateTransaction] failed', {
+        txId: transactionId,
+        code: error?.code || null,
+        httpStatus
+      });
+      error.httpStatus = httpStatus;
       throw error;
     }
   }

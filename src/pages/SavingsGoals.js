@@ -346,7 +346,7 @@ export default function SavingsGoals() {
       } else {
         await createTransaction({
           description,
-          amount: -projectedAutopilotAmount,
+          amount: projectedAutopilotAmount,
           type: "expense",
           category: null,
           subCategory: null,

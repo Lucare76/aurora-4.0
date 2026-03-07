@@ -59,14 +59,142 @@ const generateId = () => {
   return `tr_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 };
 
-const parseAmountSafe = (v) => (typeof v === 'string' ? parseFloat(v) || 0 : v || 0);
+const roundMoney = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+};
+
+const parseAmountSafe = (v) => {
+  const n = typeof v === 'string' ? parseFloat(v) || 0 : v || 0;
+  return roundMoney(n);
+};
 
 const toJsDate = (d) => {
   if (!d) return new Date();
   if (d instanceof Date) return d;
   if (typeof d?.toDate === 'function') return d.toDate();
+  if (typeof d === 'string') {
+    // YYYY-MM-DD interpretata come data locale (evita shift UTC)
+    const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    if (dateOnly) {
+      const y = Number(dateOnly[1]);
+      const m = Number(dateOnly[2]);
+      const day = Number(dateOnly[3]);
+      return new Date(y, m - 1, day, 0, 0, 0, 0);
+    }
+    // YYYY-MM-DDTHH:mm interpretata locale
+    const localDateTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(d);
+    if (localDateTime) {
+      const y = Number(localDateTime[1]);
+      const m = Number(localDateTime[2]);
+      const day = Number(localDateTime[3]);
+      const h = Number(localDateTime[4]);
+      const min = Number(localDateTime[5]);
+      return new Date(y, m - 1, day, h, min, 0, 0);
+    }
+  }
   const parsed = new Date(d);
   return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+};
+
+const getTimestampMs = (value) => {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  const n = Number(value);
+  if (Number.isFinite(n)) return n;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+};
+
+const TX_UPDATE_TIMEOUT_MS = 12000;
+
+const delayMs = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const withTimeout = async (promise, ms, tag = 'updateDoc') => {
+  let timeoutId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const err = new Error(`Timeout ${tag} dopo ${ms}ms`);
+      err.code = 'deadline-exceeded';
+      reject(err);
+    }, ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const isRetryableUpdateError = (error) => {
+  const code = String(error?.code || '').toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  return (
+    code.includes('unavailable') ||
+    code.includes('deadline-exceeded') ||
+    code.includes('aborted') ||
+    code.includes('resource-exhausted') ||
+    message.includes('network') ||
+    message.includes('failed to fetch')
+  );
+};
+
+const mapUpdateError = (error, context = {}) => {
+  const code = String(error?.code || '').toLowerCase();
+  const mapped = new Error(error?.message || 'Errore aggiornamento transazione');
+  mapped.originalCode = code || null;
+  mapped.context = context;
+
+  if (code.includes('unauthenticated')) {
+    mapped.httpStatus = 401;
+    mapped.message = 'Sessione scaduta. Effettua di nuovo il login.';
+    return mapped;
+  }
+  if (code.includes('permission-denied')) {
+    mapped.httpStatus = 403;
+    mapped.message = 'Permessi insufficienti per aggiornare la transazione.';
+    return mapped;
+  }
+  if (code.includes('invalid-argument') || code.includes('failed-precondition')) {
+    mapped.httpStatus = 422;
+    mapped.message = 'Dati non validi per aggiornare la transazione.';
+    return mapped;
+  }
+
+  mapped.httpStatus = 500;
+  return mapped;
+};
+
+const updateDocWithRetry = async (docRef, payload, meta = {}) => {
+  const maxRetries = 1;
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      await withTimeout(updateDoc(docRef, payload), TX_UPDATE_TIMEOUT_MS, 'updateTransaction');
+      return;
+    } catch (error) {
+      const retryable = isRetryableUpdateError(error);
+      if (attempt < maxRetries && retryable) {
+        console.warn('[tx:update] retry', {
+          attempt: attempt + 1,
+          txId: meta.txId || null,
+          step: meta.step || 'single',
+          code: error?.code || null
+        });
+        await delayMs(300 * (attempt + 1));
+        attempt += 1;
+        continue;
+      }
+      console.error('[tx:update] failed', {
+        txId: meta.txId || null,
+        step: meta.step || 'single',
+        code: error?.code || null
+      });
+      throw mapUpdateError(error, meta);
+    }
+  }
 };
 
 export const FinancialProvider = ({ children }) => {
@@ -81,10 +209,10 @@ export const FinancialProvider = ({ children }) => {
   // Helpers importi / tipi
   // ----------------------------
   const getSignedAmount = useCallback((type, rawAmount) => {
-    const base = parseFloat(rawAmount) || 0;
+    const base = roundMoney(rawAmount);
     if (type === 'expense') return -Math.abs(base);
     if (type === 'income') return Math.abs(base);
-    return base;
+    return roundMoney(base);
   }, []);
 
   // ----------------------------
@@ -101,20 +229,20 @@ export const FinancialProvider = ({ children }) => {
 
   const resolveCategory = useCallback(
     (categoryIdOrName) => {
-      if (!categoryIdOrName) return { categoryId: null, categoryName: 'Senza categoria' };
+      if (!categoryIdOrName) return { categoryId: null, categoryName: 'Senza categoria', categoryType: null };
 
       // se è un ID
       const byId = categories.find((c) => c.id === categoryIdOrName);
-      if (byId) return { categoryId: byId.id, categoryName: byId.name };
+      if (byId) return { categoryId: byId.id, categoryName: byId.name, categoryType: byId.type || null };
 
       // se è un nome
       const byName = categories.find(
         (c) => (c.name || '').toLowerCase() === String(categoryIdOrName).toLowerCase()
       );
-      if (byName) return { categoryId: byName.id, categoryName: byName.name };
+      if (byName) return { categoryId: byName.id, categoryName: byName.name, categoryType: byName.type || null };
 
       // fallback: stringa
-      return { categoryId: null, categoryName: String(categoryIdOrName) };
+      return { categoryId: null, categoryName: String(categoryIdOrName), categoryType: null };
     },
     [categories]
   );
@@ -148,7 +276,7 @@ export const FinancialProvider = ({ children }) => {
   const adjustAccountBalance = useCallback(async (accountId, delta) => {
     if (!accountId) return;
 
-    const d = parseFloat(delta) || 0;
+    const d = roundMoney(delta);
     if (d === 0) return;
 
     const accountRef = doc(db, 'accounts', accountId);
@@ -159,8 +287,8 @@ export const FinancialProvider = ({ children }) => {
       return;
     }
 
-    const current = parseFloat(snap.data().balance) || 0;
-    const next = current + d;
+    const current = roundMoney(snap.data().balance);
+    const next = roundMoney(current + d);
 
     await updateDoc(accountRef, {
       balance: next,
@@ -177,7 +305,7 @@ export const FinancialProvider = ({ children }) => {
       const newAmt = parseAmountSafe(newAmount);
 
       if (oldAcc && newAcc && oldAcc === newAcc) {
-        const delta = newAmt - oldAmt;
+        const delta = roundMoney(newAmt - oldAmt);
         if (delta !== 0) await adjustAccountBalance(oldAcc, delta);
         return;
       }
@@ -425,8 +553,7 @@ data.sort((a, b) => a.name.localeCompare(b.name));
     if (!user) throw new Error('❌ Utente non autenticato');
 
     // date: se manca, usa adesso
-    const dateObj = transactionData?.date ? new Date(transactionData.date) : new Date();
-    const safeDate = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
+    const safeDate = toJsDate(transactionData?.date || new Date());
 
     // tipo + amount signed
     const type = transactionData.type || 'expense';
@@ -436,7 +563,12 @@ data.sort((a, b) => a.name.localeCompare(b.name));
     const { accountId, accountName } = resolveAccount(transactionData.accountId);
 
     const rawCategory = transactionData.categoryId || transactionData.category;
-    const { categoryId, categoryName } = resolveCategory(rawCategory);
+    const { categoryId, categoryName, categoryType } = resolveCategory(rawCategory);
+    if ((type === 'income' || type === 'expense') && categoryId && categoryType && categoryType !== type) {
+      const err = new Error('Categoria non coerente con il tipo della transazione');
+      err.code = 'invalid-argument';
+      throw err;
+    }
 
     const rawSub = transactionData.subCategoryId || transactionData.subCategory || transactionData.subcategory;
     const { subCategoryId, subCategoryName } = resolveSubCategory(categoryId, rawSub);
@@ -554,6 +686,20 @@ data.sort((a, b) => a.name.localeCompare(b.name));
     if (!snap.exists()) throw new Error('❌ Transazione non trovata');
 
     const old = snap.data();
+    const expectedUpdatedAtMs =
+      updates && Object.prototype.hasOwnProperty.call(updates, 'expectedUpdatedAtMs')
+        ? Number(updates.expectedUpdatedAtMs)
+        : null;
+    const currentUpdatedAtMs = getTimestampMs(old.updatedAt) ?? getTimestampMs(old.createdAt);
+    if (
+      Number.isFinite(expectedUpdatedAtMs) &&
+      Number.isFinite(currentUpdatedAtMs) &&
+      Math.abs(currentUpdatedAtMs - expectedUpdatedAtMs) > 1000
+    ) {
+      throw new Error('La transazione e\' stata aggiornata da un altro dispositivo/sessione');
+    }
+    const safeUpdates = { ...(updates || {}) };
+    delete safeUpdates.expectedUpdatedAtMs;
 
     // ✅ GIROCONTO: aggiorna anche la gemella
     if (old.isTransfer && old.transferId) {
@@ -578,31 +724,31 @@ const thisIsIncome = thisType === 'income';
 
       // nuovo importo (sempre assoluto)
       const nextAbs =
-        updates.amount !== undefined
-          ? Math.abs(parseFloat(updates.amount) || 0)
+        safeUpdates.amount !== undefined
+          ? Math.abs(parseFloat(safeUpdates.amount) || 0)
           : Math.abs(parseAmountSafe(expenseLeg.amount));
 
       if (!nextAbs) throw new Error('Inserisci un importo valido');
 
       // nuova data
-      const nextDate = updates.date !== undefined ? toJsDate(updates.date) : toJsDate(old.date);
+      const nextDate = safeUpdates.date !== undefined ? toJsDate(safeUpdates.date) : toJsDate(old.date);
 
       // descrizione (stessa su entrambe)
       const nextDescription =
-        updates.description !== undefined
-          ? String(updates.description || '').trim()
+        safeUpdates.description !== undefined
+          ? String(safeUpdates.description || '').trim().slice(0, 240)
           : String(old.description || '').trim();
 
       // se aggiornano from/to account, prevale esplicitamente
       let nextFromAccountId = oldFromAccountId;
       let nextToAccountId = oldToAccountId;
 
-      if (updates.fromAccountId !== undefined || updates.toAccountId !== undefined) {
-        if (updates.fromAccountId !== undefined) nextFromAccountId = updates.fromAccountId || null;
-        if (updates.toAccountId !== undefined) nextToAccountId = updates.toAccountId || null;
-      } else if (updates.accountId !== undefined) {
+      if (safeUpdates.fromAccountId !== undefined || safeUpdates.toAccountId !== undefined) {
+        if (safeUpdates.fromAccountId !== undefined) nextFromAccountId = safeUpdates.fromAccountId || null;
+        if (safeUpdates.toAccountId !== undefined) nextToAccountId = safeUpdates.toAccountId || null;
+      } else if (safeUpdates.accountId !== undefined) {
         // compatibilita': se arriva solo accountId, vale per LA GAMBA modificata
-        const targetAcc = updates.accountId || null;
+        const targetAcc = safeUpdates.accountId || null;
         if (!targetAcc) throw new Error('Seleziona un conto valido');
 
         if (expenseLeg.id === transactionId) nextFromAccountId = targetAcc;
@@ -677,7 +823,10 @@ const thisIsIncome = thisType === 'income';
       const expenseRef = doc(db, 'transactions', expenseLeg.id);
       const incomeRef = doc(db, 'transactions', incomeLeg.id);
 
-      await Promise.all([updateDoc(expenseRef, expensePatch), updateDoc(incomeRef, incomePatch)]);
+      await Promise.all([
+        updateDocWithRetry(expenseRef, expensePatch, { txId: expenseLeg.id, step: 'transfer-expense' }),
+        updateDocWithRetry(incomeRef, incomePatch, { txId: incomeLeg.id, step: 'transfer-income' })
+      ]);
 
       // aggiorna saldi (storna old e applica nuovo)
       await applyBalanceAdjustForChange(oldFromAccountId, expenseAmountOld, nextFromAccountId, expenseAmountNew);
@@ -692,48 +841,57 @@ const thisIsIncome = thisType === 'income';
 
     // vecchi valori
     const oldAccountId = old.accountId || null;
-    const oldAmount = typeof old.amount === 'string' ? parseFloat(old.amount) || 0 : old.amount || 0;
+      const oldAmount = parseAmountSafe(old.amount);
     const oldType = old.type || 'expense';
 
     // nuovi valori (se non presenti, mantieni old)
-    const newType = updates.type !== undefined ? updates.type : oldType;
+    const newType = safeUpdates.type !== undefined ? safeUpdates.type : oldType;
 
     // amount
     let newAmount = oldAmount;
-    if (updates.amount !== undefined) {
-      newAmount = getSignedAmount(newType, updates.amount);
-    } else if (updates.type !== undefined && updates.type !== oldType) {
+    if (safeUpdates.amount !== undefined) {
+      newAmount = getSignedAmount(newType, safeUpdates.amount);
+    } else if (safeUpdates.type !== undefined && safeUpdates.type !== oldType) {
       newAmount = getSignedAmount(newType, Math.abs(oldAmount));
     }
 
     // date
     let newDate = old.date;
-    if (updates.date !== undefined) {
-      const d = new Date(updates.date);
-      newDate = Number.isNaN(d.getTime()) ? new Date() : d;
+    if (safeUpdates.date !== undefined) {
+      newDate = toJsDate(safeUpdates.date);
     }
 
     // account
-    const newAccountId = updates.accountId !== undefined ? updates.accountId : oldAccountId;
+    const newAccountId = safeUpdates.accountId !== undefined ? safeUpdates.accountId : oldAccountId;
     const { accountId: resolvedAccId, accountName } = resolveAccount(newAccountId);
 
     // category/subcategory
-    const rawCategory = updates.categoryId ?? updates.category ?? old.categoryId ?? old.category ?? null;
-    const { categoryId, categoryName } = resolveCategory(rawCategory);
+    const rawCategory = safeUpdates.categoryId ?? safeUpdates.category ?? old.categoryId ?? old.category ?? null;
+    const { categoryId, categoryName, categoryType } = resolveCategory(rawCategory);
+    if ((newType === 'income' || newType === 'expense') && categoryId && categoryType && categoryType !== newType) {
+      const err = new Error('Categoria non coerente con il tipo della transazione');
+      err.code = 'invalid-argument';
+      throw err;
+    }
 
     const rawSub =
-      updates.subCategoryId ??
-      updates.subCategory ??
-      updates.subcategory ??
+      safeUpdates.subCategoryId ??
+      safeUpdates.subCategory ??
+      safeUpdates.subcategory ??
       old.subCategoryId ??
       old.subCategory ??
       old.subcategory ??
       null;
 
     const { subCategoryId, subCategoryName } = resolveSubCategory(categoryId, rawSub);
+    const normalizedDescription =
+      safeUpdates.description !== undefined
+        ? String(safeUpdates.description || '').trim().slice(0, 240)
+        : String(old.description || '').trim();
 
     const patched = {
-      ...updates,
+      ...safeUpdates,
+      description: normalizedDescription,
 
       type: newType,
       amount: newAmount,
@@ -751,7 +909,7 @@ const thisIsIncome = thisType === 'income';
       updatedAt: serverTimestamp()
     };
 
-    await updateDoc(transactionRef, patched);
+    await updateDocWithRetry(transactionRef, patched, { txId: transactionId, step: 'single' });
 
     // aggiorna saldi (storna old e applica nuovo)
     if (oldAccountId && resolvedAccId && oldAccountId === resolvedAccId) {
