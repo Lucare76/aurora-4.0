@@ -37,7 +37,8 @@ function getLocalDateTimeForInput(dateObj = new Date()) {
   const d = String(dateObj.getDate()).padStart(2, '0');
   const h = String(dateObj.getHours()).padStart(2, '0');
   const min = String(dateObj.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${d}T${h}:${min}`;
+  const sec = String(dateObj.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}:${sec}`;
 }
 
 function parseLocalDateFromInput(value) {
@@ -46,16 +47,20 @@ function parseLocalDateFromInput(value) {
   if (value.includes('T')) {
     const [datePart, timePart] = value.split('T');
     const [y, m, d] = datePart.split('-').map(Number);
-    const [h, min] = timePart.split(':').map(Number);
-    if (![y, m, d, h, min].every(Number.isInteger)) return null;
-    if (m < 1 || m > 12 || d < 1 || d > 31 || h < 0 || h > 23 || min < 0 || min > 59) return null;
-    const parsed = new Date(y, m - 1, d, h, min, 0, 0);
+    const [hRaw, minRaw, secRaw = '0'] = timePart.split(':');
+    const h = Number(hRaw);
+    const min = Number(minRaw);
+    const sec = Number(secRaw);
+    if (![y, m, d, h, min, sec].every(Number.isInteger)) return null;
+    if (m < 1 || m > 12 || d < 1 || d > 31 || h < 0 || h > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) return null;
+    const parsed = new Date(y, m - 1, d, h, min, sec, 0);
     if (
       parsed.getFullYear() !== y ||
       parsed.getMonth() !== m - 1 ||
       parsed.getDate() !== d ||
       parsed.getHours() !== h ||
-      parsed.getMinutes() !== min
+      parsed.getMinutes() !== min ||
+      parsed.getSeconds() !== sec
     ) {
       return null;
     }
@@ -560,6 +565,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
               value={formData.date}
               onChange={handleChange}
               className="form-input"
+              step="1"
               required
             />
           </div>

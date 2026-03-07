@@ -18,7 +18,8 @@ function getLocalDateTimeForInput(dateObj = new Date()) {
   const d = String(dateObj.getDate()).padStart(2, '0');
   const h = String(dateObj.getHours()).padStart(2, '0');
   const min = String(dateObj.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${d}T${h}:${min}`;
+  const sec = String(dateObj.getSeconds()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}:${sec}`;
 }
 
 function parseLocalDateFromInput(value) {
@@ -27,13 +28,13 @@ function parseLocalDateFromInput(value) {
   if (value.includes('T')) {
     const [datePart, timePart] = value.split('T');
     const [y, m, d] = datePart.split('-').map(Number);
-    const [h, min] = timePart.split(':').map(Number);
-    return new Date(y, m - 1, d, h, min, 0, 0);
+    const [h, min, sec = '0'] = timePart.split(':');
+    return new Date(y, m - 1, d, Number(h), Number(min), Number(sec) || 0, 0);
   }
 
   const [y, m, d] = value.split('-').map(Number);
   const now = new Date();
-  return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), 0, 0);
+  return new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds(), 0);
 }
 
 function pickDifferentAccountId(accounts, excludeId) {
@@ -91,6 +92,7 @@ const AddTransactionForm = ({ onClose }) => {
   const [scanLoading, setScanLoading] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState(null);
   const fileInputRef = useRef(null);
+  const dateTouchedRef = useRef(false);
 
   const handleReceiptUpload = useCallback(async (e) => {
     const file = e.target.files?.[0];
@@ -161,7 +163,9 @@ const AddTransactionForm = ({ onClose }) => {
           const now = new Date();
           const h = String(now.getHours()).padStart(2, '0');
           const min = String(now.getMinutes()).padStart(2, '0');
-          updates.date = `${data.date}T${h}:${min}`;
+          const sec = String(now.getSeconds()).padStart(2, '0');
+          updates.date = `${data.date}T${h}:${min}:${sec}`;
+          dateTouchedRef.current = true;
         }
 
         return updates;
@@ -311,6 +315,10 @@ const AddTransactionForm = ({ onClose }) => {
       return;
     }
 
+    if (name === 'date') {
+      dateTouchedRef.current = true;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -396,7 +404,9 @@ const AddTransactionForm = ({ onClose }) => {
       return;
     }
 
-    const transactionDate = parseLocalDateFromInput(formData.date);
+    const transactionDate = dateTouchedRef.current
+      ? parseLocalDateFromInput(formData.date)
+      : new Date();
     if (!transactionDate) {
       setError('Data non valida');
       return;
@@ -405,7 +415,6 @@ const AddTransactionForm = ({ onClose }) => {
     try {
       setLoading(true);
       setError('');
-                  Giroconto
       if (formData.type === 'transfer') {
         if (!accounts || accounts.length < 2) {
           setError('Per un giroconto servono almeno 2 conti');
@@ -440,6 +449,7 @@ const AddTransactionForm = ({ onClose }) => {
           accountId: accounts?.[0]?.id || '',
           date: getLocalDateTimeForInput()
         }));
+        dateTouchedRef.current = false;
 
         onClose?.();
         return;
@@ -501,6 +511,7 @@ const AddTransactionForm = ({ onClose }) => {
         toAccountId: pickDifferentAccountId(accounts, accounts?.[0]?.id || ''),
         date: getLocalDateTimeForInput()
       });
+      dateTouchedRef.current = false;
 
       onClose?.();
     } catch (err) {
@@ -727,6 +738,7 @@ const AddTransactionForm = ({ onClose }) => {
                 value={formData.date}
                 onChange={handleChange}
                 className="date-input"
+                step="1"
                 required
               />
             </div>

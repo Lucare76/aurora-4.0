@@ -83,15 +83,16 @@ const toJsDate = (d) => {
       const day = Number(dateOnly[3]);
       return new Date(y, m - 1, day, 0, 0, 0, 0);
     }
-    // YYYY-MM-DDTHH:mm interpretata locale
-    const localDateTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(d);
+    // YYYY-MM-DDTHH:mm[:ss] interpretata locale
+    const localDateTime = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(d);
     if (localDateTime) {
       const y = Number(localDateTime[1]);
       const m = Number(localDateTime[2]);
       const day = Number(localDateTime[3]);
       const h = Number(localDateTime[4]);
       const min = Number(localDateTime[5]);
-      return new Date(y, m - 1, day, h, min, 0, 0);
+      const sec = Number(localDateTime[6] || 0);
+      return new Date(y, m - 1, day, h, min, sec, 0);
     }
   }
   const parsed = new Date(d);
