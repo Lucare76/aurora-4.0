@@ -1,15 +1,29 @@
 {
   "files": {
-    "main.css": "/aurora-4.0/static/css/main.40c09257.css",
-    "main.js": "/aurora-4.0/static/js/main.71f515ca.js",
-    "static/js/453.eb367dd6.chunk.js": "/aurora-4.0/static/js/453.eb367dd6.chunk.js",
+    "main.css": "/aurora-4.0/static/css/main.086d2887.css",
+    "main.js": "/aurora-4.0/static/js/main.d031a72c.js",
+    "static/css/205.5eee36df.chunk.css": "/aurora-4.0/static/css/205.5eee36df.chunk.css",
+    "static/js/205.c12c3868.chunk.js": "/aurora-4.0/static/js/205.c12c3868.chunk.js",
+    "static/css/387.09722623.chunk.css": "/aurora-4.0/static/css/387.09722623.chunk.css",
+    "static/js/387.03630a43.chunk.js": "/aurora-4.0/static/js/387.03630a43.chunk.js",
+    "static/js/545.921fcc19.chunk.js": "/aurora-4.0/static/js/545.921fcc19.chunk.js",
+    "static/js/453.a687e3ef.chunk.js": "/aurora-4.0/static/js/453.a687e3ef.chunk.js",
+    "static/js/238.4d5afac7.chunk.js": "/aurora-4.0/static/js/238.4d5afac7.chunk.js",
+    "static/js/49.5a5886ee.chunk.js": "/aurora-4.0/static/js/49.5a5886ee.chunk.js",
     "index.html": "/aurora-4.0/index.html",
-    "main.40c09257.css.map": "/aurora-4.0/static/css/main.40c09257.css.map",
-    "main.71f515ca.js.map": "/aurora-4.0/static/js/main.71f515ca.js.map",
-    "453.eb367dd6.chunk.js.map": "/aurora-4.0/static/js/453.eb367dd6.chunk.js.map"
+    "main.086d2887.css.map": "/aurora-4.0/static/css/main.086d2887.css.map",
+    "main.d031a72c.js.map": "/aurora-4.0/static/js/main.d031a72c.js.map",
+    "205.5eee36df.chunk.css.map": "/aurora-4.0/static/css/205.5eee36df.chunk.css.map",
+    "205.c12c3868.chunk.js.map": "/aurora-4.0/static/js/205.c12c3868.chunk.js.map",
+    "387.09722623.chunk.css.map": "/aurora-4.0/static/css/387.09722623.chunk.css.map",
+    "387.03630a43.chunk.js.map": "/aurora-4.0/static/js/387.03630a43.chunk.js.map",
+    "545.921fcc19.chunk.js.map": "/aurora-4.0/static/js/545.921fcc19.chunk.js.map",
+    "453.a687e3ef.chunk.js.map": "/aurora-4.0/static/js/453.a687e3ef.chunk.js.map",
+    "238.4d5afac7.chunk.js.map": "/aurora-4.0/static/js/238.4d5afac7.chunk.js.map",
+    "49.5a5886ee.chunk.js.map": "/aurora-4.0/static/js/49.5a5886ee.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.40c09257.css",
-    "static/js/main.71f515ca.js"
+    "static/css/main.086d2887.css",
+    "static/js/main.d031a72c.js"
   ]
 }
