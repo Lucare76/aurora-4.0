@@ -44,6 +44,34 @@ const normalizeCollapsedSections = (value) => {
   }, {});
 };
 
+const DASHBOARD_OPTION_LEGEND = [
+  { key: 'dashboardShowSubscriptionsDue', label: 'Abbonamenti in scadenza', description: 'Mostra i rinnovi imminenti da controllare o pagare.' },
+  { key: 'dashboardShowAgenda14', label: 'Agenda 14 giorni', description: 'Riepiloga eventi e impegni dei prossimi 14 giorni.' },
+  { key: 'dashboardShowBudgetAlerts', label: 'Alert Budget', description: 'Segnala i budget vicini o oltre il limite.' },
+  { key: 'dashboardShowAnomalies', label: 'Anomalie transazioni', description: 'Evidenzia movimenti fuori dal comportamento abituale.' },
+  { key: 'dashboardShowMonthClose', label: 'Assistente chiusura mese', description: 'Guida ai controlli finali per chiudere il mese.' },
+  { key: 'dashboardShowActions', label: 'Azioni consigliate oggi', description: 'Propone le prossime azioni utili da fare subito.' },
+  { key: 'dashboardShowIncomeConcentration', label: 'Concentrazione entrate', description: 'Misura quanto le entrate dipendono da poche fonti.' },
+  { key: 'dashboardShowAccountRisk', label: 'Conti a rischio', description: 'Indica i conti con saldo o trend piu delicati.' },
+  { key: 'dashboardShowRolling30', label: 'Confronto 30g vs 30g', description: 'Confronta gli ultimi 30 giorni con i 30 precedenti.' },
+  { key: 'dashboardShowEmergencyFund', label: 'Copertura fondo emergenza', description: 'Stima per quanto tempo il fondo copre le spese essenziali.' },
+  { key: 'dashboardShowDailyBrief', label: 'Daily Brief', description: 'Riepilogo rapido giornaliero con i numeri principali.' },
+  { key: 'dashboardShowFocusToday', label: 'Focus Oggi', description: 'Mette in evidenza la priorita finanziaria del giorno.' },
+  { key: 'dashboardShowCategorizationScore', label: 'Indice categorizzazione 30g', description: 'Valuta quanto le transazioni recenti sono ben categorizzate.' },
+  { key: 'dashboardShowSmartInsights', label: 'Insights intelligenti', description: 'Mostra osservazioni automatiche sui tuoi dati.' },
+  { key: 'dashboardShowDecisionEngine', label: 'Motore decisionale', description: 'Suggerisce decisioni in base a trend, budget e priorita.' },
+  { key: 'dashboardShowSavingsTarget', label: 'Obiettivo risparmio mese', description: 'Mostra il progresso verso il target di risparmio mensile.' },
+  { key: 'dashboardShowSubscriptionBurden', label: 'Peso abbonamenti', description: 'Quantifica quanto incidono gli abbonamenti sul budget.' },
+  { key: 'dashboardShowBirthdays', label: 'Prossimi compleanni', description: 'Promemoria sintetico dei compleanni in arrivo.' },
+  { key: 'dashboardShowDataQuality', label: 'Qualita dati', description: 'Individua dati mancanti, incompleti o incoerenti.' },
+  { key: 'dashboardShowLiquidityRadar', label: 'Radar liquidita', description: 'Monitora la tenuta della liquidita nel breve periodo.' },
+  { key: 'dashboardShowIncomeRunRate', label: 'Stato entrate', description: 'Stima l andamento delle entrate rispetto al ritmo atteso.' },
+  { key: 'dashboardShowMonthEndStress', label: 'Stress test fine mese', description: 'Valuta la pressione finanziaria attesa a fine mese.' },
+  { key: 'dashboardShowTop5', label: 'Top 5 spese & entrate', description: 'Elenca le principali categorie o movimenti del periodo.' },
+  { key: 'dashboardShowExpenseVolatility', label: 'Variabilita spese 30g', description: 'Misura quanto oscillano le spese recenti.' },
+  { key: 'dashboardShowWeekendSpend', label: 'Weekend spend alert', description: 'Controlla se il weekend pesa troppo sulle uscite.' }
+];
+
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -1761,6 +1789,17 @@ function SettingsContent() {
                 >
                   Ripristina default dashboard
                 </button>
+              </div>
+              <div className="settings-legend" aria-label="Legenda funzioni dashboard">
+                <div className="settings-legend-title">Legenda funzioni</div>
+                <div className="settings-legend-list">
+                  {DASHBOARD_OPTION_LEGEND.map((item) => (
+                    <div key={item.key} className="settings-legend-item">
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
               <label className="settings-toggle">
                 <input

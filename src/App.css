@@ -6587,6 +6587,48 @@ body {
   font-size: 0.9rem;
 }
 
+.settings-legend {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.36);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.settings-legend-title {
+  color: white;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 0.85rem;
+}
+
+.settings-legend-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.settings-legend-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-legend-item strong {
+  color: white;
+  font-size: 0.88rem;
+}
+
+.settings-legend-item span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .user-profile-info {
   display: flex;
   align-items: center;
