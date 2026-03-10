@@ -7,10 +7,15 @@ import { autoCategorize } from "../utils/autoCategorize";
 import { useFinancial } from "../contexts/FinancialContext";
 import NotafacileCategoryMapper from "../components/import/NotafacileCategoryMapper";
 import PageHeader from "../components/app/PageHeader";
+import { formatEntityLabel } from "../utils/text";
 import "./Importa.css";
 
 const NF_CATEGORY_MAP_KEY = "aurora_notafacile_category_map_v1";
 const NF_ACCOUNT_MAP_KEY = "aurora_notafacile_account_map_v1";
+
+function normalizeDescription(value) {
+  return formatEntityLabel(value || "").trim();
+}
 
 export default function Importa() {
   const { accounts = [], categories = [], transactions = [], createTransaction, createTransfer } = useFinancial();
@@ -279,7 +284,7 @@ export default function Importa() {
             amount: Math.abs(r.amount),
             fromAccountId: r.fromAccountId,
             toAccountId: r.toAccountId,
-            description: String(r.description || '').toLocaleUpperCase('it-IT'),
+            description: normalizeDescription(r.description),
             date: r.date
           });
         } else if (isNotafacile) {
@@ -302,7 +307,7 @@ export default function Importa() {
           await createTransaction({
             accountId: r.accountId || null,
             date: r.date,
-            description: String(r.description || '').toLocaleUpperCase('it-IT'),
+            description: normalizeDescription(r.description),
             amount: Math.abs(r.amount),
             type: rowType,
             category: r.categoryId || r.category || r.categoryName || null,
@@ -330,7 +335,7 @@ export default function Importa() {
           await createTransaction({
             accountId: selectedAccountId,
             date: r.date,
-            description: String(r.description || '').toLocaleUpperCase('it-IT'),
+            description: normalizeDescription(r.description),
             amount: Math.abs(r.amount),
             type: rowType,
             category: r.category

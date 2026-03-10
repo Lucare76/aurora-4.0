@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <title>Riepilogo Aurora 4.0</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #1f2937; line-height: 1.5; }
+    h1 { font-size: 26px; margin-bottom: 8px; }
+    h2 { font-size: 18px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #d1d5db; padding-bottom: 4px; }
+    h3 { font-size: 15px; margin-top: 14px; margin-bottom: 6px; }
+    ul { margin-top: 6px; }
+    li { margin: 4px 0; }
+    .meta { color: #6b7280; margin-bottom: 18px; }
+    code { background: #f3f4f6; padding: 1px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Riepilogo Progetto Aurora 4.0</h1>
+  <div class="meta">Data: 10 marzo 2026</div>
+
+  <h2>1. Stato deploy</h2>
+  <ul>
+    <li>Build locale: OK</li>
+    <li>Test: OK</li>
+    <li>Applicazione stabile in esecuzione</li>
+    <li>Ottimizzazione impostazioni completata</li>
+    <li>Descrizioni transazioni uniformate in Title Case</li>
+    <li>Configurazione build corretta per deploy a root con <code>homepage: "/"</code></li>
+  </ul>
+
+  <h3>Pubblicazione</h3>
+  <ul>
+    <li>GitHub: da confermare con ultimo push del branch corrente</li>
+    <li>Firebase Hosting: da confermare con ultimo deploy online</li>
+  </ul>
+
+  <h3>Verifica consigliata post deploy</h3>
+  <ul>
+    <li>apertura dashboard</li>
+    <li>apertura impostazioni</li>
+    <li>apertura e chiusura sezioni settings</li>
+    <li>creazione e modifica transazione</li>
+    <li>OCR scontrino</li>
+    <li>salvataggio transazione</li>
+    <li>console browser pulita</li>
+  </ul>
+
+  <h2>2. Cosa manca</h2>
+  <ul>
+    <li>Confermare che l'ultima build sia stata pubblicata online</li>
+    <li>Eseguire smoke test finale in produzione</li>
+    <li>Verificare assenza di errori console reali in ambiente live</li>
+    <li>Facoltativo: rifinire warning legacy non bloccanti rimasti fuori dal perimetro prioritario</li>
+  </ul>
+
+  <h3>Chiusura progetto</h3>
+  <p>Il progetto può essere considerato praticamente chiuso quando sono veri tutti questi punti:</p>
+  <ul>
+    <li>test passano</li>
+    <li>build passa</li>
+    <li>deploy GitHub completato</li>
+    <li>deploy Firebase completato</li>
+    <li>smoke test online OK</li>
+    <li>nessun errore critico in console</li>
+  </ul>
+
+  <h2>3. Invio mail al festeggiato</h2>
+  <h3>Situazione attuale</h3>
+  <ul>
+    <li>Il modulo compleanni salva già l'email del festeggiato</li>
+    <li>Il sistema email esistente oggi invia il reminder all'utente dell'app</li>
+    <li>L'infrastruttura backend permette già invio verso un destinatario arbitrario</li>
+  </ul>
+
+  <h3>Cosa conviene fare</h3>
+  <ul>
+    <li>Aggiungere un template dedicato di auguri al festeggiato</li>
+    <li>Non riutilizzare il reminder attuale, perché ha un contenuto pensato per il proprietario dell'app</li>
+    <li>Usare la stessa pipeline email già esistente</li>
+  </ul>
+
+  <h3>Costi</h3>
+  <ul>
+    <li>Non serve un template premium del provider</li>
+    <li>Il contenuto può essere generato direttamente nella Firebase Function</li>
+    <li>Non c'è bisogno di introdurre un sistema a pagamento solo per questa funzione</li>
+  </ul>
+
+  <h3>Implementazione consigliata</h3>
+  <ul>
+    <li>pulsante <code>Invia auguri</code> nella sezione compleanni</li>
+    <li>abilitato solo se il festeggiato ha un'email valorizzata</li>
+    <li>nuovo messaggio email di tipo <code>birthdayGreeting</code></li>
+    <li>invio verso <code>birthday.email</code></li>
+  </ul>
+</body>
+</html>

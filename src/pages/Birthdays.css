@@ -431,6 +431,41 @@
   opacity: 0.8;
 }
 
+.birthday-email-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.birthday-greeting-btn {
+  width: fit-content;
+  padding: 10px 16px;
+}
+
+.greeting-feedback {
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.greeting-feedback.info {
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  color: #bfdbfe;
+}
+
+.greeting-feedback.success {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #86efac;
+}
+
+.greeting-feedback.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 .notes {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 8px;

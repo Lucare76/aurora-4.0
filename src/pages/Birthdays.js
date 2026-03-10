@@ -10,7 +10,11 @@ import {
   getDaysUntilBirthday,
   calculateAge
 } from '../services/birthdaysService';
-import { sendBirthdayReminder, isEmailJSConfigured } from '../services/emailService';
+import {
+  sendBirthdayGreeting,
+  sendBirthdayReminder,
+  isEmailJSConfigured
+} from '../services/emailService';
 import PageHeader from '../components/app/PageHeader';
 import {
   FiPlus,
@@ -66,6 +70,8 @@ function Birthdays() {
   const [editingBirthday, setEditingBirthday] = useState(null);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [emailConfigured, setEmailConfigured] = useState(false);
+  const [sendingGreetingId, setSendingGreetingId] = useState('');
+  const [greetingFeedback, setGreetingFeedback] = useState({});
 
   // Form data
   const [formData, setFormData] = useState({
@@ -198,6 +204,59 @@ function Birthdays() {
       ...prev,
       date: formatBirthdayDateInput(value)
     }));
+  };
+
+  const handleSendGreeting = async (birthday) => {
+    if (!birthday?.id || !birthday?.email) return;
+    if (!emailConfigured) {
+      setGreetingFeedback((prev) => ({
+        ...prev,
+        [birthday.id]: {
+          type: 'error',
+          message: 'Email/Functions non configurato'
+        }
+      }));
+      return;
+    }
+
+    try {
+      setSendingGreetingId(birthday.id);
+      setGreetingFeedback((prev) => ({
+        ...prev,
+        [birthday.id]: {
+          type: 'info',
+          message: 'Invio in corso...'
+        }
+      }));
+
+      const result = await sendBirthdayGreeting(
+        birthday,
+        { displayName: user?.displayName || user?.email || 'Una persona speciale' }
+      );
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Invio non riuscito');
+      }
+
+      setGreetingFeedback((prev) => ({
+        ...prev,
+        [birthday.id]: {
+          type: 'success',
+          message: `Auguri inviati a ${birthday.name}`
+        }
+      }));
+    } catch (error) {
+      console.error('Errore invio auguri compleanno:', error);
+      setGreetingFeedback((prev) => ({
+        ...prev,
+        [birthday.id]: {
+          type: 'error',
+          message: error?.message || 'Errore durante l\'invio degli auguri'
+        }
+      }));
+    } finally {
+      setSendingGreetingId('');
+    }
   };
 
   const resetForm = () => {
@@ -423,9 +482,27 @@ function Birthdays() {
                     <div className={`status-badge ${status.class}`}>{status.text}</div>
 
                     {birthday.email && (
-                      <div className="info-row">
-                        <FiMail /> {birthday.email}
-                      </div>
+                      <>
+                        <div className="info-row">
+                          <FiMail /> {birthday.email}
+                        </div>
+                        <div className="birthday-email-actions">
+                          <button
+                            type="button"
+                            className="btn-secondary birthday-greeting-btn"
+                            onClick={() => handleSendGreeting(birthday)}
+                            disabled={!emailConfigured || sendingGreetingId === birthday.id}
+                          >
+                            <FiMail />
+                            {sendingGreetingId === birthday.id ? 'Invio...' : 'Invia auguri'}
+                          </button>
+                          {greetingFeedback[birthday.id]?.message && (
+                            <div className={`greeting-feedback ${greetingFeedback[birthday.id].type}`}>
+                              {greetingFeedback[birthday.id].message}
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
 
                     {birthday.notes && (

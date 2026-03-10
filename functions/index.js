@@ -91,6 +91,20 @@ async function sendEmail(payload) {
 }
 
 /**
+ * Escape HTML special chars in dynamic email content.
+ * @param {unknown} value
+ * @return {string}
+ */
+function escapeHtml(value) {
+  return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+}
+
+/**
  * Checks if the caller is authenticated and (optionally) admin.
  * @param {import("firebase-functions/v2/https").CallableRequest} request
  * @param {boolean} requireAdmin
@@ -315,6 +329,109 @@ function buildEmail(daysBefore, items, userName = "") {
             <td style="background:#f9fafb; padding:20px; text-align:center; font-size:12px; color:#6b7280;">
               <strong>Aurora 4.0</strong><br>
               Il tuo assistente finanziario 💜
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+
+  return {subject, text, html};
+}
+
+/**
+ * Build a direct birthday greeting email for the celebrant.
+ * @param {{
+ *   birthdayName: string,
+ *   senderName?: string,
+ *   customMessage?: string
+ * }} payload
+ * @return {{subject: string, text: string, html: string}}
+ */
+function buildBirthdayGreetingEmail(payload) {
+  const rawBirthdayName = String(payload?.birthdayName || "Festeggiato");
+  const rawSenderName = String(payload?.senderName || "Una persona speciale");
+  const birthdayName = escapeHtml(rawBirthdayName);
+  const senderName = escapeHtml(rawSenderName);
+  const customMessage = String(payload?.customMessage || "").trim();
+  const safeCustomMessage = escapeHtml(customMessage);
+
+  const subject = `Tanti auguri, ${rawBirthdayName}!`;
+  const preheader = "Un pensiero speciale per il tuo compleanno.";
+  const messageText = customMessage ||
+    `${rawSenderName} ti manda un pensiero speciale e ti augura ` +
+    "una giornata piena di gioia, serenita e belle sorprese.";
+
+  const text =
+    `Buon compleanno, ${rawBirthdayName}!\n\n` +
+    `${messageText}\n\n` +
+    "Che questo compleanno porti con se momenti felici, " +
+    "affetto sincero e tutto cio che desideri di piu.\n\n" +
+    `Con affetto,\n${rawSenderName}`;
+
+  const customMessageHtml = safeCustomMessage ?
+    `<p style="margin:0 0 16px; font-size:16px; line-height:1.7; color:#374151;">
+      ${safeCustomMessage}
+    </p>` :
+    "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tanti auguri, ${birthdayName}!</title>
+</head>
+<body style="margin:0; padding:0; background:#f7f3ee; font-family: Georgia, 'Times New Roman', serif; color:#1f2937;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">
+    ${preheader}
+  </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f3ee; padding:32px 12px;">
+    <tr>
+      <td align="center">
+        <table width="620" cellpadding="0" cellspacing="0" style="width:100%; max-width:620px; background:#fffdf9; border:1px solid #eadfce; border-radius:20px; overflow:hidden;">
+          <tr>
+            <td style="padding:18px 24px; background:linear-gradient(135deg,#f4d7a1,#e88f6a); text-align:center; color:#fffaf3;">
+              <div style="font-size:12px; letter-spacing:0.24em; text-transform:uppercase; opacity:0.92;">
+                Aurora 4.0
+              </div>
+              <h1 style="margin:14px 0 8px; font-size:34px; line-height:1.2; font-weight:normal;">
+                Buon compleanno, ${birthdayName}!
+              </h1>
+              <p style="margin:0; font-size:15px; line-height:1.5; opacity:0.95;">
+                Un pensiero speciale per il tuo giorno.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:34px 30px 20px;">
+              <p style="margin:0 0 16px; font-size:18px; line-height:1.7; color:#7c4a32;">
+                Oggi e un giorno speciale.
+              </p>
+              <p style="margin:0 0 16px; font-size:16px; line-height:1.7; color:#374151;">
+                <strong>${senderName}</strong> ti manda un pensiero di auguri
+                e ti augura una giornata piena di gioia, serenita e belle sorprese.
+              </p>
+              ${customMessageHtml}
+              <div style="margin:24px 0; padding:18px 20px; background:#fff7ed; border-left:4px solid #e88f6a; border-radius:12px;">
+                <p style="margin:0; font-size:15px; line-height:1.7; color:#5b3a29;">
+                  Che questo compleanno porti con se momenti felici, affetto sincero
+                  e tutto cio che desideri di piu.
+                </p>
+              </div>
+              <p style="margin:0; font-size:16px; line-height:1.7; color:#374151;">
+                Con affetto,<br>
+                <strong>${senderName}</strong>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 24px 24px; text-align:center; background:#fffaf3; font-family: Arial, Helvetica, sans-serif; font-size:12px; color:#8b735f;">
+              Messaggio inviato tramite Aurora 4.0
             </td>
           </tr>
         </table>
@@ -802,6 +919,47 @@ exports.sendBirthdayReminderBrevo = onCall(
       `;
 
       const data = await sendEmail({to: toEmail, subject, text, html});
+
+      return {success: true, emailId: data?.id || null};
+  },
+);
+
+/**
+ * Callable: invia auguri di compleanno diretti al festeggiato.
+ */
+exports.sendBirthdayGreetingBrevo = onCall(
+    {
+      secrets: [resendApiKey],
+      region: "europe-west1",
+      memory: "256MiB",
+      timeoutSeconds: 30,
+    },
+    async (request) => {
+      await assertAuth(request);
+
+      const {
+        toEmail,
+        birthdayName,
+        senderName = "Una persona speciale",
+        customMessage = "",
+      } = request.data || {};
+
+      if (!toEmail || !birthdayName) {
+        throw new HttpsError("invalid-argument", "Missing required fields");
+      }
+
+      const email = buildBirthdayGreetingEmail({
+        birthdayName,
+        senderName,
+        customMessage,
+      });
+
+      const data = await sendEmail({
+        to: toEmail,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      });
 
       return {success: true, emailId: data?.id || null};
     },

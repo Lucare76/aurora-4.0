@@ -3,10 +3,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/currency';
+import { formatEntityLabel } from '../utils/text';
 import './Transactions.css';
 import './AddTransactionForm.css';
 
 const MAX_DESCRIPTION_LENGTH = 240;
+
+function normalizeDescription(value) {
+  return formatEntityLabel(String(value || '').slice(0, MAX_DESCRIPTION_LENGTH)).trim();
+}
 
 /* Formattazione importo italiano: 1.000,50 */
 function formatInputAmount(value) {
@@ -218,7 +223,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
     }
 
     if (name === 'description') {
-      setFormData((prev) => ({ ...prev, description: String(value || '').toLocaleUpperCase('it-IT') }));
+      setFormData((prev) => ({ ...prev, description: normalizeDescription(value) }));
       return;
     }
 
@@ -390,7 +395,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
 
         const payload = {
           type: 'transfer',
-          description: formData.description.slice(0, MAX_DESCRIPTION_LENGTH).toLocaleUpperCase('it-IT').trim() || '',
+          description: normalizeDescription(formData.description) || '',
           amount: Math.abs(amountNum),
           fromAccountId: formData.fromAccountId,
           toAccountId: formData.toAccountId,
@@ -409,7 +414,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
       }
 
       const payload = {
-        description: formData.description.slice(0, MAX_DESCRIPTION_LENGTH).toLocaleUpperCase('it-IT').trim() || '',
+        description: normalizeDescription(formData.description) || '',
         amount: formData.type === 'income' ? amountNum : -amountNum,
         type: formData.type,
         category: formData.category || null,

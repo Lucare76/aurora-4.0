@@ -14,6 +14,7 @@ import { getApp } from "firebase/app";
 
 // Nomi delle Cloud Functions (callable)
 const FN_SEND_BIRTHDAY_REMINDER = "sendBirthdayReminderBrevo";
+const FN_SEND_BIRTHDAY_GREETING = "sendBirthdayGreetingBrevo";
 const FN_SEND_TEST_EMAIL = "sendTestEmailBrevo";
 const FUNCTIONS_REGION = "europe-west1";
 
@@ -82,6 +83,49 @@ export async function sendBirthdayReminder(userData, birthdayData) {
     return {
       success: false,
       error: error?.message || "Errore invio email"
+    };
+  }
+}
+
+/**
+ * Invia email di auguri diretta al festeggiato.
+ */
+export async function sendBirthdayGreeting(birthdayData, senderData = {}) {
+  try {
+    if (!isEmailJSConfigured()) {
+      return { success: false, error: "Firebase non configurato" };
+    }
+
+    if (!birthdayData?.email) {
+      return { success: false, error: "Email festeggiato mancante" };
+    }
+
+    if (!birthdayData?.name) {
+      return { success: false, error: "Nome festeggiato mancante" };
+    }
+
+    const app = getApp();
+    const functions = getFunctions(app, FUNCTIONS_REGION);
+    const sendFn = httpsCallable(functions, FN_SEND_BIRTHDAY_GREETING);
+
+    const payload = {
+      toEmail: birthdayData.email,
+      birthdayName: birthdayData.name,
+      senderName: senderData.displayName || senderData.name || "Una persona speciale",
+      customMessage: senderData.customMessage || ""
+    };
+
+    const result = await sendFn(payload);
+
+    return {
+      success: true,
+      data: result.data
+    };
+  } catch (error) {
+    console.error("❌ Errore invio auguri compleanno (Resend):", error);
+    return {
+      success: false,
+      error: error?.message || "Errore invio auguri"
     };
   }
 }
