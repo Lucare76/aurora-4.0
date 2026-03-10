@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 function OnboardingTour({ user, userSettings, setUserSettings, activeMenu, setActiveMenu }) {
   const [open, setOpen] = useState(false);
@@ -112,7 +112,7 @@ function OnboardingTour({ user, userSettings, setUserSettings, activeMenu, setAc
     return () => window.removeEventListener('aurora_onboarding_open', openOnboarding);
   }, [activeMenu, setActiveMenu]);
 
-  const persistOnboarding = async ({ completed, disabled }) => {
+  const persistOnboarding = useCallback(async ({ completed, disabled }) => {
     if (!user?.uid) return;
     setSaving(true);
     try {
@@ -134,17 +134,17 @@ function OnboardingTour({ user, userSettings, setUserSettings, activeMenu, setAc
     } finally {
       setSaving(false);
     }
-  };
+  }, [setUserSettings, user?.uid]);
 
-  const finish = async () => {
+  const finish = useCallback(async () => {
     await persistOnboarding({ completed: true, disabled: disableForever });
     setOpen(false);
-  };
+  }, [disableForever, persistOnboarding]);
 
-  const skip = async () => {
+  const skip = useCallback(async () => {
     await persistOnboarding({ completed: true, disabled: true });
     setOpen(false);
-  };
+  }, [persistOnboarding]);
 
   useEffect(() => {
     if (!open || saving) return undefined;

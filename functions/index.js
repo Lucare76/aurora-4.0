@@ -23,6 +23,7 @@ const admin = require("firebase-admin");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
+const {extractReceiptTime} = require("./receiptTimeExtractor");
 let ResendLib;
 let DateTimeLib;
 
@@ -204,7 +205,7 @@ function getNextBirthdayDate(dateStr, nowRome) {
  * @param {string} userName - nome dell'utente destinatario (opzionale)
  * @return {{subject: string, text: string, html: string}}
  */
-function buildEmail(daysBefore, items, userName = '') {
+function buildEmail(daysBefore, items, userName = "") {
   const subject = `Promemoria compleanni tra ${daysBefore} giorni 🎂`;
 
   const sorted = [...items].sort((a, b) => a.iso.localeCompare(b.iso));
@@ -249,14 +250,14 @@ function buildEmail(daysBefore, items, userName = '') {
                   ${item.dateLabel}
                 </p>
               </div>
-            `).join('')}
+            `).join("")}
           </td>
         </tr>
       </table>
     `;
 
   const text =
-    `Ciao${userName ? ' ' + userName : ''},\n\n` +
+    `Ciao${userName ? " " + userName : ""},\n\n` +
     `ti ricordiamo che tra ${daysBefore} giorni sarà il compleanno di:\n\n` +
     `${listText}\n\n` +
     "Non dimenticare di fare gli auguri!\n\n" +
@@ -281,7 +282,7 @@ function buildEmail(daysBefore, items, userName = '') {
             <td style="background:linear-gradient(135deg,#6366f1,#8b5cf6); padding:30px; text-align:center; color:#ffffff;">
               <h1 style="margin:0; font-size:26px;">🎂 Promemoria Compleanno</h1>
               <p style="margin:8px 0 0; font-size:14px; opacity:0.9;">
-                Mancano solo ${daysBefore} ${daysBefore === 1 ? 'giorno' : 'giorni'}!
+                Mancano solo ${daysBefore} ${daysBefore === 1 ? "giorno" : "giorni"}!
               </p>
             </td>
           </tr>
@@ -289,7 +290,7 @@ function buildEmail(daysBefore, items, userName = '') {
           <tr>
             <td style="padding:30px; color:#374151; font-size:15px; line-height:1.6;">
               <p style="margin-top:0;">
-                Ciao${userName ? ' <strong>' + userName + '</strong>' : ''} 👋
+                Ciao${userName ? " <strong>" + userName + "</strong>" : ""} 👋
               </p>
               <p>
                 Questo è un promemoria importante:  
@@ -968,13 +969,13 @@ exports.sendRejectionNotification = onCall(
 );
 
 /**
- * Parsa il testo OCR di uno scontrino per estrarre importo, esercente e data.
+ * Parsa il testo OCR di uno scontrino per estrarre importo, esercente, data e ora.
  *
  * @param {string} rawText - Testo estratto dall'OCR
- * @return {{amount: number|null, merchant: string|null, date: string|null}}
+ * @return {{amount: number|null, merchant: string|null, date: string|null, time: string|null}}
  */
 function parseReceiptText(rawText) {
-  if (!rawText) return {amount: null, merchant: null, date: null};
+  if (!rawText) return {amount: null, merchant: null, date: null, time: null};
 
   const lines = rawText.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -982,7 +983,10 @@ function parseReceiptText(rawText) {
   let amount = null;
   // Pattern: TOTALE / TOTAL / TOT. / IMPORTO / DOVUTO seguito da importo
   const totalPatterns = [
-    /(?:TOTALE\s*(?:COMPLESSIVO)?|TOTAL[E]?|TOT\.|IMPORTO\s*(?:DOVUTO)?|DOVUTO|PAGAMENTO|PAGATO)\s*(?:EUR|€)?\s*[:\s]*(\d{1,6}[.,]\d{2})/i,
+    new RegExp(
+        "(?:TOTALE\\s*(?:COMPLESSIVO)?|TOTAL[E]?|TOT\\.|IMPORTO\\s*(?:DOVUTO)?|DOVUTO|PAGAMENTO|PAGATO)\\s*(?:EUR|€)?\\s*[:\\s]*(\\d{1,6}[.,]\\d{2})",
+        "i",
+    ),
     /(?:EUR|€)\s*(\d{1,6}[.,]\d{2})\s*$/im,
     /(\d{1,6}[.,]\d{2})\s*(?:EUR|€)/im,
   ];
@@ -1015,7 +1019,7 @@ function parseReceiptText(rawText) {
     const line = lines[i];
     // Salta righe con solo numeri, date, partita IVA, codice fiscale
     if (/^\d+$/.test(line)) continue;
-    if (/^[\d\/\-.\s:]+$/.test(line)) continue;
+    if (/^[\d/.\s:-]+$/.test(line)) continue;
     if (/P\.?\s*IVA|C\.?\s*F\.|FISCAL|SCONTRINO|DOCUMENTO|RICEVUTA/i.test(line)) continue;
     if (line.length < 3) continue;
     merchant = line;
@@ -1024,7 +1028,7 @@ function parseReceiptText(rawText) {
 
   // 3. Estrai data (DD/MM/YYYY o DD-MM-YYYY o DD.MM.YYYY)
   let date = null;
-  const datePattern = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;
+  const datePattern = /(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})/;
   for (const line of lines) {
     const match = line.match(datePattern);
     if (match) {
@@ -1043,13 +1047,16 @@ function parseReceiptText(rawText) {
     }
   }
 
-  return {amount, merchant, date};
+  const time = extractReceiptTime(rawText);
+  return {amount, merchant, date, time};
 }
 
 /**
  * Runs OCR + parsing for a receipt image.
  * @param {string} imageBase64
- * @return {Promise<{rawText: string, parsed: {amount: number|null, merchant: string|null, date: string|null}}>}
+ * @return {Promise<{rawText: string, parsed: {
+ *   amount: number|null, merchant: string|null, date: string|null, time: string|null
+ * }}>}
  */
 async function analyzeReceiptImage(imageBase64) {
   const base64Clean = imageBase64.replace(
@@ -1125,6 +1132,7 @@ exports.analyzeReceipt = onRequest(
             amount: parsed.amount,
             merchant: parsed.merchant,
             date: parsed.date,
+            time: parsed.time,
             rawText: rawText,
           },
         });
@@ -1164,6 +1172,7 @@ exports.analyzeReceiptCallable = onCall(
           amount: parsed.amount,
           merchant: parsed.merchant,
           date: parsed.date,
+          time: parsed.time,
           rawText: rawText,
         },
       };

@@ -321,7 +321,7 @@ export const FinancialProvider = ({ children }) => {
   // Trova transazione gemella del giroconto
   // ----------------------------
   const findTransferPeer = useCallback(
-    async (transferId, excludeTransactionId) => {
+    async (transferId, excludeTransactionId, expectedType = null) => {
       if (!user || !transferId) return null;
 
       const q = query(
@@ -331,7 +331,13 @@ export const FinancialProvider = ({ children }) => {
       );
 
       const snap = await getDocs(q);
-      const peerDoc = snap.docs.find((d) => d.id !== excludeTransactionId);
+      const candidates = snap.docs.filter((d) => d.id !== excludeTransactionId);
+      let peerDoc = null;
+
+      if (expectedType) {
+        peerDoc = candidates.find((d) => String(d.data()?.type || '') === expectedType) || null;
+      }
+      if (!peerDoc) peerDoc = candidates[0] || null;
       if (!peerDoc) return null;
 
       return { id: peerDoc.id, ...peerDoc.data() };
@@ -635,6 +641,8 @@ data.sort((a, b) => a.name.localeCompare(b.name));
         category: null,
         subCategory: null,
         accountId: fromAccountId,
+        fromAccountId,
+        toAccountId,
         date: safeDate,
         timestamp: safeDate.getTime(),
         isTransfer: true,
@@ -652,6 +660,8 @@ data.sort((a, b) => a.name.localeCompare(b.name));
         category: null,
         subCategory: null,
         accountId: toAccountId,
+        fromAccountId,
+        toAccountId,
         date: safeDate,
         timestamp: safeDate.getTime(),
         isTransfer: true,
@@ -704,7 +714,11 @@ data.sort((a, b) => a.name.localeCompare(b.name));
 
     // ✅ GIROCONTO: aggiorna anche la gemella
     if (old.isTransfer && old.transferId) {
-      const peer = await findTransferPeer(old.transferId, transactionId);
+      const peer = await findTransferPeer(
+        old.transferId,
+        transactionId,
+        String(old.type || '') === 'expense' ? 'income' : 'expense'
+      );
       if (!peer?.id) throw new Error('❌ Giroconto incompleto: transazione collegata non trovata');
 
       // individua gamba expense (from) e income (to)
@@ -790,6 +804,8 @@ const thisIsIncome = thisType === 'income';
         isTransfer: true,
         transferId: old.transferId,
         transferPeerAccountId: toResolved.accountId,
+        fromAccountId: fromResolved.accountId || null,
+        toAccountId: toResolved.accountId || null,
 
         updatedAt: serverTimestamp()
       };
@@ -812,6 +828,8 @@ const thisIsIncome = thisType === 'income';
         isTransfer: true,
         transferId: old.transferId,
         transferPeerAccountId: fromResolved.accountId,
+        fromAccountId: fromResolved.accountId || null,
+        toAccountId: toResolved.accountId || null,
 
         updatedAt: serverTimestamp()
       };
@@ -935,7 +953,11 @@ const thisIsIncome = thisType === 'income';
 
     // ✅ GIROCONTO: elimina anche la gemella
     if (t.isTransfer && t.transferId) {
-      const peer = await findTransferPeer(t.transferId, transactionId);
+      const peer = await findTransferPeer(
+        t.transferId,
+        transactionId,
+        String(t.type || '') === 'expense' ? 'income' : 'expense'
+      );
 
       // elimina questa
       await deleteDoc(transactionRef);
@@ -957,6 +979,33 @@ const thisIsIncome = thisType === 'income';
     // ✅ NORMALE
     await deleteDoc(transactionRef);
     if (accountId) await adjustAccountBalance(accountId, -amount);
+  };
+
+  const deleteAllTransactions = async () => {
+    if (!user) throw new Error('❌ Utente non autenticato');
+
+    const txQuery = query(collection(db, 'transactions'), where('userId', '==', user.uid));
+    const beforeSnap = await getDocs(txQuery);
+    const ids = beforeSnap.docs.map((d) => d.id);
+    if (ids.length === 0) return { before: 0, deleted: 0, after: 0 };
+
+    for (const txId of ids) {
+      try {
+        await deleteTransaction(txId);
+      } catch (error) {
+        const message = String(error?.message || '').toLowerCase();
+        if (message.includes('non trovata')) continue;
+        throw error;
+      }
+    }
+
+    const afterSnap = await getDocs(txQuery);
+    const after = afterSnap.size;
+    return {
+      before: ids.length,
+      deleted: Math.max(ids.length - after, 0),
+      after
+    };
   };
 
   // ----------------------------
@@ -1050,6 +1099,7 @@ const thisIsIncome = thisType === 'income';
     createTransfer, // ✅ esposto
     updateTransaction,
     deleteTransaction,
+    deleteAllTransactions,
 
     addCategory,
     updateCategory,

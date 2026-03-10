@@ -4,7 +4,7 @@ import PageHeader from './PageHeader';
 
 describe('PageHeader', () => {
   test('matches snapshot', () => {
-    const { container } = render(
+    const { asFragment } = render(
       <PageHeader
         className="page-header"
         title="Report"
@@ -12,6 +12,6 @@ describe('PageHeader', () => {
         actions={<button type="button">Azione</button>}
       />
     );
-    expect(container.firstChild).toMatchSnapshot();
+    expect(asFragment()).toMatchSnapshot();
   });
 });

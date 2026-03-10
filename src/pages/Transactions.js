@@ -10,9 +10,24 @@ import AddTransactionForm from './AddTransactionForm';
 import EditTransactionForm from './EditTransactionForm';
 import './Transactions.css';
 
+const TX_FILTER_PRESETS_KEY = 'aurora_tx_filter_presets';
+const TX_LAST_FILTERS_KEY_PREFIX = 'aurora_tx_last_filters';
+const SEARCH_ALIASES = {
+  atm: ['prelievo', 'bancomat', 'contanti', 'sportello'],
+  prelievo: ['atm', 'bancomat', 'contanti'],
+  affitto: ['locazione', 'canone', 'rent'],
+  benzina: ['carburante', 'diesel', 'gasolio', 'distributore', 'self'],
+  carburante: ['benzina', 'diesel', 'gasolio', 'distributore'],
+  bollette: ['utenze', 'luce', 'gas', 'acqua'],
+  stipendio: ['salary', 'busta paga', 'payroll'],
+  bonifico: ['transfer', 'sepa'],
+  supermercato: ['spesa', 'market', 'iper'],
+  giroconto: ['transfer', 'trasferimento interno']
+};
+
 const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const { transactions = [], accounts = [], categories = [], loading, deleteTransaction, updateTransaction } = useFinancial();
-  const { user, userSettings } = useAuth();
+  const { user, userSettings, isAdmin } = useAuth();
 
   const [showForm, setShowForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(null);
@@ -42,19 +57,24 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const [presetName, setPresetName] = useState('');
   const [savedPresets, setSavedPresets] = useState(() => {
     try {
-      const raw = localStorage.getItem('aurora_tx_filter_presets');
+      const raw = localStorage.getItem(TX_FILTER_PRESETS_KEY);
       const parsed = JSON.parse(raw || '[]');
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
   });
+  const [didRestoreLastFilters, setDidRestoreLastFilters] = useState(false);
 
   const [transactionToDelete, setTransactionToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [repairingCategories, setRepairingCategories] = useState(false);
   const [visibleCount, setVisibleCount] = useState(60);
   const loadMoreRef = useRef(null);
+  const txLastFiltersKey = useMemo(
+    () => `${TX_LAST_FILTERS_KEY_PREFIX}_${user?.uid || 'anon'}`,
+    [user?.uid]
+  );
   const hasActiveFilters =
     !!searchTerm ||
     filterType !== 'all' ||
@@ -89,11 +109,64 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem('aurora_tx_filter_presets', JSON.stringify(savedPresets));
+      localStorage.setItem(TX_FILTER_PRESETS_KEY, JSON.stringify(savedPresets));
     } catch {
       // ignore localStorage errors
     }
   }, [savedPresets]);
+
+  useEffect(() => {
+    if (!user?.uid || initialFilter || didRestoreLastFilters) return;
+    try {
+      const raw = localStorage.getItem(txLastFiltersKey);
+      const parsed = JSON.parse(raw || '{}');
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.searchTerm === 'string') setSearchTerm(parsed.searchTerm);
+        if (typeof parsed.filterType === 'string') setFilterType(parsed.filterType);
+        if (typeof parsed.selectedAccount === 'string') setSelectedAccount(parsed.selectedAccount);
+        if (typeof parsed.selectedCategory === 'string') setSelectedCategory(parsed.selectedCategory);
+        if (typeof parsed.selectedMonth === 'string') setSelectedMonth(parsed.selectedMonth);
+      }
+    } catch {
+      // ignore localStorage errors
+    } finally {
+      setDidRestoreLastFilters(true);
+    }
+  }, [user?.uid, initialFilter, didRestoreLastFilters, txLastFiltersKey]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    try {
+      localStorage.setItem(
+        txLastFiltersKey,
+        JSON.stringify({
+          searchTerm,
+          filterType,
+          selectedAccount,
+          selectedCategory,
+          selectedMonth,
+          savedAt: new Date().toISOString()
+        })
+      );
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [user?.uid, txLastFiltersKey, searchTerm, filterType, selectedAccount, selectedCategory, selectedMonth]);
+
+  useEffect(() => {
+    if (selectedAccount === 'all') return;
+    if (!accounts.some((a) => a.id === selectedAccount)) setSelectedAccount('all');
+  }, [accounts, selectedAccount]);
+
+  useEffect(() => {
+    if (selectedCategory === 'all' || selectedCategory === 'uncategorized') return;
+    if (!categories.some((c) => c.id === selectedCategory)) setSelectedCategory('all');
+  }, [categories, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedMonth === currentMonthKey || selectedMonth === previousMonthKey) return;
+    setSelectedMonth(currentMonthKey);
+  }, [selectedMonth, currentMonthKey, previousMonthKey]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -250,6 +323,12 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
   const displayTransactions = useMemo(() => {
     const list = [];
     const transferGroups = new Map();
+    const orphanTransferGroups = new Map();
+
+    const getMinuteKey = (value) => {
+      const d = parseDate(value);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    };
 
     for (const tx of transactions) {
       if (isTransferTx(tx) && tx.transferId) {
@@ -258,18 +337,60 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         g.push(tx);
         transferGroups.set(tx.transferId, g);
       } else if (tx.type === 'transfer' || (isTransferTx(tx) && !tx.transferId)) {
-        // Giroconto a gamba singola (es. importato da NotaFacile senza transferId)
-        list.push({
-          ...tx,
-          __displayType: 'transfer',
-          __isDisplayTransfer: true,
-          fromAccountName: accountMap[tx.accountId] || tx.accountName || 'Conto',
-          toAccountName: tx.transferPeerAccountName || 'Conto destinazione',
-          amount: Math.abs(Number(tx.amount) || 0),
-        });
+        // Giroconto senza transferId: provo ad accoppiare le 2 gambe per non mostrarlo doppio.
+        const amountAbs = Math.abs(Number(tx.amount) || 0).toFixed(2);
+        const day = dateKey(tx.date);
+        const minute = getMinuteKey(tx.date);
+        const desc = normalizeDescKey(tx.description);
+        const rawFrom = tx.fromAccountId || (Number(tx.amount) < 0 ? tx.accountId : tx.transferPeerAccountId) || '';
+        const rawTo = tx.toAccountId || (Number(tx.amount) < 0 ? tx.transferPeerAccountId : tx.accountId) || '';
+        const pair = [String(rawFrom || '').trim(), String(rawTo || '').trim()].sort().join('|');
+        const orphanKey = `${day}|${minute}|${amountAbs}|${desc}|${pair}`;
+
+        const g = orphanTransferGroups.get(orphanKey) || [];
+        g.push(tx);
+        orphanTransferGroups.set(orphanKey, g);
       } else {
         list.push({ ...tx, __displayType: tx.amount >= 0 ? 'income' : 'expense', __isDisplayTransfer: false });
       }
+    }
+
+    for (const legs of orphanTransferGroups.values()) {
+      const expenseLeg = legs.find((x) => Number(x.amount) < 0) || legs[0];
+      const incomeLeg = legs.find((x) => Number(x.amount) > 0) || null;
+      const d = parseDate(expenseLeg.date);
+      const amountAbs = Math.max(...legs.map((x) => Math.abs(Number(x.amount) || 0)));
+
+      const fromAccountId =
+        expenseLeg.fromAccountId ||
+        expenseLeg.accountId ||
+        incomeLeg?.transferPeerAccountId ||
+        incomeLeg?.fromAccountId ||
+        null;
+      const toAccountId =
+        expenseLeg.toAccountId ||
+        expenseLeg.transferPeerAccountId ||
+        incomeLeg?.accountId ||
+        incomeLeg?.toAccountId ||
+        null;
+
+      list.push({
+        id: `transfer_orphan_${expenseLeg.id}`,
+        __isDisplayTransfer: true,
+        __displayType: 'transfer',
+        __isUnifiedTransfer: legs.length > 1,
+        legId: expenseLeg.id,
+        date: d,
+        timestamp: expenseLeg.timestamp || d.getTime(),
+        description: expenseLeg.description || incomeLeg?.description || '',
+        amount: amountAbs,
+        fromAccountId,
+        toAccountId,
+        fromAccountName: accountMap[fromAccountId] || expenseLeg.accountName || incomeLeg?.transferPeerAccountName || 'Conto',
+        toAccountName: accountMap[toAccountId] || expenseLeg.transferPeerAccountName || incomeLeg?.accountName || 'Conto',
+        categoryId: null,
+        categoryName: 'Giroconto'
+      });
     }
 
     for (const [transferId, legs] of transferGroups.entries()) {
@@ -298,6 +419,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         id: `transfer_${transferId}`, // id UI
         __isDisplayTransfer: true,
         __displayType: 'transfer',
+        __isUnifiedTransfer: legs.length > 1,
 
         // per update/delete usiamo un id reale (leg id)
         legId: expenseLeg.id,
@@ -319,10 +441,47 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
       });
     }
 
+    // Filtro finale anti-doppio per giroconti specchiati (A->B e B->A uguali).
+    const transferDeduped = [];
+    const transferSeen = new Set();
+    const transferKeyCount = new Map();
+    for (const tx of list) {
+      if (!tx.__isDisplayTransfer) continue;
+      const minute = getMinuteKey(tx.date);
+      const day = dateKey(tx.date);
+      const amountAbs = Math.abs(Number(tx.amount) || 0).toFixed(2);
+      const desc = normalizeDescKey(tx.description);
+      const a = String(tx.fromAccountId || tx.fromAccountName || '').trim().toLowerCase();
+      const b = String(tx.toAccountId || tx.toAccountName || '').trim().toLowerCase();
+      const pair = [a, b].sort().join('|');
+      const key = `${day}|${minute}|${amountAbs}|${desc}|${pair}`;
+      transferKeyCount.set(key, (transferKeyCount.get(key) || 0) + 1);
+    }
+    for (const tx of list) {
+      if (!tx.__isDisplayTransfer) {
+        transferDeduped.push(tx);
+        continue;
+      }
+      const minute = getMinuteKey(tx.date);
+      const day = dateKey(tx.date);
+      const amountAbs = Math.abs(Number(tx.amount) || 0).toFixed(2);
+      const desc = normalizeDescKey(tx.description);
+      const a = String(tx.fromAccountId || tx.fromAccountName || '').trim().toLowerCase();
+      const b = String(tx.toAccountId || tx.toAccountName || '').trim().toLowerCase();
+      const pair = [a, b].sort().join('|');
+      const key = `${day}|${minute}|${amountAbs}|${desc}|${pair}`;
+      if (transferSeen.has(key)) continue;
+      transferSeen.add(key);
+      transferDeduped.push({
+        ...tx,
+        __isUnifiedTransfer: !!tx.__isUnifiedTransfer || (transferKeyCount.get(key) || 0) > 1
+      });
+    }
+
     // ordina per data
-    list.sort((a, b) => parseDate(b.date) - parseDate(a.date));
-    return list;
-  }, [transactions, isTransferTx, accountMap]);
+    transferDeduped.sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    return transferDeduped;
+  }, [transactions, isTransferTx, accountMap, dateKey, normalizeDescKey]);
 
   const [dedupeBusy, setDedupeBusy] = useState(false);
   const qualitySummary = useMemo(
@@ -411,11 +570,12 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     } finally {
       setDedupeBusy(false);
     }
-  }, [transactions, isTransferTx, deleteTransaction, normalizeDescKey, dateKey, dedupeBusy]);
+  }, [transactions, isTransferTx, deleteTransaction, normalizeDescKey, dateKey, dedupeBusy, accountMap]);
 
   // === FILTRI + ORDINAMENTO (sui displayTransactions) ===
   const filteredTransactions = useMemo(() => {
     const q = normalizeForSearch(debouncedSearchTerm);
+    const queryTokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
     let filtered = displayTransactions.filter((tx) => {
       const txType = tx.__displayType;
@@ -453,15 +613,23 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
         amountAbs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         amountAbs.toFixed(2)
       ].join(' ');
+      const searchableText = normalizeForSearch(
+        [
+          tx.description || '',
+          accountLabel,
+          catLabel,
+          subLabel,
+          amountLabel,
+          tx.__isDisplayTransfer ? 'giroconto transfer trasferimento interno' : ''
+        ].join(' ')
+      );
 
       const matchesSearch =
         !q ||
-        normalizeForSearch(tx.description).includes(q) ||
-        normalizeForSearch(accountLabel).includes(q) ||
-        normalizeForSearch(catLabel).includes(q) ||
-        normalizeForSearch(subLabel).includes(q) ||
-        normalizeForSearch(amountLabel).includes(q) ||
-        (tx.__isDisplayTransfer && normalizeForSearch('giroconto').includes(q));
+        queryTokens.every((token) => {
+          const variants = [token, ...(SEARCH_ALIASES[token] || [])].map((v) => normalizeForSearch(v));
+          return variants.some((variant) => !!variant && searchableText.includes(variant));
+        });
 
       return matchesType && matchesAccount && matchesCategory && matchesMonth && matchesSearch;
     });
@@ -512,24 +680,6 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     return () => observer.disconnect();
   }, [canLoadMore, handleLoadMore]);
 
-  const monthOptions = useMemo(() => {
-    const seen = new Set();
-    const options = [];
-
-    for (const tx of displayTransactions) {
-      const d = parseDate(tx.date);
-      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (seen.has(value)) continue;
-      seen.add(value);
-      options.push({
-        value,
-        label: d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
-      });
-    }
-
-    return options;
-  }, [displayTransactions]);
-
   // === STATISTICHE (escludi giroconti) ===
   const stats = useMemo(() => {
     const onlyNormal = displayTransactions.filter((t) => !t.__isDisplayTransfer);
@@ -566,7 +716,7 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
     setSelectedAccount(preset.selectedAccount || 'all');
     setSelectedCategory(preset.selectedCategory || 'all');
     setSelectedMonth(preset.selectedMonth || currentMonthKey);
-  }, []);
+  }, [currentMonthKey]);
 
   const saveCurrentPreset = useCallback(() => {
     const label = String(presetName || '').trim();
@@ -1135,6 +1285,9 @@ const Transactions = ({ initialFilter, onFilterConsumed }) => {
                       </span>
 
                       <span className="transaction-category">Giroconto</span>
+                      {isAdmin && tx.__isUnifiedTransfer ? (
+                        <span className="transaction-category">Giroconto unificato</span>
+                      ) : null}
 
                       <span className="transaction-date">
                         {formatDate(tx.date)} - {formatTime(tx.date)}

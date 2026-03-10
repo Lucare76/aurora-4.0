@@ -1,7 +1,7 @@
 {
     "name": "aurora-4.0",
   "version": "0.1.0",
-  "homepage": "https://Lucare76.github.io/aurora-4.0",
+  "homepage": "/",
   "private": true,
   "dependencies": {
     "@emailjs/browser": "^4.4.1",

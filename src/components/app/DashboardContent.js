@@ -4,7 +4,6 @@ import { useFinancial } from '../../contexts/FinancialContext';
 import { getCurrencySymbol } from '../../utils/currency';
 import { getBudgetsByMonth } from '../../services/budgetsService';
 import { getBirthdays, getDaysUntilBirthday, calculateAge } from '../../services/birthdaysService';
-import { processRecurring } from '../../services/recurringService';
 import { getSubscriptions } from '../../services/subscriptionsService';
 import { getSavingsGoals } from '../../services/savingsGoalsService';
 import LiveClock from './LiveClock';
@@ -56,9 +55,13 @@ function getTodayKey() {
   return `${y}-${m}-${d}`;
 }
 
+function getMonthPeriodKey(year, monthIndex) {
+  return `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+}
+
 const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, setPendingFilter }) {
   const { user, userSettings } = useAuth();
-  const { transactions = [], accounts = [], categories = [], createTransaction } = useFinancial();
+  const { transactions = [], accounts = [], categories = [] } = useFinancial();
   const cs = getCurrencySymbol(userSettings?.currency);
   const isCompactMobile = userSettings?.dashboardMobileMode === 'compact';
 
@@ -74,19 +77,10 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const prevMonthIndex = prevMonthDate.getMonth();
   const prevMonthYear = prevMonthDate.getFullYear();
   const prevMonthLabel = prevMonthDate.toLocaleDateString('it-IT', { month: 'long' });
-
-  useEffect(() => {
-    if (!user?.uid) return;
-    const key = `aurora_recurring_processed_${new Date().toISOString().split('T')[0]}`;
-    if (sessionStorage.getItem(key)) return;
-
-    processRecurring(user.uid, createTransaction)
-      .then((count) => {
-        if (count > 0) console.log(`âœ… Generate ${count} transazioni ricorrenti`);
-        sessionStorage.setItem(key, '1');
-      })
-      .catch((e) => console.error('Errore processing ricorrenti:', e));
-  }, [user?.uid, createTransaction]);
+  const prevMonthPeriodKey = useMemo(
+    () => getMonthPeriodKey(prevMonthYear, prevMonthIndex),
+    [prevMonthYear, prevMonthIndex]
+  );
 
   const [budgets, setBudgets] = useState([]);
   const [budgetsLoading, setBudgetsLoading] = useState(false);
@@ -95,6 +89,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const [storyCollapsed, setStoryCollapsed] = useState(false);
   const [monthCloseMessage, setMonthCloseMessage] = useState('');
   const [monthCloseHistory, setMonthCloseHistory] = useState(null);
+  const [prevMonthSnapshot, setPrevMonthSnapshot] = useState(null);
   const [now, setNow] = useState(() => new Date());
 
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
@@ -353,8 +348,16 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   }, [prevMonthTransactions, getType, getAmount]);
 
   const monthlySavings = useMemo(() => monthlyIncome - monthlyExpenses, [monthlyIncome, monthlyExpenses]);
-  const prevMonthSavings = useMemo(() => prevMonthIncome - prevMonthExpenses, [prevMonthIncome, prevMonthExpenses]);
-  const savingsDelta = useMemo(() => monthlySavings - prevMonthSavings, [monthlySavings, prevMonthSavings]);
+  const prevMonthReferenceIncome = prevMonthSnapshot?.income ?? prevMonthIncome;
+  const prevMonthReferenceExpenses = prevMonthSnapshot?.expenses ?? prevMonthExpenses;
+  const prevMonthReferenceSavings = useMemo(
+    () => prevMonthReferenceIncome - prevMonthReferenceExpenses,
+    [prevMonthReferenceIncome, prevMonthReferenceExpenses]
+  );
+  const savingsDelta = useMemo(
+    () => monthlySavings - prevMonthReferenceSavings,
+    [monthlySavings, prevMonthReferenceSavings]
+  );
   const totalBalance = useMemo(
     () => accounts.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0),
     [accounts]
@@ -642,7 +645,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     }
 
     return items.slice(0, 3);
-  }, [topExpenseBreakdown, biggestExpense, monthlyUncategorizedCount, cs, formatNumber, looksLikeInternalId]);
+  }, [topExpenseBreakdown, biggestExpense, monthlyUncategorizedCount, cs, looksLikeInternalId]);
 
   const lastMonths = useMemo(() => {
     const out = [];
@@ -943,8 +946,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     dueSubscriptionsSoon,
     subscriptions,
     userSettings?.subscriptionsNotificationsEnabled,
-    userSettings?.subscriptionsNotificationsPriceAlert,
-    subscriptionsReminderDays
+    userSettings?.subscriptionsNotificationsPriceAlert
   ]);
 
   const forecastData = useMemo(() => {
@@ -999,9 +1001,90 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
     return { cards, riskyAccounts };
   }, [accounts, transactions, parseDate]);
 
+  const dailyBrief = useMemo(() => {
+    const topActions = todayActions.slice(0, 3);
+    const criticalBudget = budgetAlerts.find((a) => a.level === 'over' || a.level === 'danger' || a.level === 'warn');
+    const monthProgress = new Date().getDate();
+    const monthlyDeficit = Math.max(0, monthlyExpenses - monthlyIncome);
+    const disposableEstimate = Math.max(monthlyExpenses * 0.35, 0);
+
+    let decision = {
+      id: 'review-reports',
+      title: 'Rivedi il cashflow settimanale',
+      detail: 'Fai un check rapido dei movimenti recenti per confermare il ritmo del mese.',
+      impactLabel: `Impatto stimato: +${cs} ${formatNumber(Math.max(monthlyIncome * 0.02, 15))} di margine entro fine mese`,
+      cta: 'Apri Reports',
+      menu: 'reports'
+    };
+
+    if (criticalBudget) {
+      const suggestedCut = Math.max((criticalBudget.spent || 0) * 0.1, 10);
+      decision = {
+        id: 'budget-cut',
+        title: `Riduci la categoria "${criticalBudget.label}" per 7 giorni`,
+        detail: `La categoria e al ${Math.round((criticalBudget.pct || 0) * 100)}%: piccolo taglio tattico per rientrare.`,
+        impactLabel: `Impatto stimato: +${cs} ${formatNumber(suggestedCut)} questo mese`,
+        cta: 'Apri Budget',
+        menu: 'budgets'
+      };
+    } else if (monthlyDeficit > 0) {
+      const recoverable = Math.min(monthlyDeficit, disposableEstimate * 0.2);
+      decision = {
+        id: 'deficit-recovery',
+        title: 'Blocca le spese non essenziali fino a fine settimana',
+        detail: `Hai un delta negativo di ${cs} ${formatNumber(monthlyDeficit)} tra entrate e uscite.`,
+        impactLabel: `Impatto stimato: +${cs} ${formatNumber(Math.max(recoverable, 20))} di recupero`,
+        cta: 'Apri Transazioni',
+        menu: 'transactions'
+      };
+    } else if (monthlyUncategorizedCount > 0) {
+      decision = {
+        id: 'categorize-fast',
+        title: 'Completa la categorizzazione in sospeso',
+        detail: `${monthlyUncategorizedCount} movimenti non categorizzati limitano la precisione degli insight.`,
+        impactLabel: 'Impatto stimato: priorita piu accurate nelle prossime 24h',
+        cta: 'Apri Transazioni',
+        menu: 'transactions',
+        filter: 'uncategorized'
+      };
+    }
+
+    const winText =
+      monthlySavings >= 0
+        ? `Vittoria del mese: risparmio attuale ${cs} ${formatNumber(monthlySavings)}.`
+        : `Vittoria del mese: hai gia registrato ${transactions.length} movimenti, base dati affidabile.`;
+
+    const riskText =
+      monthlyDeficit > 0
+        ? 'Attenzione alta'
+        : criticalBudget
+        ? 'Attenzione media'
+        : 'Sotto controllo';
+
+    return {
+      riskText,
+      progressText: `${currentMonthLabel} - giorno ${monthProgress}`,
+      winText,
+      topActions,
+      decision
+    };
+  }, [
+    todayActions,
+    budgetAlerts,
+    monthlyExpenses,
+    monthlyIncome,
+    monthlyUncategorizedCount,
+    monthlySavings,
+    transactions.length,
+    currentMonthLabel,
+    cs
+  ]);
+
   const showSmartInsights = userSettings?.dashboardShowSmartInsights === true;
-  const showForecast = userSettings?.dashboardShowForecast === true;
-  const showInsightsBase = userSettings?.dashboardShowInsightsBase === true;
+  const showDailyBrief = userSettings?.dashboardShowDailyBrief === true;
+  const showDecisionEngine = userSettings?.dashboardShowDecisionEngine === true;
+  const showForecast = false;
+  const showInsightsBase = false;
   const showTop5 = userSettings?.dashboardShowTop5 === true;
   const showBudgetAlerts = userSettings?.dashboardShowBudgetAlerts === true;
   const showActions = userSettings?.dashboardShowActions === true;
@@ -1010,38 +1093,42 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
   const showMonthClose = userSettings?.dashboardShowMonthClose !== false;
   const showAnomalies = userSettings?.dashboardShowAnomalies === true;
   const showLiquidityRadar = userSettings?.dashboardShowLiquidityRadar === true;
-  const showWeeklyPulse = userSettings?.dashboardShowWeeklyPulse === true;
+  const showWeeklyPulse = false;
   const showAgenda14 = userSettings?.dashboardShowAgenda14 === true;
   const showMonthEndStress = userSettings?.dashboardShowMonthEndStress === true;
-  const showGoalsPriority = userSettings?.dashboardShowGoalsPriority === true;
+  const showGoalsPriority = false;
   const showDataQuality = userSettings?.dashboardShowDataQuality === true;
   const showAccountRisk = userSettings?.dashboardShowAccountRisk === true;
-  const showDailyPace = userSettings?.dashboardShowDailyPace === true;
+  const showDailyPace = false;
   const showIncomeRunRate = userSettings?.dashboardShowIncomeRunRate === true;
-  const showTrend14 = userSettings?.dashboardShowTrend14 === true;
-  const showTopCategories7 = userSettings?.dashboardShowTopCategories7 === true;
+  const showTrend14 = false;
+  const showTopCategories7 = false;
   const showWeekendSpend = userSettings?.dashboardShowWeekendSpend === true;
   const showSubscriptionBurden = userSettings?.dashboardShowSubscriptionBurden === true;
-  const showNoSpend = userSettings?.dashboardShowNoSpend === true;
-  const showBurnRate7 = userSettings?.dashboardShowBurnRate7 === true;
-  const showWeeklyMissions = userSettings?.dashboardShowWeeklyMissions === true;
+  const showNoSpend = false;
+  const showBurnRate7 = false;
+  const showWeeklyMissions = false;
   const showIncomeConcentration = userSettings?.dashboardShowIncomeConcentration === true;
-  const showCashCrunch14 = userSettings?.dashboardShowCashCrunch14 === true;
+  const showCashCrunch14 = false;
   const showExpenseVolatility = userSettings?.dashboardShowExpenseVolatility === true;
   const showSavingsTarget = userSettings?.dashboardShowSavingsTarget === true;
-  const showCommitments30 = userSettings?.dashboardShowCommitments30 === true;
-  const showDailySpike = userSettings?.dashboardShowDailySpike === true;
+  const showCommitments30 = false;
+  const showDailySpike = false;
   const showRolling30 = userSettings?.dashboardShowRolling30 === true;
   const showEmergencyFund = userSettings?.dashboardShowEmergencyFund === true;
   const showCategorizationScore = userSettings?.dashboardShowCategorizationScore === true;
-  const showSpendingMomentum = userSettings?.dashboardShowSpendingMomentum === true;
-  const showSubscriptionHealth = userSettings?.dashboardShowSubscriptionHealth === true;
+  const showSpendingMomentum = false;
+  const showSubscriptionHealth = false;
   const showSubscriptionsDue = userSettings?.dashboardShowSubscriptionsDue === true;
-  const showSubscriptionsOverdue = userSettings?.dashboardShowSubscriptionsOverdue === true;
+  const showSubscriptionsOverdue = false;
   const focusTodayItems = todayActions.slice(0, 3);
   const visibleFocusTodayItems = focusTodayItems.filter((a) => !dismissedFocusIds.includes(a.id));
   const monthCloseStorageKey = useMemo(
     () => (user?.uid ? `aurora_month_close_history_v1_${user.uid}` : ''),
+    [user?.uid]
+  );
+  const monthlySnapshotStorageKey = useMemo(
+    () => (user?.uid ? `aurora_monthly_snapshots_v1_${user.uid}` : ''),
     [user?.uid]
   );
 
@@ -1109,6 +1196,59 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
       setMonthCloseHistory(null);
     }
   }, [monthCloseStorageKey]);
+
+  useEffect(() => {
+    if (!monthlySnapshotStorageKey) {
+      setPrevMonthSnapshot(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(monthlySnapshotStorageKey);
+      const parsed = JSON.parse(raw || '[]');
+      const list = Array.isArray(parsed) ? parsed : [];
+      const existing = list.find((item) => item?.period === prevMonthPeriodKey) || null;
+      if (existing) {
+        setPrevMonthSnapshot(existing);
+        return;
+      }
+
+      const expenseByCategory = {};
+      for (const tx of prevMonthTransactions) {
+        if (getType(tx) !== 'expense') continue;
+        const key = getCategoryName(tx);
+        expenseByCategory[key] = (expenseByCategory[key] || 0) + Math.abs(getAmount(tx));
+      }
+      const topExpenseCategories = Object.entries(expenseByCategory)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([name, amount]) => ({ name, amount }));
+
+      const snapshot = {
+        period: prevMonthPeriodKey,
+        income: prevMonthIncome,
+        expenses: prevMonthExpenses,
+        savings: prevMonthIncome - prevMonthExpenses,
+        totalBalance,
+        topExpenseCategories,
+        generatedAt: new Date().toISOString()
+      };
+      const next = [snapshot, ...list].slice(0, 24);
+      localStorage.setItem(monthlySnapshotStorageKey, JSON.stringify(next));
+      setPrevMonthSnapshot(snapshot);
+    } catch {
+      setPrevMonthSnapshot(null);
+    }
+  }, [
+    monthlySnapshotStorageKey,
+    prevMonthPeriodKey,
+    prevMonthTransactions,
+    prevMonthIncome,
+    prevMonthExpenses,
+    totalBalance,
+    getType,
+    getCategoryName,
+    getAmount
+  ]);
 
   const optionalSectionOrder = useMemo(() => {
     const ids = normalizeDashboardOrder(userSettings?.dashboardOrder)
@@ -1573,6 +1713,58 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
           </div>
         </div>
 
+        {showDailyBrief && (
+        <div className="section" style={{ order: optionalSectionOrder.dailyBrief ?? 999 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <h2 className="section-title" style={{ marginBottom: 0 }}>Daily Brief</h2>
+            <div style={{ opacity: 0.8, fontSize: 13 }}>{dailyBrief.progressText}</div>
+          </div>
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <div style={{ fontWeight: 600 }}>Rischio oggi: <span style={{ opacity: 0.9 }}>{dailyBrief.riskText}</span></div>
+            <div style={{ opacity: 0.92 }}>{dailyBrief.winText}</div>
+          </div>
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            {dailyBrief.topActions.map((action, index) => (
+              <button
+                key={action.id}
+                type="button"
+                className="today-action-btn"
+                style={{ textAlign: 'left', width: '100%' }}
+                onClick={() => {
+                  if (action.filter) setPendingFilter(action.filter);
+                  setActiveMenu(action.menu);
+                }}
+              >
+                {index + 1}. {action.title}
+              </button>
+            ))}
+          </div>
+        </div>
+        )}
+
+        {showDecisionEngine && (
+        <div className="section" style={{ order: optionalSectionOrder.decisionEngine ?? 999 }}>
+          <h2 className="section-title">Motore decisionale</h2>
+          <div style={{ border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12, padding: 12, background: 'rgba(255,255,255,0.04)' }}>
+            <div style={{ fontWeight: 700 }}>{dailyBrief.decision.title}</div>
+            <div style={{ opacity: 0.9, marginTop: 4 }}>{dailyBrief.decision.detail}</div>
+            <div style={{ marginTop: 6, fontWeight: 600, color: '#93c5fd' }}>{dailyBrief.decision.impactLabel}</div>
+            <div style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                className="today-action-btn"
+                onClick={() => {
+                  if (dailyBrief.decision.filter) setPendingFilter(dailyBrief.decision.filter);
+                  setActiveMenu(dailyBrief.decision.menu);
+                }}
+              >
+                {dailyBrief.decision.cta}
+              </button>
+            </div>
+          </div>
+        </div>
+        )}
+
         {!isCompactMobile && showSmartInsights && (
         <div className="section smart-insights" style={{ order: optionalSectionOrder.smartInsights ?? 999 }}>
           <h2 className="section-title">Insights intelligenti</h2>
@@ -1665,7 +1857,7 @@ const DashboardContent = React.memo(function DashboardContent({ setActiveMenu, s
               <>
                 <p className="hero-story-subtitle">
                   {monthlySavings >= 0 ? 'Ottimo ritmo! ' : 'Serve un piccolo aggiustamento. '}
-                  Rispetto a {prevMonthLabel} {savingsDelta >= 0 ? 'sei sopra di' : 'sei sotto di'} {cs}{' '}
+                  Rispetto a {prevMonthLabel}{prevMonthSnapshot ? ' (snapshot)' : ''} {savingsDelta >= 0 ? 'sei sopra di' : 'sei sotto di'} {cs}{' '}
                   {formatNumber(Math.abs(savingsDelta))}.
                 </p>
                 <div className="hero-mini-chart">

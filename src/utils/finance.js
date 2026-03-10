@@ -44,4 +44,14 @@ export const getSubCategoryName = (t, categories = []) => {
 
   if (typeof raw === 'string' && raw.trim()) return raw;
 
-  const catRaw = t?.categoryId || t?.cat
+  const catRaw = t?.categoryId || t?.category;
+  const cat = categories.find((c) => c.id === catRaw || c.name === catRaw);
+  const subCategories = cat?.subCategories || [];
+
+  const byId = subCategories.find((s) => s.id === raw);
+  if (byId?.name) return byId.name;
+
+  if (typeof raw?.name === 'string' && raw.name.trim()) return raw.name;
+
+  return '';
+};

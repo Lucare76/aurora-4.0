@@ -266,8 +266,8 @@ const EditTransactionForm = ({ transaction, onClose }) => {
     return Number.isNaN(d.getTime()) ? null : d.getTime();
   }, [transaction]);
 
-  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-  const isRetryableUpdateError = (err) => {
+  const wait = useCallback((ms) => new Promise((resolve) => setTimeout(resolve, ms)), []);
+  const isRetryableUpdateError = useCallback((err) => {
     const code = String(err?.code || '').toLowerCase();
     const msg = String(err?.message || '').toLowerCase();
     return (
@@ -279,8 +279,8 @@ const EditTransactionForm = ({ transaction, onClose }) => {
       msg.includes('offline') ||
       msg.includes('failed to fetch')
     );
-  };
-  const runWithRetry = async (fn, retries = 2) => {
+  }, []);
+  const runWithRetry = useCallback(async (fn, retries = 2) => {
     let lastError = null;
     for (let attempt = 0; attempt <= retries; attempt += 1) {
       try {
@@ -292,7 +292,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
       }
     }
     throw lastError;
-  };
+  }, [isRetryableUpdateError, wait]);
 
   const isNetworkError = useCallback(
     (err) => {
@@ -307,7 +307,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
         msg.includes('failed to fetch')
       );
     },
-    []
+    [isRetryableUpdateError]
   );
 
   useEffect(() => {
@@ -332,7 +332,7 @@ const EditTransactionForm = ({ transaction, onClose }) => {
   const submitUpdate = useCallback(
     async (submitConfig, options = { fromRetry: false }) => {
       if (!submitConfig) return;
-      const { mode, payload } = submitConfig;
+      const { payload } = submitConfig;
       if (!options.fromRetry) {
         setLastSubmitPayload(submitConfig);
       }

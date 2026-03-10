@@ -35,6 +35,8 @@ export const AuthProvider = ({ children }) => {
     savingsTargetPercent: 20,
     savingsTargetAmount: 0,
     dashboardMobileMode: 'normal',
+    dashboardShowDailyBrief: false,
+    dashboardShowDecisionEngine: false,
     dashboardShowFocusToday: false,
     dashboardShowSubscriptionsOverdue: false,
     onboardingCompleted: false,
@@ -217,7 +219,7 @@ export const AuthProvider = ({ children }) => {
           const { doc, getDoc } = await import('firebase/firestore');
           const { db } = await import('../services/firebase');
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
+          if (userDoc?.exists?.()) {
             const data = userDoc.data();
             setUserSettings(prev => ({
               ...prev,
@@ -226,6 +228,8 @@ export const AuthProvider = ({ children }) => {
               savingsTargetPercent: data.savingsTargetPercent ?? 20,
               savingsTargetAmount: data.savingsTargetAmount ?? 0,
               dashboardMobileMode: data.dashboardMobileMode || 'normal',
+              dashboardShowDailyBrief: data.dashboardShowDailyBrief === true,
+              dashboardShowDecisionEngine: data.dashboardShowDecisionEngine === true,
               dashboardShowFocusToday: data.dashboardShowFocusToday === true,
               dashboardShowSubscriptionsOverdue: data.dashboardShowSubscriptionsOverdue === true,
               onboardingCompleted: data.onboardingCompleted === true,
@@ -247,6 +251,8 @@ export const AuthProvider = ({ children }) => {
           savingsTargetPercent: 20,
           savingsTargetAmount: 0,
           dashboardMobileMode: 'normal',
+          dashboardShowDailyBrief: false,
+          dashboardShowDecisionEngine: false,
           dashboardShowFocusToday: false,
           dashboardShowSubscriptionsOverdue: false,
           onboardingCompleted: false,

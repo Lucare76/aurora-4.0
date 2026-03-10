@@ -1,31 +1,33 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`PageHeader matches snapshot 1`] = `
-<div
-  class="app-page-header page-header"
->
+<DocumentFragment>
   <div
-    class="app-page-header-main"
+    class="app-page-header page-header"
   >
-    <h1
-      class="app-page-title"
+    <div
+      class="app-page-header-main"
     >
-      Report
-    </h1>
-    <p
-      class="app-page-subtitle"
+      <h1
+        class="app-page-title"
+      >
+        Report
+      </h1>
+      <p
+        class="app-page-subtitle"
+      >
+        Grafici e riepiloghi
+      </p>
+    </div>
+    <div
+      class="app-page-header-actions"
     >
-      Grafici e riepiloghi
-    </p>
+      <button
+        type="button"
+      >
+        Azione
+      </button>
+    </div>
   </div>
-  <div
-    class="app-page-header-actions"
-  >
-    <button
-      type="button"
-    >
-      Azione
-    </button>
-  </div>
-</div>
+</DocumentFragment>
 `;

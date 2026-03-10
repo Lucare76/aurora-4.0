@@ -5,9 +5,9 @@ import Categories from '../../pages/Categories';
 import Budgets from '../../pages/Budgets';
 import Birthdays from '../../pages/Birthdays';
 import SavingsGoals from '../../pages/SavingsGoals';
-import Recurring from '../../pages/Recurring';
 import Subscriptions from '../../pages/Subscriptions';
 import AdminApproval from '../../pages/AdminApproval';
+import Loans from '../../pages/Loans';
 import { useAuth } from '../../contexts/AuthContext';
 import Header from './Header';
 import DashboardContent from './DashboardContent';
@@ -46,8 +46,6 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
         return <Budgets />;
       case 'savings':
         return <SavingsGoals />;
-      case 'recurring':
-        return <Recurring />;
       case 'subscriptions':
         return <Subscriptions />;
       case 'import':
@@ -61,6 +59,9 @@ function MainContent({ activeMenu, setActiveMenu, pendingFilter, setPendingFilte
       case 'admin':
         if (!isAdmin) return <DashboardContent setActiveMenu={setActiveMenu} setPendingFilter={setPendingFilter} />;
         return <AdminApproval />;
+      case 'loans':
+        if (!isAdmin) return <DashboardContent setActiveMenu={setActiveMenu} setPendingFilter={setPendingFilter} />;
+        return <Loans />;
       case 'settings':
         return <SettingsContent />;
       default:

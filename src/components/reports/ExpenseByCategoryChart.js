@@ -5,6 +5,20 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
+const calculateExpensesByCategory = (transactions = []) => {
+  const totals = {};
+  (transactions || []).forEach((tx) => {
+    if (!tx || tx.type !== 'expense') return;
+    const category = String(tx.categoryName || tx.category || tx.categoryId || 'Senza categoria');
+    const amount = Math.abs(Number(tx.amount) || 0);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    totals[category] = (totals[category] || 0) + amount;
+  });
+  return Object.entries(totals)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+};
+
 const ExpenseByCategoryChart = ({ transactions }) => {
   const data = calculateExpensesByCategory(transactions);
 

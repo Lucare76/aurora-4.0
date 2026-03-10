@@ -7,7 +7,6 @@ import {
   suggestTopCategories,
   suggestTopCategoriesFromReceipt
 } from '../services/smartCategoryService';
-import { addRecurring } from '../services/recurringService';
 import { analyzeReceipt } from '../services/receiptService';
 import './AddTransactionForm.css';
 
@@ -70,7 +69,7 @@ function normalizeDescription(value) {
 
 const AddTransactionForm = ({ onClose }) => {
   const { accounts = [], categories = [], transactions = [], createTransaction, createTransfer } = useFinancial();
-  const { userSettings, user } = useAuth();
+  const { userSettings } = useAuth();
   const cs = getCurrencySymbol(userSettings?.currency);
 
   const [formData, setFormData] = useState({
@@ -159,12 +158,14 @@ const AddTransactionForm = ({ onClose }) => {
         }
 
         if (data.date) {
-          // data è in formato YYYY-MM-DD, aggiungi l'ora corrente
+          // data è in formato YYYY-MM-DD, usa ora OCR se affidabile altrimenti ora corrente
           const now = new Date();
           const h = String(now.getHours()).padStart(2, '0');
           const min = String(now.getMinutes()).padStart(2, '0');
-          const sec = String(now.getSeconds()).padStart(2, '0');
-          updates.date = `${data.date}T${h}:${min}:${sec}`;
+          const extractedTime = typeof data.time === 'string' && /^\d{2}:\d{2}$/.test(data.time)
+            ? data.time
+            : `${h}:${min}`;
+          updates.date = `${data.date}T${extractedTime}:00`;
           dateTouchedRef.current = true;
         }
 
@@ -260,10 +261,6 @@ const AddTransactionForm = ({ onClose }) => {
     setTemplates(updated);
     localStorage.setItem('aurora_templates', JSON.stringify(updated));
   };
-
-  // Recurring
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringFrequency, setRecurringFrequency] = useState('monthly');
 
   // default conti
   useEffect(() => {
@@ -471,34 +468,6 @@ const AddTransactionForm = ({ onClose }) => {
         date: transactionDate,
         timestamp: transactionDate.getTime()
       });
-
-      // Crea ricorrenza se attivata
-      if (isRecurring && user?.uid) {
-        const selCat = categories.find(c => c.id === formData.category);
-        const selSub = selCat?.subCategories?.find(s => s.id === formData.subCategory);
-        const selAcc = accounts.find(a => a.id === formData.accountId);
-
-        const nextDate = new Date(transactionDate);
-        if (recurringFrequency === 'weekly') {
-          nextDate.setDate(nextDate.getDate() + 7);
-        } else {
-          nextDate.setMonth(nextDate.getMonth() + 1);
-        }
-
-        await addRecurring(user.uid, {
-          description: normalizeDescription(formData.description) || '',
-          amount: amountToSubmit,
-          type: formData.type,
-          categoryId: formData.category || null,
-          categoryName: selCat?.name || '',
-          subCategoryId: formData.subCategory || null,
-          subCategoryName: selSub?.name || '',
-          accountId: formData.accountId || null,
-          accountName: selAcc?.name || '',
-          frequency: recurringFrequency,
-          nextDate
-        });
-      }
 
       setFormData({
         description: '',
@@ -869,30 +838,6 @@ const AddTransactionForm = ({ onClose }) => {
                     ))}
                   </select>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Ricorrente (solo income/expense) */}
-          {formData.type !== 'transfer' && (
-            <div className="recurring-toggle">
-              <label className="recurring-label">
-                <input
-                  type="checkbox"
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                />
-                <span className="recurring-text">Transazione Ricorrente</span>
-              </label>
-              {isRecurring && (
-                <select
-                  value={recurringFrequency}
-                  onChange={(e) => setRecurringFrequency(e.target.value)}
-                  className="recurring-select"
-                >
-                  <option value="monthly">Mensile</option>
-                  <option value="weekly">Settimanale</option>
-                </select>
               )}
             </div>
           )}

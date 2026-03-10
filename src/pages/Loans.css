@@ -1,0 +1,67 @@
+.loans-page {
+  display: grid;
+  gap: 18px;
+}
+
+.loans-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.loans-form-grid input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.loans-list {
+  display: grid;
+  gap: 10px;
+}
+
+.loans-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.loans-item-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.loans-item-meta {
+  opacity: 0.85;
+  font-size: 0.92rem;
+}
+
+.loans-item-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.loans-item-amount {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .loans-item {
+    flex-direction: column;
+  }
+
+  .loans-item-side {
+    align-items: flex-start;
+  }
+}

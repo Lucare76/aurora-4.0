@@ -17,6 +17,33 @@ import { getBackupCollections } from '../../utils/backupProfiles';
 import { hasBackupConflict, parseBackupJson, reviveBackupValue, summarizeBackupPayload } from '../../utils/backupRestore';
 import { clearRuntimeIssues, getRuntimeIssues } from '../../utils/reliability';
 
+function SettingsSection({ title, category, isOpen, children, className = '', style = undefined }) {
+  return (
+    <div className={`setting-section ${className}`.trim()} style={style}>
+      <h3>
+        <span className="setting-section-title-wrap">
+          {category ? <span className="setting-section-category">{category}</span> : null}
+          <span>{title}</span>
+        </span>
+      </h3>
+      <div className="setting-section-body">
+        {isOpen ? children : null}
+      </div>
+    </div>
+  );
+}
+
+const normalizeCollapsedSections = (value) => {
+  if (!value || typeof value !== 'object') return {};
+  return Object.entries(value).reduce((acc, [key, isCollapsed]) => {
+    const index = Number(key);
+    if (Number.isInteger(index) && index >= 0 && isCollapsed === true) {
+      acc[index] = true;
+    }
+    return acc;
+  }, {});
+};
+
 function SettingsContent() {
   const { user, userSettings, setUserSettings, isAdmin, userApprovalStatus } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -38,9 +65,17 @@ function SettingsContent() {
   const [isMobileSettings, setIsMobileSettings] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 768
   );
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(true);
+  const [openSectionIndex, setOpenSectionIndex] = useState(null);
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [sectionsLiveMessage, setSectionsLiveMessage] = useState('');
+  const [sanityResult, setSanityResult] = useState(null);
   const [familyRolePreview, setFamilyRolePreview] = useState('owner');
   const hasLoadedOnceRef = useRef(false);
   const autoSaveTimerRef = useRef(null);
+  const settingsGridRef = useRef(null);
+  const sectionAnimTimersRef = useRef({});
+  const sectionStateRef = useRef({});
   const restoreSnapshotStorageKey = user?.uid ? `aurora_last_restore_snapshot_${user.uid}` : '';
 
   const [settings, setSettings] = useState({
@@ -53,41 +88,43 @@ function SettingsContent() {
     savingsTargetAmount: userSettings?.savingsTargetAmount ?? 0,
     dashboardMobileMode: userSettings?.dashboardMobileMode || 'normal',
     dashboardOrder: normalizeDashboardOrder(userSettings?.dashboardOrder),
+    dashboardShowDailyBrief: userSettings?.dashboardShowDailyBrief ?? false,
+    dashboardShowDecisionEngine: userSettings?.dashboardShowDecisionEngine ?? false,
     dashboardShowMonthClose: userSettings?.dashboardShowMonthClose ?? true,
     dashboardShowAnomalies: userSettings?.dashboardShowAnomalies ?? false,
     dashboardShowLiquidityRadar: userSettings?.dashboardShowLiquidityRadar ?? false,
-    dashboardShowWeeklyPulse: userSettings?.dashboardShowWeeklyPulse ?? false,
+    dashboardShowWeeklyPulse: false,
     dashboardShowAgenda14: userSettings?.dashboardShowAgenda14 ?? false,
     dashboardShowMonthEndStress: userSettings?.dashboardShowMonthEndStress ?? false,
-    dashboardShowGoalsPriority: userSettings?.dashboardShowGoalsPriority ?? false,
+    dashboardShowGoalsPriority: false,
     dashboardShowDataQuality: userSettings?.dashboardShowDataQuality ?? false,
     dashboardShowAccountRisk: userSettings?.dashboardShowAccountRisk ?? false,
-    dashboardShowDailyPace: userSettings?.dashboardShowDailyPace ?? false,
+    dashboardShowDailyPace: false,
     dashboardShowIncomeRunRate: userSettings?.dashboardShowIncomeRunRate ?? false,
-    dashboardShowTrend14: userSettings?.dashboardShowTrend14 ?? false,
-    dashboardShowTopCategories7: userSettings?.dashboardShowTopCategories7 ?? false,
+    dashboardShowTrend14: false,
+    dashboardShowTopCategories7: false,
     dashboardShowWeekendSpend: userSettings?.dashboardShowWeekendSpend ?? false,
     dashboardShowSubscriptionBurden: userSettings?.dashboardShowSubscriptionBurden ?? false,
-    dashboardShowNoSpend: userSettings?.dashboardShowNoSpend ?? false,
-    dashboardShowBurnRate7: userSettings?.dashboardShowBurnRate7 ?? false,
-    dashboardShowWeeklyMissions: userSettings?.dashboardShowWeeklyMissions ?? false,
+    dashboardShowNoSpend: false,
+    dashboardShowBurnRate7: false,
+    dashboardShowWeeklyMissions: false,
     dashboardShowIncomeConcentration: userSettings?.dashboardShowIncomeConcentration ?? false,
-    dashboardShowCashCrunch14: userSettings?.dashboardShowCashCrunch14 ?? false,
+    dashboardShowCashCrunch14: false,
     dashboardShowExpenseVolatility: userSettings?.dashboardShowExpenseVolatility ?? false,
     dashboardShowSavingsTarget: userSettings?.dashboardShowSavingsTarget ?? false,
-    dashboardShowCommitments30: userSettings?.dashboardShowCommitments30 ?? false,
-    dashboardShowDailySpike: userSettings?.dashboardShowDailySpike ?? false,
+    dashboardShowCommitments30: false,
+    dashboardShowDailySpike: false,
     dashboardShowRolling30: userSettings?.dashboardShowRolling30 ?? false,
     dashboardShowEmergencyFund: userSettings?.dashboardShowEmergencyFund ?? false,
     dashboardShowCategorizationScore: userSettings?.dashboardShowCategorizationScore ?? false,
-    dashboardShowSpendingMomentum: userSettings?.dashboardShowSpendingMomentum ?? false,
-    dashboardShowSubscriptionHealth: userSettings?.dashboardShowSubscriptionHealth ?? false,
+    dashboardShowSpendingMomentum: false,
+    dashboardShowSubscriptionHealth: false,
     dashboardShowFocusToday: userSettings?.dashboardShowFocusToday ?? false,
     dashboardShowSubscriptionsDue: userSettings?.dashboardShowSubscriptionsDue ?? false,
-    dashboardShowSubscriptionsOverdue: userSettings?.dashboardShowSubscriptionsOverdue ?? false,
+    dashboardShowSubscriptionsOverdue: false,
     dashboardShowSmartInsights: userSettings?.dashboardShowSmartInsights ?? false,
-    dashboardShowForecast: userSettings?.dashboardShowForecast ?? false,
-    dashboardShowInsightsBase: userSettings?.dashboardShowInsightsBase ?? false,
+    dashboardShowForecast: false,
+    dashboardShowInsightsBase: false,
     dashboardShowTop5: userSettings?.dashboardShowTop5 ?? false,
     dashboardShowBudgetAlerts: userSettings?.dashboardShowBudgetAlerts ?? false,
     dashboardShowActions: userSettings?.dashboardShowActions ?? false,
@@ -115,6 +152,8 @@ function SettingsContent() {
     () => ({
       dashboardMobileMode: settings.dashboardMobileMode || 'normal',
       dashboardOrder: normalizeDashboardOrder(settings.dashboardOrder),
+      dashboardShowDailyBrief: settings.dashboardShowDailyBrief === true,
+      dashboardShowDecisionEngine: settings.dashboardShowDecisionEngine === true,
       dashboardShowMonthClose: settings.dashboardShowMonthClose !== false,
       dashboardShowAnomalies: settings.dashboardShowAnomalies === true,
       dashboardShowLiquidityRadar: settings.dashboardShowLiquidityRadar === true,
@@ -158,6 +197,8 @@ function SettingsContent() {
     [
       settings.dashboardMobileMode,
       settings.dashboardOrder,
+      settings.dashboardShowDailyBrief,
+      settings.dashboardShowDecisionEngine,
       settings.dashboardShowAnomalies,
       settings.dashboardShowLiquidityRadar,
       settings.dashboardShowWeeklyPulse,
@@ -199,6 +240,10 @@ function SettingsContent() {
       settings.dashboardShowTop5
     ]
   );
+  const collapsedSectionsPayload = useMemo(
+    () => normalizeCollapsedSections(collapsedSections),
+    [collapsedSections]
+  );
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -211,7 +256,7 @@ function SettingsContent() {
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
 
-        if (userDoc.exists()) {
+        if (userDoc?.exists?.()) {
           const data = userDoc.data();
           setSettings({
             reminderEmail: data.reminderEmail || user.email,
@@ -223,41 +268,43 @@ function SettingsContent() {
             savingsTargetAmount: data.savingsTargetAmount ?? 0,
             dashboardMobileMode: data.dashboardMobileMode || 'normal',
             dashboardOrder: normalizeDashboardOrder(data.dashboardOrder),
+            dashboardShowDailyBrief: data.dashboardShowDailyBrief ?? false,
+            dashboardShowDecisionEngine: data.dashboardShowDecisionEngine ?? false,
             dashboardShowMonthClose: data.dashboardShowMonthClose ?? true,
             dashboardShowAnomalies: data.dashboardShowAnomalies ?? false,
             dashboardShowLiquidityRadar: data.dashboardShowLiquidityRadar ?? false,
-            dashboardShowWeeklyPulse: data.dashboardShowWeeklyPulse ?? false,
+            dashboardShowWeeklyPulse: false,
             dashboardShowAgenda14: data.dashboardShowAgenda14 ?? false,
             dashboardShowMonthEndStress: data.dashboardShowMonthEndStress ?? false,
-            dashboardShowGoalsPriority: data.dashboardShowGoalsPriority ?? false,
+            dashboardShowGoalsPriority: false,
             dashboardShowDataQuality: data.dashboardShowDataQuality ?? false,
             dashboardShowAccountRisk: data.dashboardShowAccountRisk ?? false,
-            dashboardShowDailyPace: data.dashboardShowDailyPace ?? false,
+            dashboardShowDailyPace: false,
             dashboardShowIncomeRunRate: data.dashboardShowIncomeRunRate ?? false,
-            dashboardShowTrend14: data.dashboardShowTrend14 ?? false,
-            dashboardShowTopCategories7: data.dashboardShowTopCategories7 ?? false,
+            dashboardShowTrend14: false,
+            dashboardShowTopCategories7: false,
             dashboardShowWeekendSpend: data.dashboardShowWeekendSpend ?? false,
             dashboardShowSubscriptionBurden: data.dashboardShowSubscriptionBurden ?? false,
-            dashboardShowNoSpend: data.dashboardShowNoSpend ?? false,
-            dashboardShowBurnRate7: data.dashboardShowBurnRate7 ?? false,
-            dashboardShowWeeklyMissions: data.dashboardShowWeeklyMissions ?? false,
+            dashboardShowNoSpend: false,
+            dashboardShowBurnRate7: false,
+            dashboardShowWeeklyMissions: false,
             dashboardShowIncomeConcentration: data.dashboardShowIncomeConcentration ?? false,
-            dashboardShowCashCrunch14: data.dashboardShowCashCrunch14 ?? false,
+            dashboardShowCashCrunch14: false,
             dashboardShowExpenseVolatility: data.dashboardShowExpenseVolatility ?? false,
             dashboardShowSavingsTarget: data.dashboardShowSavingsTarget ?? false,
-            dashboardShowCommitments30: data.dashboardShowCommitments30 ?? false,
-            dashboardShowDailySpike: data.dashboardShowDailySpike ?? false,
+            dashboardShowCommitments30: false,
+            dashboardShowDailySpike: false,
             dashboardShowRolling30: data.dashboardShowRolling30 ?? false,
             dashboardShowEmergencyFund: data.dashboardShowEmergencyFund ?? false,
             dashboardShowCategorizationScore: data.dashboardShowCategorizationScore ?? false,
-            dashboardShowSpendingMomentum: data.dashboardShowSpendingMomentum ?? false,
-            dashboardShowSubscriptionHealth: data.dashboardShowSubscriptionHealth ?? false,
+            dashboardShowSpendingMomentum: false,
+            dashboardShowSubscriptionHealth: false,
             dashboardShowFocusToday: data.dashboardShowFocusToday ?? false,
             dashboardShowSubscriptionsDue: data.dashboardShowSubscriptionsDue ?? false,
-            dashboardShowSubscriptionsOverdue: data.dashboardShowSubscriptionsOverdue ?? false,
+            dashboardShowSubscriptionsOverdue: false,
             dashboardShowSmartInsights: data.dashboardShowSmartInsights ?? false,
-            dashboardShowForecast: data.dashboardShowForecast ?? false,
-            dashboardShowInsightsBase: data.dashboardShowInsightsBase ?? false,
+            dashboardShowForecast: false,
+            dashboardShowInsightsBase: false,
             dashboardShowTop5: data.dashboardShowTop5 ?? false,
             dashboardShowBudgetAlerts: data.dashboardShowBudgetAlerts ?? false,
             dashboardShowActions: data.dashboardShowActions ?? false,
@@ -280,6 +327,7 @@ function SettingsContent() {
             familyApprovalsEnabled: data.familyApprovalsEnabled ?? false,
             onboardingDisabled: data.onboardingDisabled ?? false
           });
+          setCollapsedSections(normalizeCollapsedSections(data.settingsCollapsedSections));
         } else {
           setSettings({
             reminderEmail: user.email,
@@ -291,6 +339,8 @@ function SettingsContent() {
             savingsTargetAmount: 0,
             dashboardMobileMode: 'normal',
             dashboardOrder: normalizeDashboardOrder(null),
+            dashboardShowDailyBrief: false,
+            dashboardShowDecisionEngine: false,
             dashboardShowMonthClose: true,
             dashboardShowAnomalies: false,
             dashboardShowLiquidityRadar: false,
@@ -346,6 +396,7 @@ function SettingsContent() {
             familyApprovalsEnabled: false,
             onboardingDisabled: false
           });
+          setCollapsedSections({});
         }
       } catch (error) {
         console.error('Errore caricamento impostazioni:', error);
@@ -393,11 +444,15 @@ function SettingsContent() {
         const { doc, updateDoc } = await import('firebase/firestore');
         const { db } = await import('../../services/firebase');
 
-        await updateDoc(doc(db, 'users', user.uid), dashboardSettingsPayload);
+        await updateDoc(doc(db, 'users', user.uid), {
+          ...dashboardSettingsPayload,
+          settingsCollapsedSections: collapsedSectionsPayload
+        });
         if (setUserSettings) {
           setUserSettings((prev) => ({
             ...prev,
-            ...dashboardSettingsPayload
+            ...dashboardSettingsPayload,
+            settingsCollapsedSections: collapsedSectionsPayload
           }));
         }
         setMessage((prev) =>
@@ -414,7 +469,139 @@ function SettingsContent() {
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [dashboardSettingsPayload, setUserSettings, user?.uid]);
+  }, [collapsedSectionsPayload, dashboardSettingsPayload, setUserSettings, user?.uid]);
+
+  useEffect(() => {
+    if (!sectionsCollapsed) setOpenSectionIndex(null);
+  }, [sectionsCollapsed]);
+
+  useEffect(
+    () => () => {
+      Object.values(sectionAnimTimersRef.current).forEach((timer) => clearTimeout(timer));
+      sectionAnimTimersRef.current = {};
+    },
+    []
+  );
+  useEffect(() => {
+    const root = settingsGridRef.current;
+    if (!root) return;
+
+    const sections = Array.from(root.children).filter(
+      (node) => node?.classList?.contains('setting-section')
+    );
+    sections.forEach((section, index) => {
+      const isOpen = sectionsCollapsed ? openSectionIndex === index : !collapsedSections[index];
+      section.classList.toggle('setting-section-collapsed', !isOpen);
+      section.setAttribute('aria-expanded', String(isOpen));
+
+      const heading = section.querySelector('h3');
+      const body = section.querySelector('.setting-section-body');
+      if (heading) {
+        const sectionContentId = `settings-section-content-${index}`;
+        if (body) {
+          body.id = sectionContentId;
+          body.hidden = !isOpen;
+          body.setAttribute('aria-hidden', String(!isOpen));
+        }
+        heading.classList.add('setting-section-heading');
+        heading.classList.toggle('setting-section-toggleable', sectionsCollapsed);
+        heading.setAttribute('aria-expanded', String(isOpen));
+        heading.setAttribute('tabindex', sectionsCollapsed ? '0' : '-1');
+
+        let inlineBtn = heading.querySelector('.section-inline-toggle');
+        if (!inlineBtn) {
+          inlineBtn = document.createElement('button');
+          inlineBtn.type = 'button';
+          inlineBtn.className = 'section-inline-toggle btn-secondary-settings';
+          heading.appendChild(inlineBtn);
+        }
+        inlineBtn.dataset.sectionIndex = String(index);
+        inlineBtn.textContent = isOpen ? 'Riduci' : 'Espandi';
+        inlineBtn.setAttribute('aria-expanded', String(isOpen));
+        inlineBtn.setAttribute('aria-label', `${isOpen ? 'Riduci' : 'Espandi'} sezione`);
+        inlineBtn.setAttribute('aria-controls', sectionContentId);
+
+        const style = window.getComputedStyle(section);
+        const padTop = parseFloat(style.paddingTop) || 0;
+        const padBottom = parseFloat(style.paddingBottom) || 0;
+        const collapsedHeight = Math.ceil(heading.getBoundingClientRect().height + padTop + padBottom);
+        const openHeight = Math.ceil(section.scrollHeight);
+        section.style.maxHeight = `${isOpen ? openHeight : collapsedHeight}px`;
+        section.style.setProperty('--section-collapsed-height', `${collapsedHeight}px`);
+      }
+
+      const prev = sectionStateRef.current[index];
+      if (prev !== undefined && prev !== isOpen) {
+        section.classList.remove('setting-section-opening', 'setting-section-closing');
+        section.classList.add(isOpen ? 'setting-section-opening' : 'setting-section-closing');
+        if (sectionAnimTimersRef.current[index]) clearTimeout(sectionAnimTimersRef.current[index]);
+        sectionAnimTimersRef.current[index] = setTimeout(() => {
+          section.classList.remove('setting-section-opening', 'setting-section-closing');
+          delete sectionAnimTimersRef.current[index];
+        }, 280);
+      }
+      sectionStateRef.current[index] = isOpen;
+    });
+  }, [collapsedSections, sectionsCollapsed, openSectionIndex]);
+
+  const handleCollapsedSectionToggle = (event) => {
+    const root = settingsGridRef.current;
+    if (!root) return;
+
+    const inlineBtn = event.target.closest('.section-inline-toggle');
+    if (inlineBtn && root.contains(inlineBtn)) {
+      event.preventDefault();
+      event.stopPropagation();
+      const index = Number(inlineBtn.dataset.sectionIndex);
+      if (!Number.isFinite(index) || index < 0) return;
+      if (sectionsCollapsed) {
+        setOpenSectionIndex((prev) => {
+          const nextOpen = prev === index ? null : index;
+          setSectionsLiveMessage(nextOpen === index ? 'Sezione espansa' : 'Sezione ridotta');
+          return nextOpen;
+        });
+      } else {
+        setCollapsedSections((prev) => {
+          const nextCollapsed = !prev[index];
+          setSectionsLiveMessage(nextCollapsed ? 'Sezione ridotta' : 'Sezione espansa');
+          return { ...prev, [index]: nextCollapsed };
+        });
+      }
+      return;
+    }
+
+    if (!sectionsCollapsed) return;
+    const heading = event.target.closest('.setting-section > h3');
+    if (!heading || !root.contains(heading)) return;
+
+    const section = heading.parentElement;
+    const sections = Array.from(root.children).filter(
+      (node) => node?.classList?.contains('setting-section')
+    );
+    const index = sections.indexOf(section);
+    if (index < 0) return;
+    setOpenSectionIndex((prev) => {
+      const nextOpen = prev === index ? null : index;
+      setSectionsLiveMessage(nextOpen === index ? 'Sezione espansa' : 'Sezione ridotta');
+      return nextOpen;
+    });
+  };
+
+  const handleCollapsedSectionKeyDown = (event) => {
+    const inlineBtn = event.target.closest('.section-inline-toggle');
+    if (inlineBtn) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      handleCollapsedSectionToggle(event);
+      return;
+    }
+    if (!sectionsCollapsed) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const heading = event.target.closest('.setting-section > h3');
+    if (!heading) return;
+    event.preventDefault();
+    handleCollapsedSectionToggle(event);
+  };
 
   const handleSave = async () => {
     if (!user?.uid) return;
@@ -455,7 +642,8 @@ function SettingsContent() {
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
           familyApprovalsEnabled: !!settings.familyApprovalsEnabled,
-          onboardingDisabled: !!settings.onboardingDisabled
+          onboardingDisabled: !!settings.onboardingDisabled,
+          settingsCollapsedSections: collapsedSectionsPayload
         })
       ]);
 
@@ -485,7 +673,8 @@ function SettingsContent() {
           familyBudgetsEnabled: !!settings.familyBudgetsEnabled,
           familyCommentsEnabled: !!settings.familyCommentsEnabled,
           familyApprovalsEnabled: !!settings.familyApprovalsEnabled,
-          onboardingDisabled: !!settings.onboardingDisabled
+          onboardingDisabled: !!settings.onboardingDisabled,
+          settingsCollapsedSections: collapsedSectionsPayload
         }));
       }
 
@@ -545,6 +734,8 @@ function SettingsContent() {
     setSettings((prev) => ({
       ...prev,
       dashboardOrder: normalizeDashboardOrder(null),
+      dashboardShowDailyBrief: false,
+      dashboardShowDecisionEngine: false,
       dashboardShowMonthClose: true,
       dashboardShowAnomalies: false,
       dashboardShowLiquidityRadar: false,
@@ -968,6 +1159,102 @@ function SettingsContent() {
     setMessage({ text: 'Log runtime puliti', type: 'success' });
   };
 
+  const handleResetSectionView = () => {
+    setSectionsCollapsed(true);
+    setOpenSectionIndex(null);
+    setCollapsedSections({});
+    setSectionsLiveMessage('Vista sezioni ripristinata in modalita compatta');
+  };
+
+  const isSectionOpen = (index) => {
+    return sectionsCollapsed ? openSectionIndex === index : !collapsedSections[index];
+  };
+
+  const runSanityCheck = () => {
+    const checks = [];
+    try {
+      const testKey = '__aurora_sanity_check__';
+      localStorage.setItem(testKey, 'ok');
+      localStorage.removeItem(testKey);
+      checks.push({ key: 'localStorage', label: 'Storage locale', ok: true, detail: 'Disponibile' });
+    } catch {
+      checks.push({ key: 'localStorage', label: 'Storage locale', ok: false, detail: 'Non disponibile' });
+    }
+
+    const txPresetRaw = localStorage.getItem('aurora_tx_filter_presets');
+    let txPresetCount = 0;
+    try {
+      const parsed = JSON.parse(txPresetRaw || '[]');
+      txPresetCount = Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      txPresetCount = 0;
+    }
+    checks.push({
+      key: 'txPresets',
+      label: 'Preset filtri transazioni',
+      ok: true,
+      detail: `${txPresetCount} preset`
+    });
+
+    const snapshotRaw = user?.uid ? localStorage.getItem(`aurora_monthly_snapshots_v1_${user.uid}`) : null;
+    let snapshotCount = 0;
+    try {
+      const parsed = JSON.parse(snapshotRaw || '[]');
+      snapshotCount = Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      snapshotCount = 0;
+    }
+    checks.push({
+      key: 'monthlySnapshots',
+      label: 'Snapshot dashboard',
+      ok: true,
+      detail: `${snapshotCount} snapshot`
+    });
+
+    checks.push({
+      key: 'session',
+      label: 'Sessione utente',
+      ok: !!user?.uid,
+      detail: user?.uid ? `UID ${user.uid.slice(0, 8)}...` : 'Utente non autenticato'
+    });
+
+    checks.push({
+      key: 'adminRole',
+      label: 'Ruolo admin',
+      ok: typeof isAdmin === 'boolean',
+      detail: isAdmin ? 'Admin attivo' : 'Non admin'
+    });
+
+    setSanityResult({
+      generatedAt: new Date().toISOString(),
+      checks,
+      passed: checks.filter((c) => c.ok).length,
+      total: checks.length
+    });
+  };
+
+  const handleResetLocalDashboardCache = () => {
+    if (!user?.uid) return;
+    const proceed = window.confirm(
+      'Ripristinare cache locale dashboard e preset filtri transazioni?\n' +
+      'Non verranno modificati i dati salvati su cloud.'
+    );
+    if (!proceed) return;
+    try {
+      const keysToRemove = [
+        'aurora_tx_filter_presets',
+        `aurora_tx_last_filters_${user.uid}`,
+        `aurora_monthly_snapshots_v1_${user.uid}`,
+        `aurora_month_close_history_v1_${user.uid}`
+      ];
+      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      setMessage({ text: 'Cache locale dashboard e preset filtri ripuliti', type: 'success' });
+    } catch (error) {
+      console.error('Errore reset cache locale dashboard:', error);
+      setMessage({ text: 'Errore durante il reset cache locale', type: 'error' });
+    }
+  };
+
   if (loading) {
     return (
       <div className="content-page">
@@ -1019,10 +1306,77 @@ function SettingsContent() {
             {message.text}
           </div>
         )}
+        <div className="sr-only" aria-live="polite">
+          {sectionsLiveMessage}
+        </div>
 
-        <div className="settings-grid">
-          <div className="setting-section">
-            <h3>Profilo Utente</h3>
+        <div className="settings-view-controls">
+          <button
+            type="button"
+            className="btn-secondary-settings"
+            onClick={() => setSectionsCollapsed(true)}
+            disabled={sectionsCollapsed}
+          >
+            Riduci tutto
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-settings"
+            onClick={() => setSectionsCollapsed(false)}
+            disabled={!sectionsCollapsed}
+          >
+            Espandi tutto
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-settings"
+            onClick={handleResetSectionView}
+          >
+            Reset vista
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-settings"
+            onClick={handleResetLocalDashboardCache}
+          >
+            Reset cache locale
+          </button>
+          <button
+            type="button"
+            className="btn-secondary-settings"
+            onClick={runSanityCheck}
+          >
+            Sanity check
+          </button>
+          {sectionsCollapsed && <small>Clicca sul titolo per aprire una sezione.</small>}
+        </div>
+
+        {sanityResult && (
+          <div className="setting-section" style={{ marginBottom: '1rem' }}>
+            <h3>Sanity Check</h3>
+            <p className="section-description">
+              Esito: {sanityResult.passed}/{sanityResult.total} controlli OK ({new Date(sanityResult.generatedAt).toLocaleString('it-IT')})
+            </p>
+            <div className="setting-form">
+              {sanityResult.checks.map((check) => (
+                <div key={check.key} className="notification-option" style={{ justifyContent: 'space-between' }}>
+                  <span>{check.label}</span>
+                  <span style={{ color: check.ok ? '#86efac' : '#fca5a5', fontWeight: 600 }}>
+                    {check.ok ? 'OK' : 'KO'} - {check.detail}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={settingsGridRef}
+          className={`settings-grid ${sectionsCollapsed ? 'settings-grid-collapsed' : ''}`}
+          onClickCapture={handleCollapsedSectionToggle}
+          onKeyDownCapture={handleCollapsedSectionKeyDown}
+        >
+          <SettingsSection title="Profilo Utente" category="Account" isOpen={isSectionOpen(0)}>
             <div className="user-profile-info">
               <div className="profile-avatar">
                 {user?.photoURL ? <img src={user.photoURL} alt="Avatar" className="avatar-img" /> : <FiUser size={40} />}
@@ -1038,10 +1392,9 @@ function SettingsContent() {
                 )}
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Notifiche Compleanni</h3>
+          <SettingsSection title="Notifiche Compleanni" category="Notifiche" isOpen={isSectionOpen(1)}>
             <p className="section-description">
               Ricevi promemoria via email per non dimenticare mai un compleanno importante
             </p>
@@ -1094,10 +1447,9 @@ function SettingsContent() {
                 </div>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Notifiche Abbonamenti</h3>
+          <SettingsSection title="Notifiche Abbonamenti" category="Notifiche" isOpen={isSectionOpen(2)}>
             <p className="section-description">
               Attiva o disattiva le notifiche push per rinnovi imminenti e aumenti di prezzo.
             </p>
@@ -1161,10 +1513,9 @@ function SettingsContent() {
               </label>
               <small>Le notifiche vengono mostrate nel browser quando apri l'app.</small>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Campanella In-App</h3>
+          <SettingsSection title="Campanella In-App" category="Notifiche" isOpen={isSectionOpen(3)}>
             <p className="section-description">
               Scegli quali promemoria mostrare nel centro notifiche della campanella.
             </p>
@@ -1209,10 +1560,9 @@ function SettingsContent() {
                 <small>Controlla quanti giorni futuri mostrare nella campanella (abbonamenti e compleanni).</small>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Modalità Famiglia/Team</h3>
+          <SettingsSection title="Modalita Famiglia/Team" category="Collaborazione" isOpen={isSectionOpen(4)}>
             <p className="section-description">
               Attiva le funzionalità multi‑utente. Le opzioni extra sono opzionali per utenti single.
             </p>
@@ -1278,10 +1628,9 @@ function SettingsContent() {
               </div>
               <small>Puoi attivare queste opzioni solo se ti servono.</small>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Widget Meteo</h3>
+          <SettingsSection title="Widget Meteo" category="Preferenze" isOpen={isSectionOpen(5)}>
             <p className="section-description">Scegli la Citta per il widget meteo nella sidebar</p>
             <div className="setting-form">
               <div className="form-group">
@@ -1297,10 +1646,9 @@ function SettingsContent() {
                 <small>Il nome della citta di cui visualizzare il meteo nella sidebar</small>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Valuta</h3>
+          <SettingsSection title="Valuta" category="Preferenze" isOpen={isSectionOpen(6)}>
             <p className="section-description">Scegli la valuta da visualizzare in tutta l'app</p>
             <div className="setting-form">
               <div className="form-group">
@@ -1327,10 +1675,9 @@ function SettingsContent() {
                 <small>Il simbolo verra usato in tutta l'app</small>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Obiettivo Risparmio</h3>
+          <SettingsSection title="Obiettivo Risparmio" category="Preferenze" isOpen={isSectionOpen(7)}>
             <p className="section-description">Imposta un obiettivo che viene mostrato nella Story del mese.</p>
             <div className="setting-form">
               <div className="form-group">
@@ -1378,10 +1725,9 @@ function SettingsContent() {
                 </div>
               )}
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Dashboard Mobile</h3>
+          <SettingsSection title="Dashboard Mobile" category="Dashboard" isOpen={isSectionOpen(8)}>
             <p className="section-description">Scegli la Modalita della dashboard su schermi piccoli.</p>
             <div className="setting-form">
               <div className="form-group">
@@ -1398,10 +1744,9 @@ function SettingsContent() {
                 <small>La modalita semplificata riduce sezioni e spazio.</small>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Dashboard Personalizzata</h3>
+          <SettingsSection title="Dashboard Personalizzata" category="Dashboard" isOpen={isSectionOpen(9)}>
             <p className="section-description">
               Scegli quali sezioni opzionali mostrare nella dashboard. Le sezioni base restano sempre visibili
               (Buongiorno, Saldo/Cash Flow, Story del mese).
@@ -1420,34 +1765,10 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowMonthClose}
-                  onChange={(e) => handleChange('dashboardShowMonthClose', e.target.checked)}
+                  checked={!!settings.dashboardShowSubscriptionsDue}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionsDue', e.target.checked)}
                 />
-                <span>Assistente chiusura mese</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowAnomalies}
-                  onChange={(e) => handleChange('dashboardShowAnomalies', e.target.checked)}
-                />
-                <span>Anomalie transazioni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowLiquidityRadar}
-                  onChange={(e) => handleChange('dashboardShowLiquidityRadar', e.target.checked)}
-                />
-                <span>Radar liquidita</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowWeeklyPulse}
-                  onChange={(e) => handleChange('dashboardShowWeeklyPulse', e.target.checked)}
-                />
-                <span>Pulse settimanale</span>
+                <span>Abbonamenti in scadenza</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1460,106 +1781,34 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowMonthEndStress}
-                  onChange={(e) => handleChange('dashboardShowMonthEndStress', e.target.checked)}
+                  checked={!!settings.dashboardShowBudgetAlerts}
+                  onChange={(e) => handleChange('dashboardShowBudgetAlerts', e.target.checked)}
                 />
-                <span>Stress test fine mese</span>
+                <span>Alert Budget</span>
               </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowGoalsPriority}
-                  onChange={(e) => handleChange('dashboardShowGoalsPriority', e.target.checked)}
+                  checked={!!settings.dashboardShowAnomalies}
+                  onChange={(e) => handleChange('dashboardShowAnomalies', e.target.checked)}
                 />
-                <span>Obiettivo prioritario</span>
+                <span>Anomalie transazioni</span>
               </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowDataQuality}
-                  onChange={(e) => handleChange('dashboardShowDataQuality', e.target.checked)}
+                  checked={!!settings.dashboardShowMonthClose}
+                  onChange={(e) => handleChange('dashboardShowMonthClose', e.target.checked)}
                 />
-                <span>Qualita dati</span>
+                <span>Assistente chiusura mese</span>
               </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowAccountRisk}
-                  onChange={(e) => handleChange('dashboardShowAccountRisk', e.target.checked)}
+                  checked={!!settings.dashboardShowActions}
+                  onChange={(e) => handleChange('dashboardShowActions', e.target.checked)}
                 />
-                <span>Conti a rischio</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowDailyPace}
-                  onChange={(e) => handleChange('dashboardShowDailyPace', e.target.checked)}
-                />
-                <span>Pace giornaliero spese</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowIncomeRunRate}
-                  onChange={(e) => handleChange('dashboardShowIncomeRunRate', e.target.checked)}
-                />
-                <span>Stato entrate</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowTrend14}
-                  onChange={(e) => handleChange('dashboardShowTrend14', e.target.checked)}
-                />
-                <span>Trend 14 giorni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowTopCategories7}
-                  onChange={(e) => handleChange('dashboardShowTopCategories7', e.target.checked)}
-                />
-                <span>Top categorie 7 giorni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowWeekendSpend}
-                  onChange={(e) => handleChange('dashboardShowWeekendSpend', e.target.checked)}
-                />
-                <span>Weekend spend alert</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowSubscriptionBurden}
-                  onChange={(e) => handleChange('dashboardShowSubscriptionBurden', e.target.checked)}
-                />
-                <span>Peso abbonamenti</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowNoSpend}
-                  onChange={(e) => handleChange('dashboardShowNoSpend', e.target.checked)}
-                />
-                <span>No-spend streak</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowBurnRate7}
-                  onChange={(e) => handleChange('dashboardShowBurnRate7', e.target.checked)}
-                />
-                <span>Burn rate 7 giorni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowWeeklyMissions}
-                  onChange={(e) => handleChange('dashboardShowWeeklyMissions', e.target.checked)}
-                />
-                <span>Missioni settimanali</span>
+                <span>Azioni consigliate oggi</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1572,42 +1821,10 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowCashCrunch14}
-                  onChange={(e) => handleChange('dashboardShowCashCrunch14', e.target.checked)}
+                  checked={!!settings.dashboardShowAccountRisk}
+                  onChange={(e) => handleChange('dashboardShowAccountRisk', e.target.checked)}
                 />
-                <span>Rischio cassa 14 giorni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowExpenseVolatility}
-                  onChange={(e) => handleChange('dashboardShowExpenseVolatility', e.target.checked)}
-                />
-                <span>Variabilita spese 30g</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowSavingsTarget}
-                  onChange={(e) => handleChange('dashboardShowSavingsTarget', e.target.checked)}
-                />
-                <span>Obiettivo risparmio mese</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowCommitments30}
-                  onChange={(e) => handleChange('dashboardShowCommitments30', e.target.checked)}
-                />
-                <span>Impegni 30 giorni</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowDailySpike}
-                  onChange={(e) => handleChange('dashboardShowDailySpike', e.target.checked)}
-                />
-                <span>Picco spesa giornaliera</span>
+                <span>Conti a rischio</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1628,26 +1845,10 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowCategorizationScore}
-                  onChange={(e) => handleChange('dashboardShowCategorizationScore', e.target.checked)}
+                  checked={!!settings.dashboardShowDailyBrief}
+                  onChange={(e) => handleChange('dashboardShowDailyBrief', e.target.checked)}
                 />
-                <span>Indice categorizzazione 30g</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowSpendingMomentum}
-                  onChange={(e) => handleChange('dashboardShowSpendingMomentum', e.target.checked)}
-                />
-                <span>Momentum spese 7g</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowSubscriptionHealth}
-                  onChange={(e) => handleChange('dashboardShowSubscriptionHealth', e.target.checked)}
-                />
-                <span>Salute abbonamenti</span>
+                <span>Daily Brief</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1660,18 +1861,10 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowSubscriptionsDue}
-                  onChange={(e) => handleChange('dashboardShowSubscriptionsDue', e.target.checked)}
+                  checked={!!settings.dashboardShowCategorizationScore}
+                  onChange={(e) => handleChange('dashboardShowCategorizationScore', e.target.checked)}
                 />
-                <span>Abbonamenti in scadenza</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowSubscriptionsOverdue}
-                  onChange={(e) => handleChange('dashboardShowSubscriptionsOverdue', e.target.checked)}
-                />
-                <span>Abbonamenti scaduti</span>
+                <span>Indice categorizzazione 30g</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1684,18 +1877,66 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowForecast}
-                  onChange={(e) => handleChange('dashboardShowForecast', e.target.checked)}
+                  checked={!!settings.dashboardShowDecisionEngine}
+                  onChange={(e) => handleChange('dashboardShowDecisionEngine', e.target.checked)}
                 />
-                <span>Forecast 30/60/90 giorni</span>
+                <span>Motore decisionale</span>
               </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowInsightsBase}
-                  onChange={(e) => handleChange('dashboardShowInsightsBase', e.target.checked)}
+                  checked={!!settings.dashboardShowSavingsTarget}
+                  onChange={(e) => handleChange('dashboardShowSavingsTarget', e.target.checked)}
                 />
-                <span>Insights (card standard)</span>
+                <span>Obiettivo risparmio mese</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowSubscriptionBurden}
+                  onChange={(e) => handleChange('dashboardShowSubscriptionBurden', e.target.checked)}
+                />
+                <span>Peso abbonamenti</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowBirthdays}
+                  onChange={(e) => handleChange('dashboardShowBirthdays', e.target.checked)}
+                />
+                <span>Prossimi compleanni</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowDataQuality}
+                  onChange={(e) => handleChange('dashboardShowDataQuality', e.target.checked)}
+                />
+                <span>Qualita dati</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowLiquidityRadar}
+                  onChange={(e) => handleChange('dashboardShowLiquidityRadar', e.target.checked)}
+                />
+                <span>Radar liquidita</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowIncomeRunRate}
+                  onChange={(e) => handleChange('dashboardShowIncomeRunRate', e.target.checked)}
+                />
+                <span>Stato entrate</span>
+              </label>
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!settings.dashboardShowMonthEndStress}
+                  onChange={(e) => handleChange('dashboardShowMonthEndStress', e.target.checked)}
+                />
+                <span>Stress test fine mese</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -1708,26 +1949,18 @@ function SettingsContent() {
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowBudgetAlerts}
-                  onChange={(e) => handleChange('dashboardShowBudgetAlerts', e.target.checked)}
+                  checked={!!settings.dashboardShowExpenseVolatility}
+                  onChange={(e) => handleChange('dashboardShowExpenseVolatility', e.target.checked)}
                 />
-                <span>Alert Budget</span>
+                <span>Variabilita spese 30g</span>
               </label>
               <label className="settings-toggle">
                 <input
                   type="checkbox"
-                  checked={!!settings.dashboardShowActions}
-                  onChange={(e) => handleChange('dashboardShowActions', e.target.checked)}
+                  checked={!!settings.dashboardShowWeekendSpend}
+                  onChange={(e) => handleChange('dashboardShowWeekendSpend', e.target.checked)}
                 />
-                <span>Azioni consigliate oggi</span>
-              </label>
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={!!settings.dashboardShowBirthdays}
-                  onChange={(e) => handleChange('dashboardShowBirthdays', e.target.checked)}
-                />
-                <span>Prossimi compleanni</span>
+                <span>Weekend spend alert</span>
               </label>
               <div className="dashboard-order">
                 <div className="dashboard-order-title">Ordine sezioni</div>
@@ -1802,10 +2035,9 @@ function SettingsContent() {
               </div>
               <small>Puoi modificare queste opzioni in qualsiasi momento.</small>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Informazioni Sistema</h3>
+          <SettingsSection title="Informazioni Sistema" category="Sistema" isOpen={isSectionOpen(10)}>
             <div className="system-info">
               <div className="info-row">
                 <span className="info-label">Versione App:</span>
@@ -1834,10 +2066,9 @@ function SettingsContent() {
                 </button>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Onboarding</h3>
+          <SettingsSection title="Onboarding" category="Sistema" isOpen={isSectionOpen(11)}>
             <p className="section-description">
               Gestisci la guida rapida mostrata alla prima apertura.
             </p>
@@ -1856,10 +2087,9 @@ function SettingsContent() {
                 </button>
               </div>
             </div>
-          </div>
+          </SettingsSection>
 
-          <div className="setting-section">
-            <h3>Backup Dati</h3>
+          <SettingsSection title="Backup Dati" category="Backup" isOpen={isSectionOpen(12)}>
             <p className="section-description">Esporta backup completo o selettivo in JSON.</p>
             <div className="setting-form">
               <div className="settings-inline-actions">
@@ -1996,7 +2226,7 @@ function SettingsContent() {
                 </div>
               )}
             </div>
-          </div>
+          </SettingsSection>
         </div>
 
         <div className="settings-actions">

@@ -25,6 +25,28 @@ service cloud.firestore {
       return isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
 
+    function hasOnlyAllowedFields(data, allowed) {
+      return data.keys().hasOnly(allowed);
+    }
+
+    function isValidLoanPayload() {
+      return hasOnlyAllowedFields(
+        request.resource.data,
+        ['userId', 'title', 'borrowerName', 'amount', 'startDate', 'dueDate', 'notes', 'createdAt', 'updatedAt']
+      )
+      && request.resource.data.userId is string
+      && request.resource.data.title is string
+      && request.resource.data.amount is number;
+    }
+
+    function isValidAdminAuditPayload() {
+      return hasOnlyAllowedFields(request.resource.data, ['adminUid', 'action', 'target', 'details', 'createdAt'])
+      && request.resource.data.adminUid == request.auth.uid
+      && request.resource.data.action is string
+      && request.resource.data.action.size() > 0
+      && request.resource.data.details is map;
+    }
+
     match /users/{userId} {
       allow read: if isSelf(userId) || isAdmin();
       allow create: if isSelf(userId) && request.resource.data.role == 'user';
@@ -109,6 +131,19 @@ service cloud.firestore {
       allow create: if isCreatingOwner();
       allow update: if isOwner() && request.resource.data.userId == resource.data.userId;
       allow delete: if isOwner() || isAdmin();
+    }
+
+    match /loans/{docId} {
+      allow read: if isAdmin() && isOwner();
+      allow create: if isAdmin() && isCreatingOwner() && isValidLoanPayload();
+      allow update: if isAdmin() && isOwner() && request.resource.data.userId == resource.data.userId && isValidLoanPayload();
+      allow delete: if isAdmin() && isOwner();
+    }
+
+    match /adminAuditLogs/{docId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidAdminAuditPayload();
+      allow update, delete: if false;
     }
   }
 }

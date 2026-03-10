@@ -8,14 +8,13 @@ import {
   FiSettings,
   FiDollarSign,
   FiUser,
-  FiMenu,
   FiX,
   FiPieChart,
-  FiRefreshCw,
   FiRepeat,
   FiLogOut,
   FiShield,
-  FiTarget
+  FiTarget,
+  FiBookOpen
 } from 'react-icons/fi';
 import { WiDaySunny, WiCloudy, WiRain, WiSnow, WiThunderstorm, WiFog, WiDayCloudy } from 'react-icons/wi';
 import { useAuth } from '../../contexts/AuthContext';
@@ -44,7 +43,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
         const { doc, getDoc } = await import('firebase/firestore');
         const { db } = await import('../../services/firebase');
         const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const city = userDoc.exists() ? (userDoc.data().weatherCity || 'Roma') : 'Roma';
+        const city = userDoc?.exists?.() ? (userDoc.data().weatherCity || 'Roma') : 'Roma';
 
         const geoRes = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=it`
@@ -79,7 +78,6 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'dashboard', icon: <FiHome />, label: 'Dashboard', color: '#4f46e5' },
     { id: 'accounts', icon: <FiCreditCard />, label: 'Conti', color: '#06b6d4' },
     { id: 'transactions', icon: <FiDollarSign />, label: 'Transazioni', color: '#10b981' },
-    { id: 'recurring', icon: <FiRefreshCw />, label: 'Ricorrenze', color: '#14b8a6' },
     { id: 'subscriptions', icon: <FiRepeat />, label: 'Abbonamenti', color: '#0ea5e9' },
     { id: 'categories', icon: <FiBarChart2 />, label: 'Categorie', color: '#8b5cf6' },
     { id: 'reports', icon: <FiBarChart2 />, label: 'Report', color: '#f59e0b' },
@@ -87,6 +85,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
     { id: 'savings', icon: <FiTarget />, label: 'Obiettivi', color: '#f97316' },
     { id: 'import', icon: <FiUpload />, label: 'Importa', color: '#ef4444' },
     { id: 'birthdays', icon: <FiGift />, label: 'Compleanni', color: '#ec4899' },
+    { id: 'loans', icon: <FiBookOpen />, label: 'Prestiti', color: '#f97316' },
     { id: 'admin', icon: <FiShield />, label: 'Admin', color: '#dc2626' },
     { id: 'settings', icon: <FiSettings />, label: 'Impostazioni', color: '#6b7280' }
   ];
@@ -137,7 +136,7 @@ function Sidebar({ activeMenu, setActiveMenu, sidebarOpen, setSidebarOpen }) {
           <nav className="sidebar-nav">
             {menuItems
               .filter((item) => {
-                if (item.id === 'admin' && !isAdmin) return false;
+                if ((item.id === 'admin' || item.id === 'loans') && !isAdmin) return false;
                 return true;
               })
               .map((item) => (
