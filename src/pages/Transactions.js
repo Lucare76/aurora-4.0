@@ -1,4 +1,4 @@
-﻿// src/pages/Transactions.js
+// src/pages/Transactions.js
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';

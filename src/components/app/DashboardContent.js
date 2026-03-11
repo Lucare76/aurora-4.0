@@ -1,4 +1,4 @@
-﻿import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFinancial } from '../../contexts/FinancialContext';
 import { getCurrencySymbol } from '../../utils/currency';

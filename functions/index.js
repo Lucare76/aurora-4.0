@@ -81,13 +81,26 @@ function getResendClient() {
 async function sendEmail(payload) {
   const resend = getResendClient();
 
-  return resend.emails.send({
+  const response = await resend.emails.send({
     from: "Aurora 4.0 <onboarding@resend.dev>",
     to: payload.to,
     subject: payload.subject,
     text: payload.text,
     html: payload.html,
   });
+
+  if (response?.error) {
+    const providerMessage =
+      response.error.message || response.error.name || "Unknown email provider error";
+    throw new Error(`Resend error: ${providerMessage}`);
+  }
+
+  const emailId = response?.data?.id || response?.id || null;
+  if (!emailId) {
+    throw new Error("Resend did not return an email id");
+  }
+
+  return {...response, id: emailId};
 }
 
 /**
@@ -960,6 +973,8 @@ exports.sendBirthdayGreetingBrevo = onCall(
         text: email.text,
         html: email.html,
       });
+
+      console.log(`✅ Birthday greeting email accepted for ${toEmail} (${data.id})`);
 
       return {success: true, emailId: data?.id || null};
     },

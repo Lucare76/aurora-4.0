@@ -5,7 +5,6 @@ import './Profile.css';
 const Profile = () => {
   const { currentUser } = useContext(AuthContext);
   const [name, setName] = useState(currentUser?.name || '');
-  const [email, setEmail] = useState(currentUser?.email || '');
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState('');
 

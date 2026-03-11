@@ -1,4 +1,4 @@
-﻿// src/pages/Birthdays.js
+// src/pages/Birthdays.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -11,7 +11,6 @@ import {
   calculateAge
 } from '../services/birthdaysService';
 import {
-  sendBirthdayGreeting,
   sendBirthdayReminder,
   isEmailJSConfigured
 } from '../services/emailService';
@@ -208,16 +207,8 @@ function Birthdays() {
 
   const handleSendGreeting = async (birthday) => {
     if (!birthday?.id || !birthday?.email) return;
-    if (!emailConfigured) {
-      setGreetingFeedback((prev) => ({
-        ...prev,
-        [birthday.id]: {
-          type: 'error',
-          message: 'Email/Functions non configurato'
-        }
-      }));
-      return;
-    }
+    const confirmed = window.confirm(`Vuoi inviare gli auguri a ${birthday.name}?`);
+    if (!confirmed) return;
 
     try {
       setSendingGreetingId(birthday.id);
@@ -225,24 +216,26 @@ function Birthdays() {
         ...prev,
         [birthday.id]: {
           type: 'info',
-          message: 'Invio in corso...'
+          message: 'Apertura email in corso...'
         }
       }));
 
-      const result = await sendBirthdayGreeting(
-        birthday,
-        { displayName: user?.displayName || user?.email || 'Una persona speciale' }
-      );
+      const senderName = user?.displayName || user?.email || 'Una persona speciale';
+      const subject = `Tanti auguri, ${birthday.name}!`;
+      const body =
+        `Buon compleanno, ${birthday.name}!\n\n` +
+        `${senderName} ti manda un pensiero speciale e ti augura una giornata piena di gioia, serenita e belle sorprese.\n\n` +
+        'Che questo compleanno porti con se momenti felici, affetto sincero e tutto cio che desideri di piu.\n\n' +
+        `Con affetto,\n${senderName}`;
 
-      if (!result?.success) {
-        throw new Error(result?.error || 'Invio non riuscito');
-      }
+      window.location.href =
+        `mailto:${encodeURIComponent(birthday.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
       setGreetingFeedback((prev) => ({
         ...prev,
         [birthday.id]: {
           type: 'success',
-          message: `Auguri inviati a ${birthday.name}`
+          message: `Email pronta per ${birthday.name}`
         }
       }));
     } catch (error) {

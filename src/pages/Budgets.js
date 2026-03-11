@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import PageHeader from "../components/app/PageHeader";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";

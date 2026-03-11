@@ -1,4 +1,4 @@
-﻿// src/pages/Reports.js
+// src/pages/Reports.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -1676,7 +1676,6 @@ function Reports() {
     filteredTransactions,
     getAccountNameFromTx,
     getCategoryNameFromTx,
-    getSubCategoryNameFromTx,
     formatNumber,
     formatEUR,
     dateRange.start,

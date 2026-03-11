@@ -1,4 +1,4 @@
-﻿// src/pages/SavingsGoals.js
+// src/pages/SavingsGoals.js
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useFinancial } from "../contexts/FinancialContext";

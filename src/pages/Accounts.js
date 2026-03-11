@@ -1,4 +1,4 @@
-﻿// src/pages/Accounts.js
+// src/pages/Accounts.js
 import React, { useState } from 'react';
 import { useFinancial } from '../contexts/FinancialContext';
 import { useAuth } from '../contexts/AuthContext';

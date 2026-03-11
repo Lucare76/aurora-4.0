@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FiCheck, FiClock, FiMail, FiUser, FiX } from 'react-icons/fi';
 import PageHeader from '../components/app/PageHeader';
 import { getPendingUsers, approveUser, rejectUser } from '../services/userApprovalService';
